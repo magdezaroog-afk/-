@@ -1,0 +1,7 @@
+{
+  "name": "MedClaim Pro - Digital Health Claims Management",
+  "description": "An integrated, intelligent medical claims management platform for corporate healthcare, featuring multi-role access, smart OCR validation, and comprehensive audit trails.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
