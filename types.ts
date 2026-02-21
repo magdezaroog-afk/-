@@ -19,11 +19,44 @@ export enum ClaimStatus {
   REJECTED = 'REJECTED'
 }
 
+export interface HealthProfile {
+  bloodType: string;
+  height: number;
+  weight: number;
+  age: number;
+  chronicDiseases: string[];
+  pathway: 'therapeutic' | 'healthy' | 'joint';
+  systolicBP?: number;
+  diastolicBP?: number;
+  hba1c?: number; // Cumulative sugar
+  dailyWaterIntake: number; // in liters
+  lastLabResults?: any;
+}
+
+export interface HealthPlan {
+  id: string;
+  isPersonal: boolean;
+  type: 'therapeutic' | 'healthy' | 'joint';
+  goal: 'weight_gain' | 'muscle_building' | 'weight_loss' | 'maintenance' | 'regulate_indicators';
+  startDate: string;
+  chronicDiseases: string[];
+  aiExplanation?: string;
+  status: 'active' | 'completed' | 'cancelled';
+  duration: number; // in days
+  dailyTasks: { id: string; label: string; icon: string; completed: boolean; category?: string }[];
+  currentDay: number;
+  sportType?: string;
+  gymAttendance?: boolean;
+  requestedLabs?: string[];
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  healthProfile?: HealthProfile;
+  activePlans?: HealthPlan[];
 }
 
 export interface InvoiceLineItem {

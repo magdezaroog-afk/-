@@ -38,11 +38,33 @@ const App: React.FC = () => {
         id: specificUser?.id || (role === UserRole.EMPLOYEE ? 'USR-1' : 'STF-1'),
         email: specificUser?.email || `${role.toLowerCase()}@litc.ly`,
         role: role,
-        name: specificUser?.name || (role === UserRole.EMPLOYEE ? 'مجدي الزروق' : 'مسؤول النظام')
+        name: specificUser?.name || (role === UserRole.EMPLOYEE ? 'مجدي الزروق' : 'مسؤول النظام'),
+        healthProfile: role === UserRole.EMPLOYEE ? {
+          bloodType: '',
+          height: 0,
+          weight: 0,
+          age: 0,
+          chronicDiseases: [],
+          pathway: 'healthy',
+          dailyWaterIntake: 0,
+          systolicBP: 0,
+          diastolicBP: 0,
+          hba1c: 0
+        } : undefined
       });
       setIsLoggingIn(false);
       setActivePath('dashboard');
     }, 1200);
+  };
+
+  const handleUpdateHealthProfile = (profile: any) => {
+    if (!user) return;
+    setUser({ ...user, healthProfile: profile });
+  };
+
+  const handleUpdatePlans = (plans: any[]) => {
+    if (!user) return;
+    setUser({ ...user, activePlans: plans });
   };
 
   const handleUpdateClaimStatus = (newStatus: ClaimStatus, comment?: string) => {
@@ -307,10 +329,22 @@ const App: React.FC = () => {
 
     switch (activePath) {
       case 'dashboard':
-        if (user.role === UserRole.EMPLOYEE) {
-          return <Profile user={user} claims={claims.filter(c => c.employeeId === user.id)} onNavigate={setActivePath} onSelectClaim={setSelectedClaim} />;
-        }
-        return <Dashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onNavigate={setActivePath} onAssign={handleInvoiceAssign} />;
+        return <Dashboard 
+          user={user} 
+          claims={user.role === UserRole.EMPLOYEE ? claims.filter(c => c.employeeId === user.id) : claims} 
+          onSelectClaim={setSelectedClaim} 
+          onNavigate={setActivePath} 
+          onAssign={handleInvoiceAssign} 
+        />;
+      case 'profile':
+        return <Profile 
+          user={user} 
+          claims={claims.filter(c => c.employeeId === user.id)} 
+          onNavigate={setActivePath} 
+          onSelectClaim={setSelectedClaim} 
+          onUpdateHealthProfile={handleUpdateHealthProfile}
+          onUpdatePlans={handleUpdatePlans}
+        />;
       case 'submit-claim':
         return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={(data) => {
           const newClaim: Claim = {

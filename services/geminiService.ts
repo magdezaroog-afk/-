@@ -1,19 +1,40 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { HealthProfile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-/**
- * تحليل التحاليل المخبرية
- */
-export const analyzeLabReport = async (imageBase64: string) => {
+const getCoachInstruction = (profile?: HealthProfile, isPersonal: boolean = true) => {
+  if (!isPersonal || !profile) return "أنت مساعد طبي ذكي، قدم تحليلاً دقيقاً ومحترفاً.";
+
+  const diseases = profile.chronicDiseases.join("، ");
+  const goal = profile.pathway === 'therapeutic' ? 'خطة علاجية' : profile.pathway === 'healthy' ? 'خطة صحية' : 'خطة مشتركة';
+  
+  return `أنت "المدرب الصحي الذكي" لشركة LITC. 
+  بيانات الموظف: العمر ${profile.age}، الطول ${profile.height}، الوزن ${profile.weight}، الأمراض: ${diseases}، الهدف: ${goal}.
+  
+  قواعد التعامل:
+  1. إذا كانت النتيجة (وجبة أو تحليل) تخالف حالته الصحية (مثلاً مريض سكري يأكل سكريات)، كن حازماً جداً ووبخه بلهجة طبية تنبيهية (مثلاً: "هذا استهتار بصحتك!").
+  2. إذا كانت النتيجة تدعم هدفه، شجعه بحماس كبير.
+  3. قارن النتائج الحالية بأي نتائج سابقة إذا توفرت في السياق.
+  4. استخدم لهجة ليبية مهذبة ممزوجة بمصطلحات طبية دقيقة.`;
+};
+
+export const analyzeLabReport = async (imageBase64: string, profile?: HealthProfile, isPersonal: boolean = true) => {
   try {
+    const coachPrompt = getCoachInstruction(profile, isPersonal);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { 
         parts: [
           { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }, 
-          { text: "أنت خبير مختبرات طبية. حلل صورة التقرير المخبري واستخرج البيانات بدقة بالعربية." }
+          { text: `${coachPrompt}
+          تحليل استشاري مختبرات: 
+          1. استخرج القيم والوحدات.
+          2. حدد الحالة (طبيعي/مرتفع/منخفض).
+          3. شرح طبي عميق للعلاقة بين النتائج.
+          4. نصائح نمط حياة وأسئلة للطبيب.
+          5. إذا كان هناك نتائج سابقة (${JSON.stringify(profile?.lastLabResults || {})})، قارن بينهما واذكر الفرق بدقة.` }
         ] 
       },
       config: { 
@@ -21,8 +42,9 @@ export const analyzeLabReport = async (imageBase64: string) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            overallRisk: { type: Type.STRING, description: "مستوى الخطورة العام (حرج، متوسط، طبيعي)" },
-            summaryAdvice: { type: Type.STRING, description: "نصيحة طبية عامة بناء على النتائج" },
+            overallRisk: { type: Type.STRING },
+            medicalExplanation: { type: Type.STRING },
+            correlations: { type: Type.STRING },
             findings: {
               type: Type.ARRAY,
               items: {
@@ -31,14 +53,16 @@ export const analyzeLabReport = async (imageBase64: string) => {
                   testName: { type: Type.STRING },
                   resultValue: { type: Type.STRING },
                   unit: { type: Type.STRING },
-                  status: { type: Type.STRING, description: "طبيعي، مرتفع، منخفض" },
-                  explanation: { type: Type.STRING }
+                  status: { type: Type.STRING },
+                  clinicalSignificance: { type: Type.STRING }
                 },
                 required: ["testName", "resultValue", "status"]
               }
-            }
+            },
+            doctorQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            lifestyleAdvice: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["overallRisk", "findings", "summaryAdvice"]
+          required: ["overallRisk", "medicalExplanation", "findings"]
         }
       }
     });
@@ -46,17 +70,17 @@ export const analyzeLabReport = async (imageBase64: string) => {
   } catch (e) { return null; }
 };
 
-/**
- * تحليل الوجبات
- */
-export const analyzeFoodNutrition = async (imageBase64: string) => {
+export const analyzeFoodNutrition = async (imageBase64: string, profile?: HealthProfile, isPersonal: boolean = true) => {
   try {
+    const coachPrompt = getCoachInstruction(profile, isPersonal);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { 
         parts: [
           { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }, 
-          { text: "حلل الوجبة في الصورة واستخرج القيمة الغذائية بالعربية." }
+          { text: `${coachPrompt}
+          تحليل تغذية احترافي: استخرج السعرات، درجة الصحة (1-100)، الجرامات الدقيقة للبروتين والكربوهيدرات والدهون، الفوائد الصحية، والمخاطر المحتملة.
+          قيم الوجبة بناءً على حالة الموظف الصحية وأهدافه.` }
         ] 
       },
       config: { 
@@ -66,10 +90,15 @@ export const analyzeFoodNutrition = async (imageBase64: string) => {
           properties: {
             mealName: { type: Type.STRING },
             calories: { type: Type.NUMBER },
-            healthTip: { type: Type.STRING },
-            macros: { type: Type.STRING, description: "توزيع البروتين والكارب والدهون كنص واحد مختصر" }
+            healthScore: { type: Type.NUMBER },
+            protein: { type: Type.NUMBER },
+            carbs: { type: Type.NUMBER },
+            fats: { type: Type.NUMBER },
+            benefits: { type: Type.ARRAY, items: { type: Type.STRING } },
+            risks: { type: Type.ARRAY, items: { type: Type.STRING } },
+            detailedAnalysis: { type: Type.STRING }
           },
-          required: ["mealName", "calories", "healthTip", "macros"]
+          required: ["mealName", "calories", "healthScore", "protein", "carbs", "fats"]
         }
       }
     });
@@ -77,43 +106,17 @@ export const analyzeFoodNutrition = async (imageBase64: string) => {
   } catch (e) { return null; }
 };
 
-/**
- * حساب الـ BMI والماكروز بناء على مدخلات المستخدم
- */
-export const getHealthProfileAdvice = async (data: any) => {
+export const explainMedication = async (imageBase64: string, profile?: HealthProfile, isPersonal: boolean = true) => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `بناءً على طول ${data.height} سم ووزن ${data.weight} كجم وهدف "${data.goal}"، احسب الاحتياجات بالعربية.`,
-      config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            dailyProtein: { type: Type.NUMBER },
-            dailyCarbs: { type: Type.NUMBER },
-            dailyFats: { type: Type.NUMBER },
-            summaryAdvice: { type: Type.STRING }
-          },
-          required: ["dailyProtein", "dailyCarbs", "dailyFats", "summaryAdvice"]
-        }
-      }
-    });
-    return JSON.parse(response.text || '{}');
-  } catch (e) { return null; }
-};
-
-/**
- * شرح الدواء من الصورة
- */
-export const explainMedication = async (imageBase64: string) => {
-  try {
+    const coachPrompt = getCoachInstruction(profile, isPersonal);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { 
         parts: [
           { inlineData: { data: imageBase64, mimeType: "image/jpeg" } }, 
-          { text: "اشرح هذا الدواء: الاسم، الاستخدام، والتحذيرات بالعربية." }
+          { text: `${coachPrompt}
+          شرح الدواء بالعربية: الاسم، الاستخدام، والتحذيرات.
+          وضح مدى ملاءمة هذا الدواء لحالة الموظف الصحية المعروفة.` }
         ] 
       },
       config: { 
@@ -133,37 +136,6 @@ export const explainMedication = async (imageBase64: string) => {
   } catch (e) { return null; }
 };
 
-/**
- * تحليل الحالة والأعراض (الصحة النفسية والجسدية)
- */
-export const analyzeWellnessMood = async (moodText: string) => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `حلل هذه الأعراض أو الحالة النفسية: "${moodText}" وقدم نصائح بالعربية.`,
-      config: { 
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            moodAnalysis: { type: Type.STRING, description: "تحليل دقيق للحالة المذكورة" },
-            tips: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING },
-              description: "قائمة نصائح عملية"
-            }
-          },
-          required: ["moodAnalysis", "tips"]
-        }
-      }
-    });
-    return JSON.parse(response.text || '{}');
-  } catch (e) { return null; }
-};
-
-/**
- * تفكيك الفاتورة لبنود تفصيلية (يستخدم في صفحة مدخل البيانات)
- */
 export const analyzeInvoiceDetailed = async (base64: string): Promise<any[]> => {
   try {
     const response = await ai.models.generateContent({
@@ -171,7 +143,7 @@ export const analyzeInvoiceDetailed = async (base64: string): Promise<any[]> => 
       contents: {
         parts: [
           { inlineData: { data: base64, mimeType: "image/jpeg" } },
-          { text: "قم بتفكيك الفاتورة إلى بنود تفصيلية بالعربية." }
+          { text: "تفكيك الفاتورة إلى بنود تفصيلية بالعربية مع تحديد نوع الخدمة." }
         ]
       },
       config: {
@@ -183,9 +155,7 @@ export const analyzeInvoiceDetailed = async (base64: string): Promise<any[]> => 
             properties: {
               itemName: { type: Type.STRING },
               price: { type: Type.NUMBER },
-              serviceType: { type: Type.STRING, description: "مثلاً: كشفية، دواء، تحليل، إقامة" },
-              invoiceNumber: { type: Type.STRING },
-              date: { type: Type.STRING }
+              serviceType: { type: Type.STRING }
             },
             required: ["itemName", "price"]
           }
@@ -196,9 +166,6 @@ export const analyzeInvoiceDetailed = async (base64: string): Promise<any[]> => 
   } catch (error) { return []; }
 };
 
-/**
- * استخراج البيانات الأساسية للفاتورة والعملة (يستخدم في صفحة تقديم الطلب)
- */
 export const performOCR = async (base64: string): Promise<any> => {
   try {
     const response = await ai.models.generateContent({
@@ -206,7 +173,7 @@ export const performOCR = async (base64: string): Promise<any> => {
       contents: {
         parts: [
           { inlineData: { data: base64, mimeType: "image/jpeg" } },
-          { text: "استخرج البيانات الأساسية من الفاتورة بالعربية." }
+          { text: "استخراج البيانات الأساسية: المرفق الصحي، الرقم، المبلغ، العملة، التاريخ." }
         ]
       },
       config: {
@@ -218,7 +185,7 @@ export const performOCR = async (base64: string): Promise<any> => {
             invoiceNumber: { type: Type.STRING },
             totalAmount: { type: Type.NUMBER },
             date: { type: Type.STRING },
-            currency: { type: Type.STRING, description: "الرمز الدولي للعملة مثل LYD, USD, TND" }
+            currency: { type: Type.STRING }
           },
           required: ["hospitalName", "totalAmount", "currency"]
         }
