@@ -17,10 +17,18 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
   const items = NAV_ITEMS[user.role as UserRole] || [];
 
   return (
-    <div className="flex h-screen overflow-hidden font-cairo" dir="rtl">
+    <div className="flex h-screen overflow-hidden font-cairo bg-slate-50" dir="rtl">
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar with Premium Gradient */}
-      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} litc-gradient border-l border-white/5 transition-all duration-500 flex flex-col z-40 shadow-[10px_0_50px_rgba(0,0,0,0.2)]`}>
-        <div className="p-8 mb-8 relative">
+      <aside className={`${isSidebarOpen ? 'translate-x-0 w-80' : 'translate-x-full lg:translate-x-0 lg:w-24'} fixed lg:relative inset-y-0 right-0 litc-gradient border-l border-white/5 transition-all duration-500 flex flex-col z-50 shadow-[10px_0_50px_rgba(0,0,0,0.2)]`}>
+        <div className="p-8 mb-8 relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative group shrink-0">
                <div className="absolute -inset-3 bg-litcOrange/30 rounded-2xl blur-xl group-hover:bg-litcOrange/50 transition duration-500 opacity-50"></div>
@@ -39,13 +47,23 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
               </div>
             )}
           </div>
+          {/* Mobile Close Button */}
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+          >
+            <X size={24} />
+          </button>
         </div>
 
         <nav className="flex-1 px-5 space-y-3 overflow-y-auto custom-scrollbar">
           {items.map((item) => (
             <button
               key={item.path}
-              onClick={() => setActivePath(item.path)}
+              onClick={() => {
+                setActivePath(item.path);
+                if (window.innerWidth < 1024) setSidebarOpen(false);
+              }}
               className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 relative group overflow-hidden ${activePath === item.path ? 'bg-white/10 text-white shadow-lg border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
             >
               {activePath === item.path && (
@@ -72,29 +90,29 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className="h-24 litc-glass border-b border-slate-200/50 flex items-center justify-between px-10 z-30 sticky top-0">
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-3 bg-slate-100/50 hover:bg-white rounded-2xl text-litcBlue transition-all shadow-sm">
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        <header className="h-20 lg:h-24 litc-glass border-b border-slate-200/50 flex items-center justify-between px-4 lg:px-10 z-30 sticky top-0">
+          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 lg:p-3 bg-slate-100/50 hover:bg-white rounded-xl lg:rounded-2xl text-litcBlue transition-all shadow-sm">
+            <Menu size={20} />
           </button>
           
-          <div className="flex items-center gap-8">
-            <div className="hidden lg:flex items-center bg-slate-100/50 rounded-2xl px-6 py-3 border border-slate-200/50 group focus-within:bg-white transition-all">
+          <div className="flex items-center gap-4 lg:gap-8">
+            <div className="hidden md:flex items-center bg-slate-100/50 rounded-2xl px-6 py-3 border border-slate-200/50 group focus-within:bg-white transition-all">
                <Search size={18} className="text-slate-400 group-focus-within:text-litcBlue" />
                <input placeholder="البحث في المعاملات..." className="bg-transparent border-none outline-none pr-4 text-sm font-bold text-slate-600 w-48" />
             </div>
             
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 lg:gap-6">
               <div className="relative group cursor-pointer">
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-litcOrange rounded-full border-2 border-white animate-bounce"></div>
-                <Bell className="text-slate-400 group-hover:text-litcBlue transition-colors" size={22} />
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 lg:w-3 h-3 bg-litcOrange rounded-full border-2 border-white animate-bounce"></div>
+                <Bell className="text-slate-400 group-hover:text-litcBlue transition-colors" size={20} />
               </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div className="flex items-center gap-4 group cursor-pointer">
+              <div className="hidden sm:block h-8 w-px bg-slate-200"></div>
+              <div className="flex items-center gap-3 lg:gap-4 group cursor-pointer">
                 <div className="text-left hidden sm:block">
-                  <p className="text-sm font-black text-slate-900 group-hover:text-litcBlue transition-colors">{user.name}</p>
-                  <p className="text-[9px] text-litcBlue font-black uppercase tracking-widest bg-litcBlue/5 px-2 py-0.5 rounded-md mt-0.5">{ROLE_LABELS[user.role]}</p>
+                  <p className="text-xs lg:text-sm font-black text-slate-900 group-hover:text-litcBlue transition-colors">{user.name}</p>
+                  <p className="text-[8px] lg:text-[9px] text-litcBlue font-black uppercase tracking-widest bg-litcBlue/5 px-2 py-0.5 rounded-md mt-0.5">{ROLE_LABELS[user.role]}</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-litcBlue to-litcDark flex items-center justify-center text-white font-black text-lg shadow-xl shadow-litcBlue/20 border-2 border-white group-hover:scale-105 transition-all">
+                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl bg-gradient-to-br from-litcBlue to-litcDark flex items-center justify-center text-white font-black text-base lg:text-lg shadow-xl shadow-litcBlue/20 border-2 border-white group-hover:scale-105 transition-all">
                   {user.name.charAt(0)}
                 </div>
               </div>
@@ -102,7 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 lg:p-12 scroll-smooth">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-12 scroll-smooth">
           <div className="max-w-[1500px] mx-auto">
             {children}
           </div>

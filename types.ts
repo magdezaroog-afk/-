@@ -43,11 +43,15 @@ export interface HealthPlan {
   aiExplanation?: string;
   status: 'active' | 'completed' | 'cancelled';
   duration: number; // in days
-  dailyTasks: { id: string; label: string; icon: string; completed: boolean; category?: string }[];
+  dailyTasks: { id: string; label: string; icon: string; completed: boolean; category?: string; calories?: number }[];
   currentDay: number;
   sportType?: string;
   gymAttendance?: boolean;
   requestedLabs?: string[];
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fats?: number;
 }
 
 export interface User {

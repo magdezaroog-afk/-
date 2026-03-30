@@ -98,11 +98,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       {/* Smart Profile Summary at Top */}
       {user.role === UserRole.EMPLOYEE && (
         <div className="space-y-6 animate-in fade-in zoom-in duration-700">
-          <div className="bg-white/70 backdrop-blur-xl rounded-[3.5rem] p-8 border border-white shadow-sm flex flex-wrap items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
+          <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] sm:rounded-[3.5rem] p-6 sm:p-8 border border-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
+            <div className="flex flex-col md:flex-row items-center gap-6">
               <button 
                 onClick={() => onNavigate('profile')}
-                className="w-20 h-20 bg-gradient-to-br from-litcBlue to-litcDark rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl hover:scale-105 transition-all"
+                className="w-20 h-20 bg-gradient-to-br from-litcBlue to-litcDark rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl hover:scale-105 transition-all shrink-0"
               >
                 {user.name.charAt(0)}
               </button>
@@ -112,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap justify-center md:justify-end gap-4">
               {user.healthProfile && (
                 <>
                   <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
@@ -160,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
               onClick={() => onNavigate('profile')}
               className="px-8 py-4 bg-litcBlue text-white rounded-3xl font-black text-xs shadow-lg shadow-litcBlue/20 hover:scale-105 transition-all flex items-center gap-2"
             >
-              فتح العيادة الذكية <ArrowUpRight size={16} />
+              فتح الملف الصحي الذكي <ArrowUpRight size={16} />
             </button>
           </div>
 
@@ -188,20 +188,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 bg-white/30 p-10 rounded-[3.5rem] border border-white/50 backdrop-blur-xl shadow-sm">
-        <div className="space-y-3 text-right">
-          <div className="flex items-center gap-3 text-litcBlue font-black text-[10px] uppercase tracking-[0.4em] bg-litcBlue/5 w-fit px-5 py-2 rounded-full border border-litcBlue/10 shadow-inner">
+      <div className="flex flex-col xl:flex-row justify-between items-center xl:items-end gap-8 bg-white/30 p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[3.5rem] border border-white/50 backdrop-blur-xl shadow-sm text-center xl:text-right">
+        <div className="space-y-3 w-full">
+          <div className="flex items-center justify-center xl:justify-start gap-3 text-litcBlue font-black text-[10px] uppercase tracking-[0.4em] bg-litcBlue/5 w-fit mx-auto xl:mx-0 px-5 py-2 rounded-full border border-litcBlue/10 shadow-inner">
             <ShieldCheck size={14} className="text-litcOrange animate-pulse" />
             منصة الرعاية الذكية | LITC HUB
           </div>
-          <h1 className="text-5xl font-black text-slate-900 tracking-tight flex items-center gap-4 justify-end">
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight flex flex-col sm:flex-row items-center gap-4 justify-center xl:justify-start">
              <div className="relative inline-block">
-                <HeartPulse className="text-litcOrange animate-bounce" size={40} />
+                <HeartPulse className="text-litcOrange animate-bounce" size={32} />
                 <div className="absolute inset-0 bg-litcOrange/20 blur-xl rounded-full"></div>
              </div>
              أهلاً بك، {user.name.split(' ')[0]} 
           </h1>
-          <p className="text-slate-500 font-bold text-lg max-w-xl">أنت تشرف الآن على <span className="text-litcBlue font-black underline decoration-litcOrange/30">{pendingActions.length} معاملة</span> تتطلب إجراءً منك.</p>
+          <p className="text-slate-500 font-bold text-base sm:text-lg max-w-xl mx-auto xl:mx-0">أنت تشرف الآن على <span className="text-litcBlue font-black underline decoration-litcOrange/30">{pendingActions.length} معاملة</span> تتطلب إجراءً منك.</p>
         </div>
       </div>
 
@@ -212,7 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           { label: 'نسبة الإنجاز', val: '94%', icon: <TrendingUp />, color: 'bg-white text-emerald-600', sub: 'معدل نجاح التحويل الفني' },
           { label: 'الوقت المستغرق', val: '12h', icon: <Sparkles />, color: 'bg-white text-litcOrange', sub: 'متوسط وقت الاعتماد' }
         ].map((stat, i) => (
-          <div key={i} className={`${stat.color} p-10 rounded-[3.5rem] shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 border border-black/5`}>
+          <div key={i} className={`${stat.color} p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[3.5rem] shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 border border-black/5`}>
              <div className="absolute top-0 right-0 w-32 h-32 bg-current opacity-5 rounded-bl-[4rem] group-hover:scale-110 transition-transform"></div>
              <div className="mb-6 group-hover:translate-x-2 transition-transform text-right">{stat.icon}</div>
              <p className="text-5xl font-black mb-1 text-right">{stat.val}</p>

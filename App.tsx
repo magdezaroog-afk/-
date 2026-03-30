@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import SubmitClaim from './pages/SubmitClaim';
 import ClaimDetail from './pages/ClaimDetail';
 import Profile from './pages/Profile';
+import SmartClinic from './pages/SmartClinic';
 import DataEntry from './pages/DataEntry';
 import AdminDashboard from './pages/AdminDashboard';
 import Archive from './pages/Archive';
@@ -211,8 +212,8 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-xl bg-white/80 backdrop-blur-xl rounded-[4rem] p-16 shadow-[0_40px_100px_rgba(0,92,132,0.1)] border border-slate-100 animate-in zoom-in duration-700 relative z-10">
-            <div className="flex flex-col items-center gap-6 mb-16 text-center">
+          <div className="w-full max-w-xl bg-white/80 backdrop-blur-xl rounded-[2.5rem] sm:rounded-[4rem] p-8 sm:p-16 shadow-[0_40px_100px_rgba(0,92,132,0.1)] border border-slate-100 animate-in zoom-in duration-700 relative z-10">
+            <div className="flex flex-col items-center gap-6 mb-10 sm:mb-16 text-center">
                <div className="relative group transition-transform duration-700 hover:scale-110">
                   <div className="absolute -inset-6 bg-gradient-to-tr from-litcBlue/20 to-litcOrange/20 rounded-full blur-2xl group-hover:blur-3xl transition-all"></div>
                   <div className="w-28 h-28 bg-gradient-to-br from-litcBlue to-litcDark rounded-[2.5rem] flex items-center justify-center text-white text-5xl font-black shadow-[0_20px_50px_rgba(0,92,132,0.4)] relative border-4 border-white">
@@ -231,48 +232,48 @@ const App: React.FC = () => {
             <div className="space-y-6">
               {loginStep === 'initial' && (
                 <>
-                  <button onClick={() => handleLogin(UserRole.EMPLOYEE)} className="w-full group relative p-8 bg-slate-50 hover:bg-litcBlue rounded-[2.5rem] transition-all duration-500 flex items-center justify-between border border-slate-100 overflow-hidden shadow-sm hover:shadow-[0_20px_40px_rgba(0,92,132,0.15)] hover:-translate-y-1">
-                    <div className="flex items-center gap-6 relative z-10">
-                      <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center text-litcBlue transition-all shadow-inner group-hover:scale-110 group-hover:rotate-6">
-                         <UserCircle size={32} />
+                  <button onClick={() => handleLogin(UserRole.EMPLOYEE)} className="w-full group relative p-6 sm:p-8 bg-slate-50 hover:bg-litcBlue rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-500 flex items-center justify-between border border-slate-100 overflow-hidden shadow-sm hover:shadow-[0_20px_40px_rgba(0,92,132,0.15)] hover:-translate-y-1">
+                    <div className="flex items-center gap-4 sm:gap-6 relative z-10">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center text-litcBlue transition-all shadow-inner group-hover:scale-110 group-hover:rotate-6">
+                         <UserCircle size={28} className="sm:w-8 sm:h-8" />
                       </div>
                       <div className="text-right">
-                         <p className="font-black text-xl text-slate-900 group-hover:text-white transition-colors">بوابة الموظف</p>
-                         <p className="text-[10px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Employee Portal</p>
+                         <p className="font-black text-lg sm:text-xl text-slate-900 group-hover:text-white transition-colors">بوابة الموظف</p>
+                         <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Employee Portal</p>
                       </div>
                     </div>
-                    <ChevronRight size={20} className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2" />
+                    <ChevronRight size={20} className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2 shrink-0" />
                   </button>
 
-                  <button onClick={() => setLoginStep('official')} className="w-full group p-8 bg-litcDark hover:bg-litcBlue text-white rounded-[2.5rem] transition-all duration-500 flex items-center justify-between shadow-2xl border border-white/5 overflow-hidden hover:-translate-y-1">
-                     <div className="flex items-center gap-6 relative z-10">
-                        <div className="w-16 h-16 bg-white/10 group-hover:bg-litcOrange rounded-[1.5rem] flex items-center justify-center text-litcOrange group-hover:text-white transition-all shadow-inner group-hover:scale-110 group-hover:-rotate-6">
-                           <ShieldCheck size={32} />
+                  <button onClick={() => setLoginStep('official')} className="w-full group p-6 sm:p-8 bg-litcDark hover:bg-litcBlue text-white rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-500 flex items-center justify-between shadow-2xl border border-white/5 overflow-hidden hover:-translate-y-1">
+                     <div className="flex items-center gap-4 sm:gap-6 relative z-10">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/10 group-hover:bg-litcOrange rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center text-litcOrange group-hover:text-white transition-all shadow-inner group-hover:scale-110 group-hover:-rotate-6">
+                           <ShieldCheck size={28} className="sm:w-8 sm:h-8" />
                         </div>
                         <div className="text-right">
-                           <p className="font-black text-xl">الدخول كمسؤول</p>
-                           <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Medical Admin & Audit</p>
+                           <p className="font-black text-lg sm:text-xl">الدخول كمسؤول</p>
+                           <p className="text-[9px] sm:text-[10px] font-bold text-white/50 uppercase tracking-widest">Medical Admin & Audit</p>
                         </div>
                      </div>
-                     <ChevronRight size={20} className="text-white/50 group-hover:text-white transition-colors group-hover:translate-x-2" />
+                     <ChevronRight size={20} className="text-white/50 group-hover:text-white transition-colors group-hover:translate-x-2 shrink-0" />
                   </button>
                 </>
               )}
 
               {loginStep === 'official' && (
-                <div className="grid grid-cols-2 gap-5 animate-in slide-in-from-bottom-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 animate-in slide-in-from-bottom-10">
                    {[
                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database size={24}/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
                      { role: UserRole.AUDITOR, label: 'المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
                    ].map(o => (
-                      <button key={o.role} onClick={o.action || (() => handleLogin(o.role))} className={`p-8 bg-white border border-slate-100 rounded-[2.5rem] text-slate-600 transition-all flex flex-col items-center gap-4 group shadow-sm hover:shadow-xl hover:-translate-y-1 ${o.color}`}>
-                         <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all">{o.icon}</div>
+                      <button key={o.role} onClick={o.action || (() => handleLogin(o.role))} className={`p-6 sm:p-8 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] text-slate-600 transition-all flex flex-row sm:flex-col items-center sm:justify-center gap-4 group shadow-sm hover:shadow-xl hover:-translate-y-1 ${o.color}`}>
+                         <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all shrink-0">{o.icon}</div>
                          <span className="font-black text-sm">{o.label}</span>
                       </button>
                    ))}
-                   <button onClick={() => setLoginStep('initial')} className="col-span-2 py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em]">الرجوع للرئيسية</button>
+                   <button onClick={() => setLoginStep('initial')} className="sm:col-span-2 py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em]">الرجوع للرئيسية</button>
                 </div>
               )}
 
@@ -344,6 +345,11 @@ const App: React.FC = () => {
           onSelectClaim={setSelectedClaim} 
           onUpdateHealthProfile={handleUpdateHealthProfile}
           onUpdatePlans={handleUpdatePlans}
+        />;
+      case 'smart-clinic':
+        return <SmartClinic 
+          user={user} 
+          onUpdateHealthProfile={handleUpdateHealthProfile} 
         />;
       case 'submit-claim':
         return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={(data) => {

@@ -30,9 +30,11 @@ export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {
   [UserRole.EMPLOYEE]: [
-    { label: 'العيادة الذكية', icon: <BrainCircuit size={20} />, path: 'dashboard' },
-    { label: 'الأرشيف والبحث', icon: <Search size={20} />, path: 'archive' },
+    { label: 'الرئيسية', icon: <LayoutDashboard size={20} />, path: 'dashboard' },
+    { label: 'الملف الصحي الذكي', icon: <BrainCircuit size={20} />, path: 'profile' },
+    { label: 'العيادة الذكية', icon: <Stethoscope size={20} />, path: 'smart-clinic' },
     { label: 'طلب جديد', icon: <PlusCircle size={20} />, path: 'submit-claim' },
+    { label: 'الأرشيف والبحث', icon: <Search size={20} />, path: 'archive' },
   ],
   [UserRole.DOCTOR]: [
     { label: 'الرئيسية', icon: <LayoutDashboard size={20} />, path: 'dashboard' },

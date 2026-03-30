@@ -5,7 +5,10 @@ import ClaimCard from '../components/ClaimCard';
 import { 
   analyzeFoodNutrition, 
   explainMedication, 
-  analyzeLabReport
+  analyzeLabReport,
+  analyzeDiseaseInput,
+  generateDetailedHealthPlan,
+  swapMealPlan
 } from '../services/geminiService';
 import { optimizeImage } from '../utils/imageUtils';
 import { 
@@ -33,6 +36,13 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
   const [labResult, setLabResult] = useState<any>(null);
   const [foodResult, setFoodResult] = useState<any>(null);
   const [medResult, setMedResult] = useState<any>(null);
+  const [showOtherDiseaseInput, setShowOtherDiseaseInput] = useState(false);
+  const [otherDiseaseText, setOtherDiseaseText] = useState('');
+  const [isAnalyzingDisease, setIsAnalyzingDisease] = useState(false);
+
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [swappingTaskId, setSwappingTaskId] = useState<string | null>(null);
+  const [swapPreferences, setSwapPreferences] = useState<{ [key: string]: string }>({});
 
   // Wizard State
   const [showWizard, setShowWizard] = useState(false);
@@ -128,7 +138,8 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
 
   const CHRONIC_DISEASES = [
     'سكري نوع 1', 'سكري نوع 2', 'ضغط الدم', 'أمراض القلب', 'الربو', 
-    'حساسية القمح/الجلوتين', 'الكوليسترول', 'الغدة الدرقية', 'أمراض الكلى', 'اليوريك أسيد'
+    'حساسية القمح/الجلوتين', 'الكوليسترول', 'الغدة الدرقية', 'أمراض الكلى', 'اليوريك أسيد',
+    'لا شيء', 'أخرى'
   ];
 
   const handleSaveProfile = () => {
@@ -146,7 +157,14 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
       chronicDiseases: user.healthProfile?.chronicDiseases || []
     });
     setWizardNewDiseases([]);
-    setWizardStep(1);
+    
+    // Check if height or weight is missing for personal plan
+    if (!user.healthProfile?.height || !user.healthProfile?.weight) {
+      setWizardStep(0); // Step 0 is for missing profile data
+    } else {
+      setWizardStep(1);
+    }
+    
     setShowWizard(true);
   };
 
@@ -168,7 +186,23 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
     return null;
   };
 
-  const handleWizardNext = () => {
+  const handleWizardNext = async () => {
+    if (wizardStep === 0) {
+      if (!user.healthProfile?.height || !user.healthProfile?.weight) {
+        setWizardError("يرجى إدخال الطول والوزن للمتابعة");
+        return;
+      }
+      setWizardStep(1);
+      return;
+    }
+
+    if (wizardStep === 1) {
+      if (newPlan.isPersonal && (!user.healthProfile?.height || !user.healthProfile?.weight)) {
+        setWizardStep(0);
+        return;
+      }
+    }
+
     if (wizardStep === 6) {
       const conflict = checkGoalConflicts(newPlan.goal!);
       if (conflict) {
@@ -184,17 +218,38 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
         }
       }
       
-      const dailyTasks = [];
-      if (newPlan.type === 'healthy') {
-        dailyTasks.push({ id: 't1', label: "فطور: بيض مسلوق + خضار", icon: 'utensils', completed: false, category: 'nutrition' });
-        dailyTasks.push({ id: 't2', label: "غداء: صدر دجاج + سلطة خضراء", icon: 'utensils', completed: false, category: 'nutrition' });
-        dailyTasks.push({ id: 't3', label: `ممارسة رياضة ${newPlan.sportType || 'المشي'} لمدة 30 دقيقة`, icon: 'activity', completed: false, category: 'sport' });
-        dailyTasks.push({ id: 't4', label: `النوم لمدة ${newPlan.duration === 30 ? 8 : 7} ساعات`, icon: 'moon', completed: false, category: 'sleep' });
-        dailyTasks.push({ id: 't5', label: "شرب 2 لتر ماء", icon: 'droplet', completed: false, category: 'hydration' });
-      } else {
-        dailyTasks.push({ id: 't1', label: "تناول الدواء الصباحي", icon: 'pill', completed: false, category: 'medication' });
-        dailyTasks.push({ id: 't2', label: "قياس العلامات الحيوية", icon: 'activity', completed: false, category: 'monitoring' });
-        dailyTasks.push({ id: 't3', label: "وجبة خفيفة صحية", icon: 'utensils', completed: false, category: 'nutrition' });
+      setIsGeneratingPlan(true);
+
+      const targetProfile = newPlan.isPersonal && user.healthProfile ? user.healthProfile : {
+        ...user.healthProfile,
+        chronicDiseases: newPlan.chronicDiseases || []
+      } as HealthProfile;
+
+      const aiPlan = await generateDetailedHealthPlan(
+        targetProfile,
+        newPlan.goal!,
+        newPlan.type!,
+        newPlan.duration || 30,
+        newPlan.sportType
+      );
+
+      setIsGeneratingPlan(false);
+
+      let dailyTasks = aiPlan?.dailyTasks || [];
+      let aiExplanation = aiPlan?.aiExplanation || getAIPlanExplanation(newPlan.goal!, newPlan.isPersonal ? (user.healthProfile?.chronicDiseases || []) : (newPlan.chronicDiseases || []));
+
+      if (dailyTasks.length === 0) {
+        if (newPlan.type === 'healthy') {
+          dailyTasks.push({ id: 't1', label: "فطور: بيض مسلوق + خضار", icon: 'utensils', completed: false, category: 'nutrition' });
+          dailyTasks.push({ id: 't2', label: "غداء: صدر دجاج + سلطة خضراء", icon: 'utensils', completed: false, category: 'nutrition' });
+          dailyTasks.push({ id: 't3', label: `ممارسة رياضة ${newPlan.sportType || 'المشي'} لمدة 30 دقيقة`, icon: 'activity', completed: false, category: 'sport' });
+          dailyTasks.push({ id: 't4', label: `النوم لمدة ${newPlan.duration === 30 ? 8 : 7} ساعات`, icon: 'moon', completed: false, category: 'sleep' });
+          dailyTasks.push({ id: 't5', label: "شرب 2 لتر ماء", icon: 'droplet', completed: false, category: 'hydration' });
+        } else {
+          dailyTasks.push({ id: 't1', label: "تناول الدواء الصباحي", icon: 'pill', completed: false, category: 'medication' });
+          dailyTasks.push({ id: 't2', label: "قياس العلامات الحيوية", icon: 'activity', completed: false, category: 'monitoring' });
+          dailyTasks.push({ id: 't3', label: "وجبة خفيفة صحية", icon: 'utensils', completed: false, category: 'nutrition' });
+        }
       }
 
       const plan: HealthPlan = {
@@ -205,13 +260,17 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
         startDate: new Date().toISOString().split('T')[0],
         chronicDiseases: newPlan.isPersonal ? (user.healthProfile?.chronicDiseases || []) : (newPlan.chronicDiseases || []),
         status: 'active',
-        aiExplanation: getAIPlanExplanation(newPlan.goal!, newPlan.isPersonal ? (user.healthProfile?.chronicDiseases || []) : (newPlan.chronicDiseases || [])),
+        aiExplanation,
         duration: newPlan.duration || 30,
         dailyTasks,
         currentDay: 1,
         sportType: newPlan.sportType,
         gymAttendance: newPlan.gymAttendance,
-        requestedLabs: getRequestedLabs({ goal: newPlan.goal, type: newPlan.type } as any)
+        requestedLabs: getRequestedLabs({ goal: newPlan.goal, type: newPlan.type } as any),
+        calories: aiPlan?.calories,
+        protein: aiPlan?.protein,
+        carbs: aiPlan?.carbs,
+        fats: aiPlan?.fats
       };
 
       if (onUpdatePlans) {
@@ -236,6 +295,39 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
       return p;
     });
     onUpdatePlans(updatedPlans);
+  };
+
+  const handleSwapMeal = async (planId: string, taskId: string, currentLabel: string) => {
+    if (!user.activePlans || !onUpdatePlans || !user.healthProfile) return;
+    
+    const prefs = swapPreferences[taskId] || 'أي وجبة صحية بديلة';
+    setSwappingTaskId(taskId);
+    
+    const newMealData = await swapMealPlan(user.healthProfile, currentLabel, prefs);
+    
+    if (newMealData && newMealData.newMealLabel) {
+      const updatedPlans = user.activePlans.map(p => {
+        if (p.id === planId) {
+          return {
+            ...p,
+            dailyTasks: p.dailyTasks.map(t => 
+              t.id === taskId 
+                ? { ...t, label: newMealData.newMealLabel, calories: newMealData.calories || t.calories } 
+                : t
+            )
+          };
+        }
+        return p;
+      });
+      onUpdatePlans(updatedPlans);
+      setSwapPreferences(prev => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+    }
+    
+    setSwappingTaskId(null);
   };
 
   const getRequestedLabs = (plan: HealthPlan) => {
@@ -267,7 +359,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
     <div className="max-w-[1100px] mx-auto space-y-12 animate-in fade-in duration-700 font-cairo pb-24" dir="rtl">
       
       {/* Permanent Medical Profile Section */}
-      <section className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-xl relative overflow-hidden group">
+      <section className="bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-80 h-80 bg-litcBlue/5 rounded-full -mr-40 -mt-40 blur-3xl"></div>
         <div className="relative z-10 space-y-10">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
@@ -292,7 +384,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                 ></div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               {isEditingProfile ? (
                 <>
                   <button 
@@ -334,7 +426,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
           </div>
 
           {/* Data Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
             {[
               { 
                 label: 'الطول', 
@@ -452,24 +544,88 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
               </div>
 
               {isEditingProfile && (
-                <div className="flex flex-wrap gap-2 animate-in fade-in duration-500">
-                  {CHRONIC_DISEASES.map(d => (
-                    <button 
-                      key={d} 
-                      onClick={() => {
-                        const exists = editProfile.chronicDiseases.includes(d);
-                        setEditProfile({
-                          ...editProfile, 
-                          chronicDiseases: exists 
+                <div className="flex flex-col gap-4 animate-in fade-in duration-500 w-full">
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(new Set([...CHRONIC_DISEASES, ...editProfile.chronicDiseases])).map(d => (
+                      <button 
+                        key={d} 
+                        onClick={() => {
+                          if (d === 'أخرى') {
+                            setShowOtherDiseaseInput(!showOtherDiseaseInput);
+                            return;
+                          }
+                          if (d === 'لا شيء') {
+                            setEditProfile({ ...editProfile, chronicDiseases: ['لا شيء'] });
+                            setShowOtherDiseaseInput(false);
+                            return;
+                          }
+                          const exists = editProfile.chronicDiseases.includes(d);
+                          let updated = exists 
                             ? editProfile.chronicDiseases.filter((item: string) => item !== d) 
-                            : [...editProfile.chronicDiseases, d]
-                        });
-                      }} 
-                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black border transition-all ${editProfile.chronicDiseases.includes(d) ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-slate-500 border-slate-200 hover:border-litcBlue'}`}
-                    >
-                      {d}
-                    </button>
-                  ))}
+                            : [...editProfile.chronicDiseases, d];
+                          updated = updated.filter(item => item !== 'لا شيء');
+                          setEditProfile({ ...editProfile, chronicDiseases: updated });
+                        }} 
+                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black border transition-all ${editProfile.chronicDiseases.includes(d) ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-slate-500 border-slate-200 hover:border-litcBlue'}`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {showOtherDiseaseInput && (
+                    <div className="w-full flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                      <input 
+                        type="text" 
+                        placeholder="اكتب اسم المرض المزمن..." 
+                        value={otherDiseaseText}
+                        onChange={(e) => setOtherDiseaseText(e.target.value)}
+                        className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-litcBlue outline-none"
+                      />
+                      <button 
+                        onClick={async () => {
+                          if (!otherDiseaseText.trim()) return;
+                          setIsAnalyzingDisease(true);
+                          const analyzedDisease = await analyzeDiseaseInput(otherDiseaseText);
+                          setIsAnalyzingDisease(false);
+                          
+                          let updated = [...editProfile.chronicDiseases, analyzedDisease];
+                          updated = updated.filter(item => item !== 'لا شيء');
+                          
+                          setEditProfile({ ...editProfile, chronicDiseases: Array.from(new Set(updated)) });
+                          setOtherDiseaseText('');
+                          setShowOtherDiseaseInput(false);
+                        }}
+                        disabled={isAnalyzingDisease}
+                        className="bg-litcBlue text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isAnalyzingDisease ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        إضافة
+                      </button>
+                    </div>
+                  )}
+
+                  {editProfile.chronicDiseases.length > 0 && !editProfile.chronicDiseases.includes('لا شيء') && (
+                    <div className="mt-4 p-6 bg-gradient-to-br from-litcBlue to-litcDark rounded-[2rem] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
+                          <Microscope size={24} className="text-litcOrange" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black mb-1">خطوة مهمة لمتابعة صحتك!</h4>
+                          <p className="text-xs font-bold opacity-80 leading-relaxed">
+                            لأننا نهتم بصحتك، يرجى رفع آخر تحاليل طبية قمت بها ليتمكن النظام من تحليل حالتك بدقة وإنشاء إرشادات مخصصة للحفاظ على استقرارك الصحي.
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => onNavigate('smart-clinic')}
+                        className="px-6 py-3 bg-litcOrange text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-litcOrange/20 flex items-center gap-2 hover:scale-105 shrink-0"
+                      >
+                        <ArrowUpRight size={16} /> رفع التحاليل الآن
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -509,7 +665,6 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
       <div className="flex justify-center p-2.5 bg-slate-200/50 w-full rounded-[2.5rem] shadow-inner overflow-x-auto">
         {[
           { id: 'health-plans', label: 'الخطط والجدول اليومي', icon: <Target size={20} /> },
-          { id: 'smart-clinic', label: 'العيادة الذكية', icon: <Activity size={20} /> },
           { id: 'medical-claims', label: 'المطالبات المالية', icon: <History size={20} /> }
         ].map(tab => (
           <button 
@@ -586,6 +741,29 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                         </p>
                       </div>
 
+                      {/* Macros & Calories */}
+                      {plan.calories && (
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="bg-orange-50 p-4 rounded-3xl text-center border border-orange-100 shadow-sm col-span-4 sm:col-span-1 flex flex-col justify-center">
+                            <Flame size={20} className="mx-auto text-litcOrange mb-1" />
+                            <p className="text-xl font-black text-litcOrange">{plan.calories}</p>
+                            <p className="text-[9px] font-black text-orange-400 uppercase">سعرة حرارية</p>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm col-span-4 sm:col-span-1">
+                            <p className="text-lg font-black text-litcBlue">{plan.protein}g</p>
+                            <p className="text-[9px] font-black text-slate-400">بروتين</p>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm col-span-4 sm:col-span-1">
+                            <p className="text-lg font-black text-litcBlue">{plan.carbs}g</p>
+                            <p className="text-[9px] font-black text-slate-400">كربوهيدرات</p>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm col-span-4 sm:col-span-1">
+                            <p className="text-lg font-black text-litcBlue">{plan.fats}g</p>
+                            <p className="text-[9px] font-black text-slate-400">دهون</p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Progress Bar & Day Counter */}
                       <div className="space-y-3">
                         <div className="flex justify-between items-center text-xs font-black">
@@ -615,7 +793,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                               <tr>
                                 <th className="px-4 py-3">الفئة</th>
                                 <th className="px-4 py-3">المهمة التفصيلية</th>
-                                <th className="px-4 py-3 text-center">الحالة</th>
+                                <th className="px-4 py-3 text-center">إجراءات</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -631,12 +809,34 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                                     {task.category === 'nutrition' ? 'تغذية' : task.category === 'sport' ? 'رياضة' : task.category === 'sleep' ? 'نوم' : 'صحة'}
                                   </td>
                                   <td className={`px-4 py-4 font-bold ${task.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                                    {task.label}
+                                    <div className="flex flex-col gap-1">
+                                      <span>{task.label}</span>
+                                      {task.calories && <span className="text-[9px] text-litcOrange font-black">{task.calories} سعرة حرارية</span>}
+                                      
+                                      {task.category === 'nutrition' && !task.completed && (
+                                        <div className="mt-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <input 
+                                            type="text" 
+                                            placeholder="بماذا تفضل استبدالها؟" 
+                                            value={swapPreferences[task.id] || ''}
+                                            onChange={(e) => setSwapPreferences({...swapPreferences, [task.id]: e.target.value})}
+                                            className="text-[10px] px-2 py-1 rounded-lg border border-slate-200 focus:ring-1 focus:ring-litcBlue outline-none w-32"
+                                          />
+                                          <button 
+                                            onClick={() => handleSwapMeal(plan.id, task.id, task.label)}
+                                            disabled={swappingTaskId === task.id}
+                                            className="text-[9px] bg-slate-100 hover:bg-litcBlue hover:text-white text-slate-500 px-2 py-1 rounded-lg font-black transition-colors disabled:opacity-50 flex items-center gap-1"
+                                          >
+                                            {swappingTaskId === task.id ? <Loader2 size={10} className="animate-spin" /> : 'استبدال'}
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </td>
-                                  <td className="px-4 py-4 text-center">
+                                  <td className="px-4 py-4 text-center align-top">
                                     <button 
                                       onClick={() => toggleTask(plan.id, task.id)}
-                                      className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 hover:border-litcBlue'}`}
+                                      className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all mx-auto mt-1 ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 hover:border-litcBlue'}`}
                                     >
                                       {task.completed && <CheckCircle2 size={14} />}
                                     </button>
@@ -678,24 +878,62 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
           </section>
 
           {showWizard && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
-              <div className="bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in duration-500">
-                <div className="bg-litcBlue p-10 text-white flex justify-between items-center">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6">
+              <div className="bg-white w-full max-w-2xl rounded-[2.5rem] sm:rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in duration-500 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="bg-litcBlue p-6 sm:p-10 text-white flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-right">
                   <div>
-                    <h2 className="text-3xl font-black">معالج الخطة الذكية</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black">معالج الخطة الذكية</h2>
                     <p className="text-xs font-bold opacity-70 mt-1">خطوات بسيطة لحياة صحية أفضل</p>
                   </div>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5, 6].map(s => (
-                      <div key={s} className={`w-3 h-3 rounded-full ${wizardStep >= s ? 'bg-white' : 'bg-white/30'}`}></div>
+                      <div key={s} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${wizardStep >= s ? 'bg-white' : 'bg-white/30'}`}></div>
                     ))}
                   </div>
                 </div>
-                <div className="p-12 space-y-10">
+                <div className="p-6 sm:p-12 space-y-8 sm:space-y-10">
                   {wizardError && (
                     <div className="p-6 bg-rose-50 border border-rose-100 rounded-3xl flex items-start gap-4 animate-in shake duration-500">
                       <AlertTriangle size={24} className="text-rose-500 shrink-0" />
                       <p className="text-sm font-black text-rose-700 leading-relaxed">{wizardError}</p>
+                    </div>
+                  )}
+                  {wizardStep === 0 && (
+                    <div className="space-y-8 animate-in slide-in-from-left-10">
+                      <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900">بيانات أساسية ناقصة</h3>
+                        <p className="text-sm font-bold text-slate-400">نحتاج لمعرفة طولك ووزنك لإنشاء خطة دقيقة لك</p>
+                      </div>
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">الطول (سم)</label>
+                          <input 
+                            type="number" 
+                            value={user.healthProfile?.height || ''} 
+                            onChange={(e) => {
+                              if (onUpdateHealthProfile && user.healthProfile) {
+                                onUpdateHealthProfile({...user.healthProfile, height: parseInt(e.target.value) || 0});
+                              }
+                            }}
+                            className="w-full p-5 bg-slate-50 rounded-[2rem] border border-slate-200 font-black text-slate-700 focus:ring-2 focus:ring-litcBlue outline-none"
+                            placeholder="مثال: 175"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">الوزن (كجم)</label>
+                          <input 
+                            type="number" 
+                            value={user.healthProfile?.weight || ''} 
+                            onChange={(e) => {
+                              if (onUpdateHealthProfile && user.healthProfile) {
+                                onUpdateHealthProfile({...user.healthProfile, weight: parseInt(e.target.value) || 0});
+                              }
+                            }}
+                            className="w-full p-5 bg-slate-50 rounded-[2rem] border border-slate-200 font-black text-slate-700 focus:ring-2 focus:ring-litcBlue outline-none"
+                            placeholder="مثال: 70"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                   {wizardStep === 1 && (
@@ -943,163 +1181,30 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                     <button 
                       onClick={() => {
                         setWizardError(null);
-                        if (wizardStep === 1) setShowWizard(false);
+                        if (wizardStep === 1 || wizardStep === 0) setShowWizard(false);
                         else setWizardStep(wizardStep - 1);
                       }}
-                      className="px-8 py-4 bg-slate-100 text-slate-500 rounded-3xl font-black flex items-center gap-2"
+                      disabled={isGeneratingPlan}
+                      className="px-8 py-4 bg-slate-100 text-slate-500 rounded-3xl font-black flex items-center gap-2 disabled:opacity-50"
                     >
-                      <ChevronRight size={20} /> {wizardStep === 1 ? 'إلغاء' : 'السابق'}
+                      <ChevronRight size={20} /> {(wizardStep === 1 || wizardStep === 0) ? 'إلغاء' : 'السابق'}
                     </button>
                     <button 
                       onClick={() => {
                         setWizardError(null);
                         handleWizardNext();
                       }}
-                      className="px-12 py-4 bg-litcBlue text-white rounded-3xl font-black shadow-xl flex items-center gap-2"
+                      disabled={isGeneratingPlan}
+                      className="px-12 py-4 bg-litcBlue text-white rounded-3xl font-black shadow-xl flex items-center gap-2 disabled:opacity-50"
                     >
-                      {wizardStep === 6 ? 'تأكيد وبدء الخطة' : 'التالي'} <ChevronLeft size={20} />
+                      {isGeneratingPlan ? <Loader2 size={20} className="animate-spin" /> : (wizardStep === 6 ? 'تأكيد وبدء الخطة' : 'التالي')} 
+                      {!isGeneratingPlan && <ChevronLeft size={20} />}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
           )}
-        </div>
-      ) : activeTab === 'smart-clinic' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 text-right">
-          <div className="lg:col-span-8 space-y-10">
-            <section className="bg-white p-12 rounded-[4.5rem] border border-slate-100 shadow-xl overflow-hidden relative">
-               <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-3xl font-black text-litcBlue flex items-center gap-4"><Microscope size={36} className="text-litcOrange" /> استشاري التحاليل الذكي</h3>
-                  <button onClick={() => labInputRef.current?.click()} className="w-16 h-16 bg-blue-50 text-litcBlue rounded-2xl hover:bg-litcBlue hover:text-white transition-all shadow-lg flex items-center justify-center">
-                     {loading === 'lab' ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} />}
-                  </button>
-                  <input type="file" ref={labInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'lab')} />
-               </div>
-               {labResult ? (
-                 <div className="space-y-10 animate-in slide-in-from-bottom-6">
-                    <div className={`p-10 rounded-[3rem] flex items-center gap-8 text-white shadow-2xl ${labResult.overallRisk === 'حرج' ? 'bg-rose-500 shadow-rose-200' : labResult.overallRisk === 'تنبيه' ? 'bg-amber-500 shadow-amber-200' : 'bg-emerald-500 shadow-emerald-200'}`}>
-                       <AlertTriangle size={48} />
-                       <div>
-                          <p className="text-xs font-black opacity-60 uppercase tracking-widest mb-1">التقييم الصحي العام</p>
-                          <p className="text-4xl font-black">{labResult.overallRisk}</p>
-                       </div>
-                    </div>
-                    <div className="p-8 bg-slate-50 rounded-[3rem] border border-slate-100">
-                       <h4 className="font-black text-slate-900 flex items-center gap-3 mb-4"><BrainCircuit size={24} className="text-litcBlue" /> القراءة الطبية المعمقة:</h4>
-                       <p className="text-sm font-bold text-slate-600 leading-relaxed italic border-r-4 border-litcOrange pr-6">"{labResult.medicalExplanation}"</p>
-                    </div>
-                    <div className="overflow-hidden rounded-[3rem] border border-slate-100 bg-white shadow-sm">
-                       <table className="w-full text-right">
-                          <thead className="bg-slate-50 text-[10px] font-black text-slate-400">
-                             <tr>
-                                <th className="px-8 py-5">نوع الفحص</th>
-                                <th className="px-8 py-5 text-center">النتيجة</th>
-                                <th className="px-8 py-5 text-center">الحالة الفنية</th>
-                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                             {labResult.findings.map((f: any, i: number) => (
-                                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                   <td className="px-8 py-5">
-                                      <p className="font-black text-slate-900 text-sm">{f.testName}</p>
-                                      <p className="text-[10px] text-slate-400 font-bold">{f.clinicalSignificance}</p>
-                                   </td>
-                                   <td className="px-8 py-5 text-center font-black text-litcBlue">{f.resultValue} {f.unit}</td>
-                                   <td className="px-8 py-5 text-center">
-                                      <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black border ${f.status === 'طبيعي' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{f.status}</span>
-                                   </td>
-                                </tr>
-                             ))}
-                          </tbody>
-                       </table>
-                    </div>
-                 </div>
-               ) : (
-                 <div className="py-20 flex flex-col items-center text-slate-300 border-4 border-dashed border-slate-50 rounded-[4rem]">
-                    <Microscope size={64} className="opacity-10 mb-6" />
-                    <p className="font-black text-slate-400">ارفع صورة التحليل للحصول على شرح طبي فوري</p>
-                 </div>
-               )}
-            </section>
-          </div>
-          <div className="lg:col-span-4 space-y-10">
-            <section className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-xl relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-litcOrange/5 rounded-full blur-3xl group-hover:bg-litcOrange/10 transition-all"></div>
-               <div className="flex items-center justify-between mb-8 relative z-10">
-                  <h3 className="text-2xl font-black text-litcBlue flex items-center gap-3"><Utensils className="text-litcOrange" /> محلل التغذية</h3>
-                  <button onClick={() => foodInputRef.current?.click()} className="w-14 h-14 bg-orange-50 text-litcOrange rounded-2xl flex items-center justify-center hover:bg-litcOrange hover:text-white transition-all shadow-md">
-                     {loading === 'food' ? <Loader2 className="animate-spin" /> : <Camera size={24} />}
-                  </button>
-                  <input type="file" ref={foodInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'food')} />
-               </div>
-               {foodResult ? (
-                 <div className="space-y-6 animate-in zoom-in relative z-10">
-                    <div className="bg-slate-900 text-white p-8 rounded-[3rem] text-center shadow-2xl relative overflow-hidden">
-                       <div className="absolute inset-0 bg-gradient-to-br from-litcOrange/20 to-transparent"></div>
-                       <p className="text-2xl font-black mb-3 relative z-10">{foodResult.mealName}</p>
-                       <div className="flex justify-center gap-4 mt-6 relative z-10">
-                          <div className="bg-white/10 p-4 rounded-3xl text-center flex-1 backdrop-blur-md border border-white/5 shadow-inner">
-                             <Flame size={18} className="mx-auto text-litcOrange mb-1" />
-                             <p className="text-2xl font-black">{foodResult.calories}</p>
-                             <p className="text-[9px] font-black opacity-40 uppercase tracking-widest">سعرة حرارية</p>
-                          </div>
-                          <div className="bg-white/10 p-4 rounded-3xl text-center flex-1 backdrop-blur-md border border-white/5 shadow-inner">
-                             <Target size={18} className="mx-auto text-emerald-400 mb-1" />
-                             <p className="text-2xl font-black">{foodResult.healthScore}</p>
-                             <p className="text-[9px] font-black opacity-40 uppercase tracking-widest">درجة الصحة</p>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                       <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm">
-                          <p className="text-lg font-black text-litcBlue">{foodResult.protein}g</p>
-                          <p className="text-[9px] font-black text-slate-400">بروتين</p>
-                       </div>
-                       <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm">
-                          <p className="text-lg font-black text-litcBlue">{foodResult.carbs}g</p>
-                          <p className="text-[9px] font-black text-slate-400">كربوهيدرات</p>
-                       </div>
-                       <div className="bg-slate-50 p-4 rounded-3xl text-center border border-slate-100 shadow-sm">
-                          <p className="text-lg font-black text-litcBlue">{foodResult.fats}g</p>
-                          <p className="text-[9px] font-black text-slate-400">دهون</p>
-                       </div>
-                    </div>
-                    <div className="space-y-4">
-                       <div className="bg-emerald-50 p-6 rounded-[2.5rem] border border-emerald-100 shadow-sm">
-                          <p className="text-[11px] font-black text-emerald-700 mb-3 flex items-center gap-2 uppercase tracking-widest"><CheckCircle2 size={16} /> الفوائد الصحية</p>
-                          <ul className="text-xs font-bold text-slate-600 space-y-2">
-                             {foodResult.benefits?.map((b: string, i: number) => <li key={i} className="flex items-start gap-2"><div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-1.5 shrink-0"></div> {b}</li>)}
-                          </ul>
-                       </div>
-                    </div>
-                 </div>
-               ) : (
-                 <div className="py-20 flex flex-col items-center text-slate-300 border-2 border-dashed border-slate-100 rounded-[3rem]">
-                    <Utensils size={48} className="opacity-10 mb-6" />
-                    <p className="text-xs font-black text-slate-400">حلل وجبتك غذائياً واحسب السعرات الآن</p>
-                 </div>
-               )}
-            </section>
-            <section className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-xl">
-               <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-black text-litcBlue flex items-center gap-3"><Pill className="text-litcOrange" /> قارئ الأدوية</h3>
-                  <button onClick={() => medInputRef.current?.click()} className="w-12 h-12 bg-blue-50 text-litcBlue rounded-2xl flex items-center justify-center">
-                     {loading === 'med' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
-                  </button>
-                  <input type="file" ref={medInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'med')} />
-               </div>
-               {medResult && (
-                 <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 animate-in slide-in-from-left-4">
-                    <p className="text-lg font-black text-litcBlue mb-2">{medResult.medName}</p>
-                    <p className="text-xs font-bold text-slate-600 leading-relaxed mb-4">{medResult.usage}</p>
-                    <div className="p-5 bg-amber-50 rounded-2xl text-[10px] font-black text-amber-700 border border-amber-100 shadow-sm">
-                       <Info size={14} className="inline ml-2" /> تنبيه: {medResult.warnings}
-                    </div>
-                 </div>
-               )}
-            </section>
-          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">

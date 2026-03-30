@@ -166,6 +166,112 @@ export const analyzeInvoiceDetailed = async (base64: string): Promise<any[]> => 
   } catch (error) { return []; }
 };
 
+export const analyzeDiseaseInput = async (userInput: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `المستخدم أدخل هذا النص كمرض مزمن يعاني منه: "${userInput}".
+      المطلوب: استخراج اسم المرض المزمن بشكل طبي مختصر وواضح باللغة العربية.
+      إذا لم يكن مرضاً واضحاً، أعد صياغته ليكون مصطلحاً طبياً مفهوماً.
+      أرجع اسم المرض فقط بدون أي إضافات.`,
+    });
+    return response.text?.trim() || userInput;
+  } catch (error) {
+    return userInput;
+  }
+};
+
+export const generateDetailedHealthPlan = async (profile: HealthProfile, goal: string, type: string, duration: number, sportType?: string): Promise<any> => {
+  try {
+    const diseases = profile.chronicDiseases.join("، ");
+    const prompt = `أنت خبير تغذية ومدرب رياضي محترف. قم بإنشاء خطة يومية مفصلة جداً ومخصصة للموظف.
+    بيانات الموظف: العمر ${profile.age}، الطول ${profile.height} سم، الوزن ${profile.weight} كجم، الأمراض: ${diseases || 'لا يوجد'}.
+    الهدف من الخطة: ${goal === 'weight_loss' ? 'إنقاص الوزن' : goal === 'muscle_building' ? 'بناء العضلات' : goal === 'weight_gain' ? 'زيادة الوزن' : goal === 'regulate_indicators' ? 'تنظيم المؤشرات الحيوية' : 'المحافظة على الوزن'}.
+    نوع الخطة: ${type === 'healthy' ? 'صحية' : 'علاجية'}.
+    الرياضة المفضلة: ${sportType || 'غير محدد'}.
+    
+    المطلوب:
+    1. حساب السعرات الحرارية اليومية المطلوبة (calories) وتوزيع الماكروز بالجرام: بروتين (protein)، كربوهيدرات (carbs)، دهون (fats).
+    2. شرح مبسط للخطة (aiExplanation).
+    3. قائمة مهام يومية مفصلة جداً (dailyTasks). يجب أن تكون الوجبات محددة بالكميات (مثال: 2 بيضة مسلوقة، 150 جرام دجاج، 50 جرام شوفان) مع ذكر السعرات الحرارية التقريبية لكل وجبة في حقل calories.
+    4. تحديد التمارين الرياضية بدقة (مثال: المشي لمدة 45 دقيقة بسرعة متوسطة، أو 3 جولات ضغط 12 عدة).
+    5. تحديد كمية الماء المطلوبة باللتر.
+    6. تحديد ساعات النوم المطلوبة.
+    
+    يجب أن تكون المهام مصنفة (nutrition, sport, sleep, hydration, medication, monitoring) ولها أيقونات مناسبة (utensils, activity, moon, droplet, pill).`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            aiExplanation: { type: Type.STRING },
+            calories: { type: Type.NUMBER },
+            protein: { type: Type.NUMBER },
+            carbs: { type: Type.NUMBER },
+            fats: { type: Type.NUMBER },
+            dailyTasks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  label: { type: Type.STRING },
+                  icon: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  calories: { type: Type.NUMBER }
+                },
+                required: ["id", "label", "icon", "category"]
+              }
+            }
+          },
+          required: ["aiExplanation", "calories", "protein", "carbs", "fats", "dailyTasks"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    return null;
+  }
+};
+
+export const swapMealPlan = async (profile: HealthProfile, currentMeal: string, preferences: string): Promise<any> => {
+  try {
+    const diseases = profile.chronicDiseases.join("، ");
+    const prompt = `أنت خبير تغذية محترف. المستخدم يريد استبدال وجبة من خطته الغذائية.
+    بيانات الموظف: العمر ${profile.age}، الطول ${profile.height} سم، الوزن ${profile.weight} كجم، الأمراض: ${diseases || 'لا يوجد'}.
+    الوجبة الحالية: "${currentMeal}".
+    ما يفضله المستخدم كبديل: "${preferences}".
+    
+    المطلوب:
+    اقتراح وجبة بديلة صحية ومناسبة لحالته الصحية وتفضيلاته، بحيث تكون قريبة في السعرات الحرارية والقيمة الغذائية للوجبة الأصلية.
+    أرجع اسم الوجبة البديلة مع الكميات المحددة (مثال: 150 جرام سمك مشوي + 100 جرام أرز أسمر + سلطة خضراء).
+    وأرجع السعرات الحرارية التقريبية للوجبة البديلة.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            newMealLabel: { type: Type.STRING },
+            calories: { type: Type.NUMBER }
+          },
+          required: ["newMealLabel", "calories"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    return null;
+  }
+};
+
 export const performOCR = async (base64: string): Promise<any> => {
   try {
     const response = await ai.models.generateContent({

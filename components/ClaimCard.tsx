@@ -15,7 +15,7 @@ const ClaimCard: React.FC<ClaimCardProps> = ({ claim, onClick }) => {
   return (
     <div 
       onClick={() => onClick(claim)}
-      className="bg-white/70 backdrop-blur-md rounded-[3rem] p-8 border border-white/50 shadow-sm hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] hover:border-litcBlue/50 transition-all duration-500 cursor-pointer group relative overflow-hidden h-full flex flex-col"
+      className="bg-white/70 backdrop-blur-md rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-8 border border-white/50 shadow-sm hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] hover:border-litcBlue/50 transition-all duration-500 cursor-pointer group relative overflow-hidden h-full flex flex-col"
       dir="rtl"
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-bl-[5rem] -translate-y-12 translate-x-12 group-hover:translate-y-0 group-hover:translate-x-0 transition-all duration-700"></div>
