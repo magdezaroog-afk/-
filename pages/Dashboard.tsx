@@ -41,6 +41,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       // موظف الإدخال يرى المعاملات التي بها فواتير تخصه
       return c.invoices.some(i => i.assignedToId === user.id);
     }
+
+    if (user.role === UserRole.AUDITOR) {
+      // مكتب المراجعة يرى المعاملات المحولة له
+      return c.status === ClaimStatus.PENDING_AUDIT;
+    }
     return false;
   });
 

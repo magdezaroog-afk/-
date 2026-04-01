@@ -13,7 +13,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.DOCTOR]: 'دكتور مراجع',
   [UserRole.HEAD_OF_UNIT]: 'رئيس وحدة الرعاية',
   [UserRole.DATA_ENTRY]: 'مدخل بيانات فني',
-  [UserRole.AUDITOR]: 'مكتب المراجعة والتدقيق',
+  [UserRole.AUDITOR]: 'مكتب المراجعة',
   [UserRole.ADMIN]: 'الإدارة العليا',
 };
 

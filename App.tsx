@@ -89,7 +89,9 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
 
 const sanitizeForFirestore = (obj: any): any => {
   if (Array.isArray(obj)) {
-    return obj.map(v => sanitizeForFirestore(v));
+    return obj
+      .filter(v => v !== undefined)
+      .map(v => sanitizeForFirestore(v));
   } else if (obj !== null && typeof obj === 'object') {
     return Object.fromEntries(
       Object.entries(obj)
@@ -674,7 +676,7 @@ const App: React.FC = () => {
                       { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database size={24}/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
-                      { role: UserRole.AUDITOR, label: 'المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
+                      { role: UserRole.AUDITOR, label: 'مكتب المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
                     ].map(o => (
                         <button 
                           key={o.role} 

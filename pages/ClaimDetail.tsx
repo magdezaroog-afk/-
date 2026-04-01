@@ -33,6 +33,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
   const isHead = user.role === UserRole.HEAD_OF_UNIT;
   const isDoctor = user.role === UserRole.DOCTOR;
+  const isAuditor = user.role === UserRole.AUDITOR;
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
@@ -227,11 +228,11 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                  ) : (
                    <>
                       <button 
-                        onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد النهائي وتحويل الفواتير للمراجعة المالية')} 
+                        onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد والتحويل لمكتب المراجعة')} 
                         disabled={approvedInvoices.length === 0} 
                         className="bg-emerald-600 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-emerald-500/30"
                       >
-                         <ShieldCheck size={28} /> اعتماد نهائي وتحويل للمالية ({approvedInvoices.length})
+                         <ShieldCheck size={28} /> الاعتماد والتحويل لي مكتب المراجعة ({approvedInvoices.length})
                       </button>
                       <button 
                         onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع المعاملة للموظف لوجود أخطاء في الفواتير')} 
@@ -248,6 +249,23 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                       </button>
                    </>
                  )}
+              </div>
+            )}
+
+            {isAuditor && (
+              <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
+                 <button 
+                   onClick={() => onUpdateStatus(ClaimStatus.APPROVED, globalComment || 'تمت المراجعة النهائية والاعتماد للصرف')} 
+                   className="bg-emerald-600 text-white px-6 sm:px-16 py-4 sm:py-6 rounded-[2rem] sm:rounded-[3rem] font-black text-sm sm:text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-2 sm:gap-4 shadow-emerald-500/30 w-full sm:w-auto justify-center"
+                 >
+                    <CheckCircle2 size={24} className="sm:w-7 sm:h-7" /> اعتماد نهائي للصرف
+                 </button>
+                 <button 
+                   onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع للموظف من مكتب المراجعة')} 
+                   className="bg-amber-500 text-white px-6 sm:px-16 py-4 sm:py-6 rounded-[2rem] sm:rounded-[3rem] font-black text-sm sm:text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-2 sm:gap-4 shadow-amber-500/30 w-full sm:w-auto justify-center"
+                 >
+                    <RotateCcw size={24} className="sm:w-7 sm:h-7" /> إرجاع للموظف
+                 </button>
               </div>
             )}
          </div>
