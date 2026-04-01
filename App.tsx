@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole, Claim, ClaimStatus, Invoice } from './types';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -13,8 +13,19 @@ import Archive from './pages/Archive';
 import { 
   Loader2, ShieldCheck, UserCircle, 
   ChevronRight, Database, UserCheck, Stethoscope, HeartPulse, Activity, 
-  Shield, Pill, Syringe, ClipboardList, Sparkles, Heart
+  Shield, Pill, Syringe, ClipboardList, Sparkles, Heart, Mail, Lock, 
+  Phone, Github, Chrome, MessageSquare, AlertCircle
 } from 'lucide-react';
+import { auth, db, googleProvider, microsoftProvider } from './firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  signOut,
+  updateProfile
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy, getDocFromServer } from 'firebase/firestore';
 
 const INITIAL_CLAIMS: Claim[] = [];
 
@@ -24,23 +35,165 @@ export const DATA_ENTRY_STAFF = [
   { id: 'DE-3', name: 'عباس طنيش', email: 'abbas@litc.ly', team: 'وحدة العيادات والمختبرات' },
 ];
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+};
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activePath, setActivePath] = useState('dashboard');
   const [claims, setClaims] = useState<Claim[]>(INITIAL_CLAIMS);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select'>('initial');
+  const [isLoggingIn, setIsLoggingIn] = useState(true);
+  const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'phone-login'>('initial');
+  
+  // Auth Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (role: UserRole, specificUser?: any) => {
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. ");
+        }
+      }
+    };
+    testConnection();
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch user profile from Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as User);
+        } else {
+          // If profile doesn't exist (e.g. first time Google login), create it
+          const newUser: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || 'مستخدم جديد',
+            role: UserRole.EMPLOYEE, // Default role
+            healthProfile: {
+              bloodType: '',
+              height: 0,
+              weight: 0,
+              age: 0,
+              chronicDiseases: [],
+              pathway: 'healthy',
+              dailyWaterIntake: 0,
+              systolicBP: 0,
+              diastolicBP: 0,
+              hba1c: 0
+            }
+          };
+          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+          setUser(newUser);
+        }
+      } else {
+        setUser(null);
+      }
+      setIsLoggingIn(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const q = query(collection(db, 'claims'), orderBy('submissionDate', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const claimsData = snapshot.docs.map(doc => doc.data() as Claim);
+      setClaims(claimsData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
     setIsLoggingIn(true);
-    setTimeout(() => {
-      setUser({
-        id: specificUser?.id || (role === UserRole.EMPLOYEE ? 'USR-1' : 'STF-1'),
-        email: specificUser?.email || `${role.toLowerCase()}@litc.ly`,
-        role: role,
-        name: specificUser?.name || (role === UserRole.EMPLOYEE ? 'مجدي الزروق' : 'مسؤول النظام'),
-        healthProfile: role === UserRole.EMPLOYEE ? {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setActivePath('dashboard');
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleEmailSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoggingIn(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      await updateProfile(firebaseUser, { displayName: name });
+      
+      const newUser: User = {
+        id: firebaseUser.uid,
+        email: email,
+        name: name,
+        role: UserRole.EMPLOYEE,
+        healthProfile: {
           bloodType: '',
           height: 0,
           weight: 0,
@@ -51,140 +204,212 @@ const App: React.FC = () => {
           systolicBP: 0,
           diastolicBP: 0,
           hba1c: 0
-        } : undefined
-      });
-      setIsLoggingIn(false);
+        }
+      };
+      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      setUser(newUser);
       setActivePath('dashboard');
-    }, 1200);
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoggingIn(false);
+    }
   };
 
-  const handleUpdateHealthProfile = (profile: any) => {
-    if (!user) return;
-    setUser({ ...user, healthProfile: profile });
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoggingIn(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      setActivePath('dashboard');
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoggingIn(false);
+    }
   };
 
-  const handleUpdatePlans = (plans: any[]) => {
-    if (!user) return;
-    setUser({ ...user, activePlans: plans });
+  const handleMicrosoftLogin = async () => {
+    setError(null);
+    setIsLoggingIn(true);
+    try {
+      await signInWithPopup(auth, microsoftProvider);
+      setActivePath('dashboard');
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoggingIn(false);
+    }
   };
 
-  const handleUpdateClaimStatus = (newStatus: ClaimStatus, comment?: string) => {
-    if (!selectedClaim || !user) return;
-    const updatedClaims = claims.map(c => {
-      if (c.id === selectedClaim.id) {
-        return {
-          ...c,
-          status: newStatus,
-          auditTrail: [
-            ...c.auditTrail,
-            {
-              id: Math.random().toString(),
-              userId: user.id,
-              userName: user.name,
-              action: `تغيير الحالة إلى: ${newStatus}`,
-              timestamp: new Date().toLocaleString('ar-LY'),
-              comment
-            }
-          ]
-        };
-      }
-      return c;
+  const handlePhoneLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoggingIn(true);
+    // Note: Phone auth requires RecaptchaVerifier which needs a DOM element.
+    // This is a simplified version. In a real app, you'd setup the verifier.
+    setError("تسجيل الدخول عبر الهاتف يتطلب إعداد Recaptcha. يرجى استخدام البريد الإلكتروني حالياً.");
+    setIsLoggingIn(false);
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setLoginStep('initial');
+  };
+
+  const handleLogin = (role: UserRole, specificUser?: any) => {
+    setUser({
+      id: specificUser?.id || user?.id || 'STF-1',
+      email: specificUser?.email || user?.email || `${role.toLowerCase()}@litc.ly`,
+      role: role,
+      name: specificUser?.name || user?.name || 'مسؤول النظام',
+      healthProfile: user?.healthProfile
     });
-    setClaims(updatedClaims);
-    setSelectedClaim(null);
+    setActivePath('dashboard');
   };
 
-  const handleInvoiceAssign = (claimId: string, invoiceIds: string[], staffId: string) => {
+  const handleUpdateHealthProfile = async (profile: any) => {
+    if (!user) return;
+    const updatedUser = { ...user, healthProfile: profile };
+    try {
+      await setDoc(doc(db, 'users', user.id), updatedUser);
+      setUser(updatedUser);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+    }
+  };
+
+  const handleUpdatePlans = async (plans: any[]) => {
+    if (!user) return;
+    const updatedUser = { ...user, activePlans: plans };
+    try {
+      await setDoc(doc(db, 'users', user.id), updatedUser);
+      setUser(updatedUser);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+    }
+  };
+
+  const handleUpdateClaimStatus = async (newStatus: ClaimStatus, comment?: string) => {
+    if (!selectedClaim || !user) return;
+    
+    const updatedClaim = {
+      ...selectedClaim,
+      status: newStatus,
+      auditTrail: [
+        ...selectedClaim.auditTrail,
+        {
+          id: Math.random().toString(),
+          userId: user.id,
+          userName: user.name,
+          action: `تغيير الحالة إلى: ${newStatus}`,
+          timestamp: new Date().toLocaleString('ar-LY'),
+          comment
+        }
+      ]
+    };
+    
+    try {
+      await setDoc(doc(db, 'claims', selectedClaim.id), updatedClaim);
+      setSelectedClaim(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `claims/${selectedClaim.id}`);
+    }
+  };
+
+  const handleInvoiceAssign = async (claimId: string, invoiceIds: string[], staffId: string) => {
+    const claim = claims.find(c => c.id === claimId);
+    if (!claim || !user) return;
+
     const staffMember = DATA_ENTRY_STAFF.find(s => s.id === staffId);
-    setClaims(prev => prev.map(c => {
-      if (c.id === claimId) {
-        const updatedInvoices = c.invoices.map(inv => {
-          if (invoiceIds.includes(inv.id)) {
-            return { 
-              ...inv, 
-              assignedToId: staffId, 
-              assignedToName: staffMember?.name,
-              status: ClaimStatus.PENDING_DATA_ENTRY
-            };
-          }
-          return inv;
-        });
-        
-        // التحقق مما إذا كانت جميع الفواتير قد أُسندت
-        const allAssigned = updatedInvoices.every(inv => !!inv.assignedToId);
-        
-        return {
-          ...c,
-          invoices: updatedInvoices,
-          // لا تتغير حالة المعاملة الكلية إلى PENDING_DATA_ENTRY إلا إذا أُسندت جميع الفواتير
-          status: allAssigned ? ClaimStatus.PENDING_DATA_ENTRY : ClaimStatus.PENDING_HEAD,
-          auditTrail: [
-            ...c.auditTrail,
-            {
-              id: Math.random().toString(),
-              userId: user!.id,
-              userName: user!.name,
-              action: `إسناد ${invoiceIds.length} فاتورة للموظف: ${staffMember?.name}`,
-              timestamp: new Date().toLocaleString('ar-LY')
-            }
-          ]
+    const updatedInvoices = claim.invoices.map(inv => {
+      if (invoiceIds.includes(inv.id)) {
+        return { 
+          ...inv, 
+          assignedToId: staffId, 
+          assignedToName: staffMember?.name,
+          status: ClaimStatus.PENDING_DATA_ENTRY
         };
       }
-      return c;
-    }));
-    // نغلق التفاصيل فقط إذا تم إسناد كل شيء، أو نتركها مفتوحة إذا أراد الرئيس إسناد الباقي
-    // للأفضل: سنتركها مفتوحة ونقوم بتحديث المعروض في ClaimDetail
+      return inv;
+    });
+    
+    const allAssigned = updatedInvoices.every(inv => !!inv.assignedToId);
+    
+    const updatedClaim = {
+      ...claim,
+      invoices: updatedInvoices,
+      status: allAssigned ? ClaimStatus.PENDING_DATA_ENTRY : ClaimStatus.PENDING_HEAD,
+      auditTrail: [
+        ...claim.auditTrail,
+        {
+          id: Math.random().toString(),
+          userId: user.id,
+          userName: user.name,
+          action: `إسناد ${invoiceIds.length} فاتورة للموظف: ${staffMember?.name}`,
+          timestamp: new Date().toLocaleString('ar-LY')
+        }
+      ]
+    };
+    
+    try {
+      await setDoc(doc(db, 'claims', claimId), updatedClaim);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `claims/${claimId}`);
+    }
   };
 
-  const handleInvoiceStatusUpdate = (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => {
-    setClaims(prev => prev.map(c => {
-      if (c.id === claimId) {
-        return {
-          ...c,
-          invoices: c.invoices.map(inv => inv.id === invoiceId ? { ...inv, status: newStatus } : inv),
-          auditTrail: [...c.auditTrail, {
-             id: Math.random().toString(),
-             userId: user!.id,
-             userName: user!.name,
-             action: `تعديل حالة فاتورة فردية إلى ${newStatus}`,
-             timestamp: new Date().toLocaleString('ar-LY'),
-             comment
-          }]
-        };
-      }
-      return c;
-    }));
+  const handleInvoiceStatusUpdate = async (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => {
+    const claim = claims.find(c => c.id === claimId);
+    if (!claim || !user) return;
+
+    const updatedClaim = {
+      ...claim,
+      invoices: claim.invoices.map(inv => inv.id === invoiceId ? { ...inv, status: newStatus } : inv),
+      auditTrail: [...claim.auditTrail, {
+         id: Math.random().toString(),
+         userId: user.id,
+         userName: user.name,
+         action: `تعديل حالة فاتورة فردية إلى ${newStatus}`,
+         timestamp: new Date().toLocaleString('ar-LY'),
+         comment
+      }]
+    };
+    
+    try {
+      await setDoc(doc(db, 'claims', claimId), updatedClaim);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `claims/${claimId}`);
+    }
   };
 
-  const handleSaveDataEntry = (updatedInvoices: Invoice[]) => {
-    if (!selectedClaim) return;
-    setClaims(prev => prev.map(c => {
-      if (c.id === selectedClaim.id) {
-        const mergedInvoices = c.invoices.map(inv => {
-          const updated = updatedInvoices.find(u => u.id === inv.id);
-          // إذا كانت الفاتورة المحدثة تخص الموظف الحالي، نحدث حالتها إلى بانتظار الاعتماد من الرئيس
-          return updated ? { ...updated, status: ClaimStatus.PENDING_HEAD } : inv;
-        });
-        
-        // نغير حالة المعاملة الكلية لـ PENDING_HEAD فقط إذا انتهى جميع الموظفين من إدخالاتهم
-        const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.PENDING_HEAD);
-        
-        return {
-          ...c,
-          invoices: mergedInvoices,
-          status: allBackToHead ? ClaimStatus.PENDING_HEAD : c.status,
-          auditTrail: [...c.auditTrail, {
-            id: Math.random().toString(),
-            userId: user!.id,
-            userName: user!.name,
-            action: `الموظف ${user!.name} أكمل إدخال بيانات فواتيره وحولها للرئيس`,
-            timestamp: new Date().toLocaleString('ar-LY')
-          }]
-        };
-      }
-      return c;
-    }));
-    setSelectedClaim(null);
+  const handleSaveDataEntry = async (updatedInvoices: Invoice[]) => {
+    if (!selectedClaim || !user) return;
+    
+    const mergedInvoices = selectedClaim.invoices.map(inv => {
+      const updated = updatedInvoices.find(u => u.id === inv.id);
+      return updated ? { ...updated, status: ClaimStatus.PENDING_HEAD } : inv;
+    });
+    
+    const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.PENDING_HEAD);
+    
+    const updatedClaim = {
+      ...selectedClaim,
+      invoices: mergedInvoices,
+      status: allBackToHead ? ClaimStatus.PENDING_HEAD : selectedClaim.status,
+      auditTrail: [...selectedClaim.auditTrail, {
+        id: Math.random().toString(),
+        userId: user.id,
+        userName: user.name,
+        action: `الموظف ${user.name} أكمل إدخال بيانات فواتيره وحولها للرئيس`,
+        timestamp: new Date().toLocaleString('ar-LY')
+      }]
+    };
+    
+    try {
+      await setDoc(doc(db, 'claims', selectedClaim.id), updatedClaim);
+      setSelectedClaim(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `claims/${selectedClaim.id}`);
+    }
   };
 
   if (!user) {
@@ -231,33 +456,150 @@ const App: React.FC = () => {
 
             <div className="space-y-6">
               {loginStep === 'initial' && (
-                <>
-                  <button onClick={() => handleLogin(UserRole.EMPLOYEE)} className="w-full group relative p-6 sm:p-8 bg-slate-50 hover:bg-litcBlue rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-500 flex items-center justify-between border border-slate-100 overflow-hidden shadow-sm hover:shadow-[0_20px_40px_rgba(0,92,132,0.15)] hover:-translate-y-1">
-                    <div className="flex items-center gap-4 sm:gap-6 relative z-10">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center text-litcBlue transition-all shadow-inner group-hover:scale-110 group-hover:rotate-6">
-                         <UserCircle size={28} className="sm:w-8 sm:h-8" />
-                      </div>
-                      <div className="text-right">
-                         <p className="font-black text-lg sm:text-xl text-slate-900 group-hover:text-white transition-colors">بوابة الموظف</p>
-                         <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Employee Portal</p>
-                      </div>
-                    </div>
-                    <ChevronRight size={20} className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2 shrink-0" />
-                  </button>
-
-                  <button onClick={() => setLoginStep('official')} className="w-full group p-6 sm:p-8 bg-litcDark hover:bg-litcBlue text-white rounded-[2rem] sm:rounded-[2.5rem] transition-all duration-500 flex items-center justify-between shadow-2xl border border-white/5 overflow-hidden hover:-translate-y-1">
-                     <div className="flex items-center gap-4 sm:gap-6 relative z-10">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/10 group-hover:bg-litcOrange rounded-[1.2rem] sm:rounded-[1.5rem] flex items-center justify-center text-litcOrange group-hover:text-white transition-all shadow-inner group-hover:scale-110 group-hover:-rotate-6">
-                           <ShieldCheck size={28} className="sm:w-8 sm:h-8" />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <button onClick={() => setLoginStep('email-login')} className="w-full group p-6 bg-slate-50 hover:bg-litcBlue rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
+                      <div className="flex items-center gap-4 relative z-10">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-litcBlue transition-all group-hover:scale-110">
+                           <Mail size={24} />
                         </div>
                         <div className="text-right">
-                           <p className="font-black text-lg sm:text-xl">الدخول كمسؤول</p>
-                           <p className="text-[9px] sm:text-[10px] font-bold text-white/50 uppercase tracking-widest">Medical Admin & Audit</p>
+                           <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">تسجيل الدخول</p>
+                           <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Email Login</p>
                         </div>
-                     </div>
-                     <ChevronRight size={20} className="text-white/50 group-hover:text-white transition-colors group-hover:translate-x-2 shrink-0" />
-                  </button>
-                </>
+                      </div>
+                      <ChevronRight size={20} className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2" />
+                    </button>
+
+                    <button onClick={() => setLoginStep('email-signup')} className="w-full group p-6 bg-white hover:bg-litcOrange rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
+                      <div className="flex items-center gap-4 relative z-10">
+                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-litcOrange transition-all group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
+                           <UserCircle size={24} />
+                        </div>
+                        <div className="text-right">
+                           <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">إنشاء حساب جديد</p>
+                           <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Create New Account</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={20} className="text-litcBlue group-hover:text-white transition-colors group-hover:translate-x-2" />
+                    </button>
+                  </div>
+
+                  <div className="relative py-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                    <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black text-slate-400"><span className="bg-white px-4">أو عبر</span></div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <button onClick={handleGoogleLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
+                      <Chrome size={24} className="text-red-500 group-hover:scale-110 transition-transform" />
+                    </button>
+                    <button onClick={handleMicrosoftLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
+                      <Database size={24} className="text-litcBlue group-hover:scale-110 transition-transform" />
+                    </button>
+                    <button onClick={() => setLoginStep('phone-login')} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
+                      <Phone size={24} className="text-green-500 group-hover:scale-110 transition-transform" />
+                    </button>
+                  </div>
+
+                  <button onClick={() => setLoginStep('official')} className="w-full mt-6 py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em] border-t border-slate-50">الدخول كمسؤول نظام</button>
+                </div>
+              )}
+
+              {loginStep === 'email-login' && (
+                <form onSubmit={handleEmailLogin} className="space-y-5 animate-in slide-in-from-bottom-10">
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="email" 
+                        placeholder="البريد الإلكتروني" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="password" 
+                        placeholder="كلمة المرور" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  <button type="submit" className="w-full py-4 bg-litcBlue text-white font-black rounded-2xl shadow-lg shadow-litcBlue/20 hover:-translate-y-1 transition-all">دخول</button>
+                  <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
+                </form>
+              )}
+
+              {loginStep === 'email-signup' && (
+                <form onSubmit={handleEmailSignup} className="space-y-5 animate-in slide-in-from-bottom-10">
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="الاسم بالكامل" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="email" 
+                        placeholder="البريد الإلكتروني" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="password" 
+                        placeholder="كلمة المرور" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  <button type="submit" className="w-full py-4 bg-litcOrange text-white font-black rounded-2xl shadow-lg shadow-litcOrange/20 hover:-translate-y-1 transition-all">إنشاء الحساب</button>
+                  <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
+                </form>
+              )}
+
+              {loginStep === 'phone-login' && (
+                <form onSubmit={handlePhoneLogin} className="space-y-5 animate-in slide-in-from-bottom-10">
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Phone className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="tel" 
+                        placeholder="رقم الهاتف (مثال: +218...)" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  <button type="submit" className="w-full py-4 bg-green-500 text-white font-black rounded-2xl shadow-lg shadow-green-500/20 hover:-translate-y-1 transition-all">إرسال رمز التحقق</button>
+                  <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
+                </form>
               )}
 
               {loginStep === 'official' && (
@@ -352,7 +694,7 @@ const App: React.FC = () => {
           onUpdateHealthProfile={handleUpdateHealthProfile} 
         />;
       case 'submit-claim':
-        return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={(data) => {
+        return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={async (data) => {
           const newClaim: Claim = {
             id: `MC-${Math.floor(1000 + Math.random() * 9000)}`,
             employeeId: user.id,
@@ -372,8 +714,13 @@ const App: React.FC = () => {
             })),
             auditTrail: [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
           };
-          setClaims([newClaim, ...claims]);
-          setActivePath('dashboard');
+          
+          try {
+            await setDoc(doc(db, 'claims', newClaim.id), newClaim);
+            setActivePath('dashboard');
+          } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, `claims/${newClaim.id}`);
+          }
         }} />;
       case 'archive':
         return <Archive claims={claims.filter(c => c.employeeId === user.id)} onSelectClaim={setSelectedClaim} />;
@@ -387,7 +734,7 @@ const App: React.FC = () => {
   return (
     <Layout 
       user={user} 
-      onLogout={() => setUser(null)} 
+      onLogout={handleLogout} 
       activePath={activePath} 
       setActivePath={setActivePath}
     >

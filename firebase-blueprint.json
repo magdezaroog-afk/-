@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and health data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["EMPLOYEE", "DOCTOR", "HEAD_OF_UNIT", "DATA_ENTRY", "AUDITOR"] },
+        "healthProfile": { "$ref": "HealthProfile" },
+        "activePlans": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "HealthProfile": {
+      "title": "HealthProfile",
+      "description": "User health metrics",
+      "type": "object",
+      "properties": {
+        "bloodType": { "type": "string" },
+        "height": { "type": "number" },
+        "weight": { "type": "number" },
+        "age": { "type": "number" },
+        "chronicDiseases": { "type": "array", "items": { "type": "string" } },
+        "pathway": { "type": "string" },
+        "dailyWaterIntake": { "type": "number" },
+        "systolicBP": { "type": "number" },
+        "diastolicBP": { "type": "number" },
+        "hba1c": { "type": "number" }
+      }
+    },
+    "Claim": {
+      "title": "Claim",
+      "description": "Medical claim submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "submissionDate": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "referenceNumber": { "type": "string" },
+        "invoiceCount": { "type": "number" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "department": { "type": "string" },
+        "invoices": { "type": "array", "items": { "type": "object" } },
+        "auditTrail": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["id", "employeeId", "status", "totalAmount"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/claims/{claimId}": {
+      "schema": "Claim",
+      "description": "Medical claims"
+    }
+  }
+}
