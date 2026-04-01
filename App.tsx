@@ -131,42 +131,45 @@ const App: React.FC = () => {
     testConnection();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // If a manual login is in progress, let handleLogin handle the state
+      if (manualLoginRef.current) {
+        console.log("Auth state changed during manual login, skipping observer update.");
+        return;
+      }
+
+      console.log("Auth state changed:", firebaseUser?.uid);
+      
       if (firebaseUser) {
-        // Fetch user profile from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setUser(userData);
-        } else {
-          // If profile doesn't exist (e.g. first time Google login), create it
-          const newUser: User = sanitizeForFirestore({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || 'مستخدم جديد',
-            role: UserRole.EMPLOYEE, // Default role
-            healthProfile: {
-              bloodType: '',
-              height: 0,
-              weight: 0,
-              age: 0,
-              chronicDiseases: [],
-              pathway: 'healthy',
-              dailyWaterIntake: 0,
-              systolicBP: 0,
-              diastolicBP: 0,
-              hba1c: 0
-            }
-          });
-          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
-          setUser(newUser);
+        try {
+          // Fetch user profile from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            console.log("User profile found:", userData.role);
+            setUser(userData);
+          } else {
+            console.log("No user profile found, creating default employee profile.");
+            // If profile doesn't exist (e.g. first time Google login), create it
+            const newUser: User = sanitizeForFirestore({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || 'مستخدم جديد',
+              role: UserRole.EMPLOYEE, // Default role
+              healthProfile: {
+                bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
+              }
+            });
+            await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+            setUser(newUser);
+          }
+        } catch (err) {
+          console.error("Error fetching/creating user profile:", err);
         }
       } else {
         setUser(null);
       }
       
-      if (!manualLoginRef.current) {
-        setIsLoggingIn(false);
-      }
+      setIsLoggingIn(false);
     });
 
     return () => unsubscribe();
@@ -275,12 +278,14 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (role: UserRole, specificUser?: any) => {
+    console.log(`Starting manual login for role: ${role}`);
     manualLoginRef.current = true;
     setIsLoggingIn(true);
     setError(null);
     try {
       let firebaseUser = auth.currentUser;
       if (!firebaseUser) {
+        console.log("No current user, signing in anonymously...");
         // Try to sign in anonymously if not already signed in
         try {
           const cred = await signInAnonymously(auth);
@@ -302,13 +307,16 @@ const App: React.FC = () => {
         }
       });
       
+      console.log("Saving user profile to Firestore:", userProfile.id);
       // Persist the role to Firestore immediately
       await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
+      
+      console.log("Login successful, updating state.");
       setUser(userProfile);
       setActivePath('dashboard');
     } catch (err: any) {
+      console.error("Login error details:", err);
       setError(err.message);
-      console.error("Login error:", err);
     } finally {
       manualLoginRef.current = false;
       setIsLoggingIn(false);
