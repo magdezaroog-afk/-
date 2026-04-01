@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, Claim, ClaimStatus, Invoice } from './types';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -23,14 +23,15 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   signOut,
-  updateProfile
+  updateProfile,
+  signInAnonymously
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy, getDocFromServer } from 'firebase/firestore';
 
 const INITIAL_CLAIMS: Claim[] = [];
 
 export const DATA_ENTRY_STAFF = [
-  { id: 'DE-1', name: 'يحي قرقاب', email: 'yahya@litc.ly', team: 'وحدة الصيدليات' },
+  { id: 'DE-1', name: 'يحيى قرقاب', email: 'yahya@litc.ly', team: 'وحدة الصيدليات' },
   { id: 'DE-2', name: 'محمود الدعوكي', email: 'mahmoud@litc.ly', team: 'وحدة المستشفيات' },
   { id: 'DE-3', name: 'عباس طنيش', email: 'abbas@litc.ly', team: 'وحدة العيادات والمختبرات' },
 ];
@@ -86,12 +87,26 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 };
 
+const sanitizeForFirestore = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => sanitizeForFirestore(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, sanitizeForFirestore(v)])
+    );
+  }
+  return obj;
+};
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activePath, setActivePath] = useState('dashboard');
   const [claims, setClaims] = useState<Claim[]>(INITIAL_CLAIMS);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(true);
+  const manualLoginRef = useRef(false);
   const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'phone-login'>('initial');
   
   // Auth Form State
@@ -120,10 +135,11 @@ const App: React.FC = () => {
         // Fetch user profile from Firestore
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
+          const userData = userDoc.data() as User;
+          setUser(userData);
         } else {
           // If profile doesn't exist (e.g. first time Google login), create it
-          const newUser: User = {
+          const newUser: User = sanitizeForFirestore({
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || 'مستخدم جديد',
@@ -140,14 +156,17 @@ const App: React.FC = () => {
               diastolicBP: 0,
               hba1c: 0
             }
-          };
+          });
           await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
           setUser(newUser);
         }
       } else {
         setUser(null);
       }
-      setIsLoggingIn(false);
+      
+      if (!manualLoginRef.current) {
+        setIsLoggingIn(false);
+      }
     });
 
     return () => unsubscribe();
@@ -188,7 +207,7 @@ const App: React.FC = () => {
       
       await updateProfile(firebaseUser, { displayName: name });
       
-      const newUser: User = {
+      const newUser: User = sanitizeForFirestore({
         id: firebaseUser.uid,
         email: email,
         name: name,
@@ -205,7 +224,7 @@ const App: React.FC = () => {
           diastolicBP: 0,
           hba1c: 0
         }
-      };
+      });
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
       setUser(newUser);
       setActivePath('dashboard');
@@ -255,63 +274,97 @@ const App: React.FC = () => {
     setLoginStep('initial');
   };
 
-  const handleLogin = (role: UserRole, specificUser?: any) => {
-    setUser({
-      id: specificUser?.id || user?.id || 'STF-1',
-      email: specificUser?.email || user?.email || `${role.toLowerCase()}@litc.ly`,
-      role: role,
-      name: specificUser?.name || user?.name || 'مسؤول النظام',
-      healthProfile: user?.healthProfile
-    });
-    setActivePath('dashboard');
+  const handleLogin = async (role: UserRole, specificUser?: any) => {
+    manualLoginRef.current = true;
+    setIsLoggingIn(true);
+    setError(null);
+    try {
+      let firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        // Try to sign in anonymously if not already signed in
+        try {
+          const cred = await signInAnonymously(auth);
+          firebaseUser = cred.user;
+        } catch (authErr: any) {
+          throw new Error("يجب تفعيل Anonymous Auth في إعدادات Firebase أو تسجيل الدخول أولاً: " + authErr.message);
+        }
+      }
+      
+      if (!firebaseUser) throw new Error("فشل الحصول على هوية المستخدم");
+
+      const userProfile: User = sanitizeForFirestore({
+        id: specificUser?.id || firebaseUser.uid,
+        email: specificUser?.email || firebaseUser.email || `${role.toLowerCase()}@litc.ly`,
+        role: role,
+        name: specificUser?.name || firebaseUser.displayName || (role === UserRole.DOCTOR ? 'د. أحمد علي' : 'مسؤول النظام'),
+        healthProfile: user?.healthProfile || {
+          bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
+        }
+      });
+      
+      // Persist the role to Firestore immediately
+      await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
+      setUser(userProfile);
+      setActivePath('dashboard');
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Login error:", err);
+    } finally {
+      manualLoginRef.current = false;
+      setIsLoggingIn(false);
+    }
   };
 
   const handleUpdateHealthProfile = async (profile: any) => {
     if (!user) return;
-    const updatedUser = { ...user, healthProfile: profile };
+    const updatedUser = sanitizeForFirestore({ ...user, healthProfile: profile });
     try {
       await setDoc(doc(db, 'users', user.id), updatedUser);
       setUser(updatedUser);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+    } catch (err: any) {
+      setError("فشل تحديث الملف الصحي: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
     }
   };
 
   const handleUpdatePlans = async (plans: any[]) => {
     if (!user) return;
-    const updatedUser = { ...user, activePlans: plans };
+    const updatedUser = sanitizeForFirestore({ ...user, activePlans: plans });
     try {
       await setDoc(doc(db, 'users', user.id), updatedUser);
       setUser(updatedUser);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+    } catch (err: any) {
+      setError("فشل تحديث الخطط: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
     }
   };
 
   const handleUpdateClaimStatus = async (newStatus: ClaimStatus, comment?: string) => {
-    if (!selectedClaim || !user) return;
+    const claimToUpdate = selectedClaim ? claims.find(c => c.id === selectedClaim.id) || selectedClaim : null;
+    if (!claimToUpdate || !user) return;
     
     const updatedClaim = {
-      ...selectedClaim,
+      ...claimToUpdate,
       status: newStatus,
       auditTrail: [
-        ...selectedClaim.auditTrail,
+        ...claimToUpdate.auditTrail,
         {
           id: Math.random().toString(),
           userId: user.id,
           userName: user.name,
           action: `تغيير الحالة إلى: ${newStatus}`,
           timestamp: new Date().toLocaleString('ar-LY'),
-          comment
+          comment: comment || ''
         }
       ]
     };
     
     try {
-      await setDoc(doc(db, 'claims', selectedClaim.id), updatedClaim);
+      await setDoc(doc(db, 'claims', claimToUpdate.id), sanitizeForFirestore(updatedClaim));
       setSelectedClaim(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `claims/${selectedClaim.id}`);
+    } catch (err: any) {
+      setError("فشل تحديث حالة المعاملة: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `claims/${claimToUpdate.id}`);
     }
   };
 
@@ -325,7 +378,7 @@ const App: React.FC = () => {
         return { 
           ...inv, 
           assignedToId: staffId, 
-          assignedToName: staffMember?.name,
+          assignedToName: staffMember?.name || 'موظف غير معروف',
           status: ClaimStatus.PENDING_DATA_ENTRY
         };
       }
@@ -351,9 +404,10 @@ const App: React.FC = () => {
     };
     
     try {
-      await setDoc(doc(db, 'claims', claimId), updatedClaim);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `claims/${claimId}`);
+      await setDoc(doc(db, 'claims', claimId), sanitizeForFirestore(updatedClaim));
+    } catch (err: any) {
+      setError("فشل إسناد الفواتير: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `claims/${claimId}`);
     }
   };
 
@@ -370,21 +424,23 @@ const App: React.FC = () => {
          userName: user.name,
          action: `تعديل حالة فاتورة فردية إلى ${newStatus}`,
          timestamp: new Date().toLocaleString('ar-LY'),
-         comment
+         comment: comment || ''
       }]
     };
     
     try {
-      await setDoc(doc(db, 'claims', claimId), updatedClaim);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `claims/${claimId}`);
+      await setDoc(doc(db, 'claims', claimId), sanitizeForFirestore(updatedClaim));
+    } catch (err: any) {
+      setError("فشل تحديث حالة الفاتورة: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `claims/${claimId}`);
     }
   };
 
   const handleSaveDataEntry = async (updatedInvoices: Invoice[]) => {
-    if (!selectedClaim || !user) return;
+    const claimToUpdate = selectedClaim ? claims.find(c => c.id === selectedClaim.id) || selectedClaim : null;
+    if (!claimToUpdate || !user) return;
     
-    const mergedInvoices = selectedClaim.invoices.map(inv => {
+    const mergedInvoices = claimToUpdate.invoices.map(inv => {
       const updated = updatedInvoices.find(u => u.id === inv.id);
       return updated ? { ...updated, status: ClaimStatus.PENDING_HEAD } : inv;
     });
@@ -392,10 +448,10 @@ const App: React.FC = () => {
     const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.PENDING_HEAD);
     
     const updatedClaim = {
-      ...selectedClaim,
+      ...claimToUpdate,
       invoices: mergedInvoices,
-      status: allBackToHead ? ClaimStatus.PENDING_HEAD : selectedClaim.status,
-      auditTrail: [...selectedClaim.auditTrail, {
+      status: allBackToHead ? ClaimStatus.PENDING_HEAD : claimToUpdate.status,
+      auditTrail: [...claimToUpdate.auditTrail, {
         id: Math.random().toString(),
         userId: user.id,
         userName: user.name,
@@ -405,10 +461,11 @@ const App: React.FC = () => {
     };
     
     try {
-      await setDoc(doc(db, 'claims', selectedClaim.id), updatedClaim);
+      await setDoc(doc(db, 'claims', claimToUpdate.id), sanitizeForFirestore(updatedClaim));
       setSelectedClaim(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `claims/${selectedClaim.id}`);
+    } catch (err: any) {
+      setError("فشل حفظ بيانات الإدخال: " + err.message);
+      handleFirestoreError(err, OperationType.WRITE, `claims/${claimToUpdate.id}`);
     }
   };
 
@@ -603,26 +660,39 @@ const App: React.FC = () => {
               )}
 
               {loginStep === 'official' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 animate-in slide-in-from-bottom-10">
-                   {[
-                     { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                     { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                     { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database size={24}/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
-                     { role: UserRole.AUDITOR, label: 'المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
-                   ].map(o => (
-                      <button key={o.role} onClick={o.action || (() => handleLogin(o.role))} className={`p-6 sm:p-8 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] text-slate-600 transition-all flex flex-row sm:flex-col items-center sm:justify-center gap-4 group shadow-sm hover:shadow-xl hover:-translate-y-1 ${o.color}`}>
-                         <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all shrink-0">{o.icon}</div>
-                         <span className="font-black text-sm">{o.label}</span>
-                      </button>
-                   ))}
-                   <button onClick={() => setLoginStep('initial')} className="sm:col-span-2 py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em]">الرجوع للرئيسية</button>
+                <div className="space-y-6 animate-in slide-in-from-bottom-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    {[
+                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
+                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
+                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database size={24}/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
+                      { role: UserRole.AUDITOR, label: 'المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
+                    ].map(o => (
+                        <button 
+                          key={o.role} 
+                          onClick={o.action || (() => handleLogin(o.role))} 
+                          disabled={isLoggingIn}
+                          className={`p-6 sm:p-8 bg-white border border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] text-slate-600 transition-all flex flex-row sm:flex-col items-center sm:justify-center gap-4 group shadow-sm hover:shadow-xl hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${o.color}`}
+                        >
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-xl sm:rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all shrink-0">{o.icon}</div>
+                          <span className="font-black text-sm">{o.label}</span>
+                        </button>
+                    ))}
+                  </div>
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  <button onClick={() => setLoginStep('initial')} className="w-full py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em]">الرجوع للرئيسية</button>
                 </div>
               )}
 
               {loginStep === 'data-entry-select' && (
                 <div className="space-y-4 animate-in slide-in-from-right-10">
                    {DATA_ENTRY_STAFF.map(s => (
-                     <button key={s.id} onClick={() => handleLogin(UserRole.DATA_ENTRY, s)} className="w-full p-6 bg-white hover:bg-litcOrange hover:text-white text-slate-700 rounded-[2rem] transition-all flex items-center justify-between group border border-slate-100 shadow-sm hover:shadow-xl">
+                     <button 
+                        key={s.id} 
+                        onClick={() => handleLogin(UserRole.DATA_ENTRY, s)} 
+                        disabled={isLoggingIn}
+                        className="w-full p-6 bg-white hover:bg-litcOrange hover:text-white text-slate-700 rounded-[2rem] transition-all flex items-center justify-between group border border-slate-100 shadow-sm hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
                         <div className="flex items-center gap-5">
                            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center font-black group-hover:bg-white/20 group-hover:text-white">{s.name.charAt(0)}</div>
                            <div className="text-right">
@@ -633,6 +703,7 @@ const App: React.FC = () => {
                         <ChevronRight size={18} className="group-hover:translate-x-2 transition-transform" />
                      </button>
                    ))}
+                   {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
                    <button onClick={() => setLoginStep('official')} className="w-full py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors">رجوع</button>
                 </div>
               )}
@@ -701,12 +772,12 @@ const App: React.FC = () => {
             employeeName: user.name,
             submissionDate: new Date().toISOString().split('T')[0],
             status: ClaimStatus.PENDING_DR,
-            totalAmount: data.totalAmount,
+            totalAmount: data.totalAmount || 0,
             referenceNumber: `REF-${Date.now().toString().slice(-6)}`,
             invoiceCount: data.invoices.length,
-            description: data.description,
-            location: data.location,
-            department: data.department,
+            description: data.description || '',
+            location: data.location || '',
+            department: data.department || '',
             invoices: data.invoices.map((inv: any) => ({ 
               ...inv, 
               status: ClaimStatus.PENDING_DR,
@@ -716,7 +787,7 @@ const App: React.FC = () => {
           };
           
           try {
-            await setDoc(doc(db, 'claims', newClaim.id), newClaim);
+            await setDoc(doc(db, 'claims', newClaim.id), sanitizeForFirestore(newClaim));
             setActivePath('dashboard');
           } catch (error) {
             handleFirestoreError(error, OperationType.WRITE, `claims/${newClaim.id}`);

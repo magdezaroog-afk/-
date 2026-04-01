@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Calculator, CheckCircle2,
   AlertCircle, ShieldCheck, FileText, Send, Clock, User as UserIcon,
-  Stethoscope, ShieldAlert, FileSearch, CheckCircle
+  Stethoscope, ShieldAlert, FileSearch, CheckCircle, UserPlus
 } from 'lucide-react';
 
 interface ClaimDetailProps {
@@ -19,6 +19,12 @@ interface ClaimDetailProps {
   onInvoiceAssign: (claimId: string, invoiceIds: string[], staffId: string) => void;
   onInvoiceStatusUpdate: (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => void;
 }
+
+const DATA_ENTRY_STAFF = [
+  { id: 'DE-1', name: 'يحيى قرقاب', team: 'وحدة الصيدليات' },
+  { id: 'DE-2', name: 'محمود الدعوكي', team: 'وحدة المستشفيات' },
+  { id: 'DE-3', name: 'عباس طنيش', team: 'وحدة العيادات والمختبرات' },
+];
 
 const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdateStatus, onInvoiceAssign, onInvoiceStatusUpdate }) => {
   const [globalComment, setGlobalComment] = useState('');
@@ -202,28 +208,47 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
             )}
 
             {isHead && (
-              <>
-                 <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد النهائي وتحويل الفواتير للمراجعة المالية')} 
-                   disabled={approvedInvoices.length === 0} 
-                   className="bg-emerald-600 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-emerald-500/30"
-                 >
-                    <ShieldCheck size={28} /> تحويل المعتمد ({approvedInvoices.length}) للمالية
-                 </button>
-                 <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.PENDING_DATA_ENTRY, globalComment || 'إرجاع الفواتير المرفوضة للمدقق للتصحيح')} 
-                   disabled={rejectedInvoices.length === 0} 
-                   className="bg-amber-500 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30"
-                 >
-                    <RotateCcw size={28} /> إرجاع المرفوض ({rejectedInvoices.length}) للمدقق
-                 </button>
-                 <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.REJECTED, globalComment || 'رفض المعاملة بالكامل')} 
-                   className="bg-slate-900 text-white px-10 py-6 rounded-[3rem] font-black text-xl hover:bg-rose-600 transition-all flex items-center gap-4 shadow-2xl"
-                 >
-                    <ShieldAlert size={28} /> رفض بالكامل
-                 </button>
-              </>
+              <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
+                 {claim.invoices.some(i => !i.assignedToId) ? (
+                   <div className="flex flex-col items-center gap-6 bg-litcDark/5 p-8 rounded-[3rem] border-2 border-dashed border-litcBlue/20 w-full max-w-4xl">
+                      <p className="font-black text-slate-600 flex items-center gap-3"><UserPlus className="text-litcBlue" /> إسناد المعاملة لموظف الإدخال الفني:</p>
+                      <div className="flex flex-wrap justify-center gap-4">
+                         {DATA_ENTRY_STAFF.map(s => (
+                           <button 
+                             key={s.id} 
+                             onClick={() => onInvoiceAssign(claim.id, claim.invoices.filter(i => !i.assignedToId).map(i => i.id), s.id)}
+                             className="px-8 py-4 bg-white hover:bg-litcBlue hover:text-white text-slate-700 rounded-2xl font-black text-sm transition-all border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 flex items-center gap-3"
+                           >
+                              <UserIcon size={18} /> {s.name}
+                           </button>
+                         ))}
+                      </div>
+                   </div>
+                 ) : (
+                   <>
+                      <button 
+                        onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد النهائي وتحويل الفواتير للمراجعة المالية')} 
+                        disabled={approvedInvoices.length === 0} 
+                        className="bg-emerald-600 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-emerald-500/30"
+                      >
+                         <ShieldCheck size={28} /> اعتماد نهائي وتحويل للمالية ({approvedInvoices.length})
+                      </button>
+                      <button 
+                        onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع المعاملة للموظف لوجود أخطاء في الفواتير')} 
+                        disabled={rejectedInvoices.length === 0} 
+                        className="bg-amber-500 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30"
+                      >
+                         <RotateCcw size={28} /> إرجاع المرفوض ({rejectedInvoices.length}) للموظف
+                      </button>
+                      <button 
+                        onClick={() => onUpdateStatus(ClaimStatus.REJECTED, globalComment || 'رفض المعاملة بالكامل')} 
+                        className="bg-slate-900 text-white px-10 py-6 rounded-[3rem] font-black text-xl hover:bg-rose-600 transition-all flex items-center gap-4 shadow-2xl"
+                      >
+                         <ShieldAlert size={28} /> رفض بالكامل
+                      </button>
+                   </>
+                 )}
+              </div>
             )}
          </div>
       </div>

@@ -79,7 +79,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
       ...inv,
       // نقوم بتضمين قرار المدقق في حالة الفاتورة المؤقتة
       status: invoiceDecisions[inv.id].status === 'VALID' ? ClaimStatus.APPROVED : ClaimStatus.RETURNED_TO_EMPLOYEE,
-      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id].comment }
+      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id].comment || '' }
     }));
     onSave(finalInvoices);
   };
