@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Calculator, CheckCircle2,
   AlertCircle, ShieldCheck, FileText, Send, Clock, User as UserIcon,
-  Stethoscope, ShieldAlert, FileSearch, CheckCircle, UserPlus
+  Stethoscope, ShieldAlert, FileSearch, CheckCircle, UserPlus, SearchCheck
 } from 'lucide-react';
 
 interface ClaimDetailProps {
@@ -34,6 +34,8 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const isHead = user.role === UserRole.HEAD_OF_UNIT;
   const isDoctor = user.role === UserRole.DOCTOR;
   const isAuditor = user.role === UserRole.AUDITOR;
+  const isEmployee = user.role === UserRole.EMPLOYEE;
+  const isAdmin = user.role === UserRole.ADMIN;
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
@@ -139,14 +141,21 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                        <div className="flex items-center justify-between mb-6">
                           <div className="flex items-center gap-4">
                              <div className={`w-12 h-12 rounded-[1.2rem] flex items-center justify-center font-black text-lg ${activeInvoiceIndex === idx ? 'bg-white/10 border border-white/20' : 'bg-white text-slate-300 shadow-inner'}`}>{idx + 1}</div>
-                             <p className="font-black text-sm group-hover:translate-x-1 transition-transform">{inv.hospitalName}</p>
+                                                           <div className="flex flex-col">
+                                <p className="font-black text-sm group-hover:translate-x-1 transition-transform">{inv.hospitalName}</p>
+                                {inv.ocrData?.dataEntryDecision && (
+                                  <span className={`text-[9px] font-black mt-1 px-2 py-0.5 rounded-full w-fit ${inv.ocrData.dataEntryDecision === 'VALID' ? 'bg-emerald-500/20 text-emerald-600' : 'bg-rose-500/20 text-rose-600'}`}>
+                                    توصية الإدخال: {inv.ocrData.dataEntryDecision === 'VALID' ? 'سليمة' : 'بها أخطاء'}
+                                  </span>
+                                )}
+                              </div>
                           </div>
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg ${inv.status === ClaimStatus.APPROVED ? 'bg-emerald-500 text-white' : inv.status === ClaimStatus.RETURNED_TO_EMPLOYEE ? 'bg-rose-500 text-white' : 'bg-slate-300'}`}>
                              {inv.status === ClaimStatus.APPROVED ? <Check size={18} /> : inv.status === ClaimStatus.RETURNED_TO_EMPLOYEE ? <X size={18} /> : <Clock size={18} />}
                           </div>
                        </div>
                        
-                       {(isHead || isDoctor) && activeInvoiceIndex === idx && (
+                       {((isHead && claim.status === ClaimStatus.PENDING_HEAD && inv.status !== ClaimStatus.PENDING_DATA_ENTRY) || (isDoctor && claim.status === ClaimStatus.PENDING_DR)) && activeInvoiceIndex === idx && (
                          <div className="mt-6 flex gap-3 animate-in slide-in-from-top-4" onClick={e => e.stopPropagation()}>
                             <button onClick={() => handleInvoiceDecision(inv.id, 'APPROVE')} className={`flex-1 py-3.5 rounded-2xl font-black text-[11px] transition-all flex items-center justify-center gap-2 ${inv.status === ClaimStatus.APPROVED ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white/10 text-white border border-white/20 hover:bg-emerald-500'}`}>
                                <CheckCircle size={14} /> اعتماد
@@ -191,7 +200,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
          </div>
 
          <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
-            {isDoctor && (
+            {isDoctor && claim.status === ClaimStatus.PENDING_DR && (
               <>
                  <button 
                    onClick={() => onUpdateStatus(ClaimStatus.PENDING_HEAD, globalComment || 'تم الاعتماد طبياً وتحويلها لرئيس الوحدة')} 
@@ -209,51 +218,65 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
             )}
 
             {isHead && (
-              <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
-                 {claim.invoices.some(i => !i.assignedToId) ? (
-                   <div className="flex flex-col items-center gap-6 bg-litcDark/5 p-8 rounded-[3rem] border-2 border-dashed border-litcBlue/20 w-full max-w-4xl">
-                      <p className="font-black text-slate-600 flex items-center gap-3"><UserPlus className="text-litcBlue" /> إسناد المعاملة لموظف الإدخال الفني:</p>
-                      <div className="flex flex-wrap justify-center gap-4">
-                         {DATA_ENTRY_STAFF.map(s => (
-                           <button 
-                             key={s.id} 
-                             onClick={() => onInvoiceAssign(claim.id, claim.invoices.filter(i => !i.assignedToId).map(i => i.id), s.id)}
-                             className="px-8 py-4 bg-white hover:bg-litcBlue hover:text-white text-slate-700 rounded-2xl font-black text-sm transition-all border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 flex items-center gap-3"
-                           >
-                              <UserIcon size={18} /> {s.name}
-                           </button>
-                         ))}
-                      </div>
-                   </div>
-                 ) : (
-                   <>
-                      <button 
-                        onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد والتحويل لمكتب المراجعة')} 
-                        disabled={approvedInvoices.length === 0} 
-                        className="bg-emerald-600 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-emerald-500/30"
-                      >
-                         <ShieldCheck size={28} /> الاعتماد والتحويل لي مكتب المراجعة ({approvedInvoices.length})
-                      </button>
-                      <button 
-                        onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع المعاملة للموظف لوجود أخطاء في الفواتير')} 
-                        disabled={rejectedInvoices.length === 0} 
-                        className="bg-amber-500 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30"
-                      >
-                         <RotateCcw size={28} /> إرجاع المرفوض ({rejectedInvoices.length}) للموظف
-                      </button>
-                      <button 
-                        onClick={() => onUpdateStatus(ClaimStatus.REJECTED, globalComment || 'رفض المعاملة بالكامل')} 
-                        className="bg-slate-900 text-white px-10 py-6 rounded-[3rem] font-black text-xl hover:bg-rose-600 transition-all flex items-center gap-4 shadow-2xl"
-                      >
-                         <ShieldAlert size={28} /> رفض بالكامل
-                      </button>
-                   </>
-                 )}
-              </div>
+               <>
+                 {(claim.status === ClaimStatus.PENDING_DATA_ENTRY || claim.invoices.some(i => i.status === ClaimStatus.PENDING_DATA_ENTRY)) ? (
+                    <div className="flex flex-col items-center gap-4 bg-litcBlue/5 p-8 rounded-[3rem] border border-litcBlue/20 w-full max-w-4xl text-center">
+                       <div className="flex items-center gap-4 text-litcBlue font-black text-xl">
+                          <Clock className="animate-spin-slow" /> المعاملة حالياً قيد الإدخال الفني
+                       </div>
+                       <p className="text-slate-500 font-bold">بانتظار انتهاء موظفي الإدخال من مراجعة وتدقيق البيانات المالية للفواتير المسندة إليهم.</p>
+                       <div className="flex gap-2 mt-2">
+                          {claim.invoices.map((inv, idx) => (
+                             <div key={idx} className={`w-3 h-3 rounded-full ${inv.status === ClaimStatus.PENDING_HEAD ? 'bg-emerald-500' : 'bg-slate-200 animate-pulse'}`} title={inv.assignedToName}></div>
+                          ))}
+                       </div>
+                    </div>
+                 ) : claim.status === ClaimStatus.PENDING_HEAD ? (
+                   claim.invoices.some(i => !i.assignedToId) ? (
+                     <div className="flex flex-col items-center gap-6 bg-litcDark/5 p-8 rounded-[3rem] border-2 border-dashed border-litcBlue/20 w-full max-w-4xl">
+                        <p className="font-black text-slate-600 flex items-center gap-3"><UserPlus className="text-litcBlue" /> إسناد المعاملة لموظف الإدخال الفني:</p>
+                        <div className="flex flex-wrap justify-center gap-4">
+                           {DATA_ENTRY_STAFF.map(s => (
+                             <button 
+                               key={s.id} 
+                               onClick={() => onInvoiceAssign(claim.id, claim.invoices.filter(i => !i.assignedToId).map(i => i.id), s.id)}
+                               className="px-8 py-4 bg-white hover:bg-litcBlue hover:text-white text-slate-700 rounded-2xl font-black text-sm transition-all border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 flex items-center gap-3"
+                             >
+                                <UserIcon size={18} /> {s.name}
+                             </button>
+                           ))}
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
+                        <button 
+                          onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد والتحويل لمكتب المراجعة')} 
+                          disabled={approvedInvoices.length === 0} 
+                          className="bg-emerald-600 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30"
+                        >
+                           <ShieldCheck size={28} /> الاعتماد والتحويل لي مكتب المراجعة ({approvedInvoices.length})
+                        </button>
+                        <button 
+                          onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع المعاملة للموظف لوجود أخطاء في الفواتير')} 
+                          disabled={rejectedInvoices.length === 0} 
+                          className="bg-amber-500 text-white px-14 py-6 rounded-[3rem] font-black text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30"
+                        >
+                           <RotateCcw size={28} /> إرجاع المرفوض ({rejectedInvoices.length}) للموظف
+                        </button>
+                        <button 
+                          onClick={() => onUpdateStatus(ClaimStatus.REJECTED, globalComment || 'رفض المعاملة بالكامل')} 
+                          className="bg-slate-900 text-white px-10 py-6 rounded-[3rem] font-black text-xl hover:bg-rose-600 transition-all flex items-center gap-4 shadow-2xl"
+                        >
+                           <ShieldAlert size={28} /> رفض بالكامل
+                        </button>
+                     </div>
+                   )
+                 ) : null}
+               </>
             )}
 
-            {isAuditor && (
-              <div className="flex flex-wrap justify-center gap-4 sm:gap-8 w-full">
+            {isAuditor && claim.status === ClaimStatus.PENDING_AUDIT && (
+              <>
                  <button 
                    onClick={() => onUpdateStatus(ClaimStatus.APPROVED, globalComment || 'تمت المراجعة النهائية والاعتماد للصرف')} 
                    className="bg-emerald-600 text-white px-6 sm:px-16 py-4 sm:py-6 rounded-[2rem] sm:rounded-[3rem] font-black text-sm sm:text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-2 sm:gap-4 shadow-emerald-500/30 w-full sm:w-auto justify-center"
@@ -266,7 +289,17 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                  >
                     <RotateCcw size={24} className="sm:w-7 sm:h-7" /> إرجاع للموظف
                  </button>
-              </div>
+              </>
+            )}
+
+            {/* Fallback status display for all roles when no actions are available */}
+            {((isDoctor && claim.status !== ClaimStatus.PENDING_DR) || 
+              (isHead && claim.status !== ClaimStatus.PENDING_HEAD && claim.status !== ClaimStatus.PENDING_DATA_ENTRY && !claim.invoices.some(i => i.status === ClaimStatus.PENDING_DATA_ENTRY)) ||
+              (isAuditor && claim.status !== ClaimStatus.PENDING_AUDIT) ||
+              isEmployee || isAdmin) && (
+                <div className="text-slate-400 font-black text-xl py-6 flex items-center gap-4">
+                   <SearchCheck /> المعاملة في حالة: {STATUS_UI[claim.status].label}
+                </div>
             )}
          </div>
       </div>

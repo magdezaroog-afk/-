@@ -78,8 +78,8 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
     const finalInvoices = editingInvoices.map(inv => ({
       ...inv,
       // نقوم بتضمين قرار المدقق في حالة الفاتورة المؤقتة
-      status: invoiceDecisions[inv.id].status === 'VALID' ? ClaimStatus.APPROVED : ClaimStatus.RETURNED_TO_EMPLOYEE,
-      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id].comment || '' }
+      status: ClaimStatus.PENDING_HEAD,
+      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id].comment || '', dataEntryDecision: invoiceDecisions[inv.id].status }
     }));
     onSave(finalInvoices);
   };
