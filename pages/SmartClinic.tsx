@@ -75,9 +75,10 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
       </div>
 
       {/* BMI Section */}
-      <section className="bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border border-slate-100 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 max-w-md mx-auto sm:max-w-none text-center sm:text-right">
-        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 text-litcBlue rounded-2xl flex items-center justify-center shadow-inner">
+      <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] flex flex-col sm:flex-row items-center justify-between gap-6 max-w-md mx-auto sm:max-w-none text-center sm:text-right relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-litcBlue/10 transition-all"></div>
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 relative z-10">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 text-litcBlue rounded-[1.5rem] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
             <Scale className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
           <div>
@@ -90,11 +91,11 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
           </div>
         </div>
         {user.healthProfile?.height && user.healthProfile?.weight && (
-          <div className="text-center">
-            <p className="text-2xl sm:text-3xl font-black text-litcBlue">
+          <div className="text-center relative z-10">
+            <p className="text-2xl sm:text-4xl font-black text-litcBlue">
               {calculateBMI(user.healthProfile.weight, user.healthProfile.height)}
             </p>
-            <p className={`text-[10px] sm:text-xs font-black mt-1 ${getBMICategory(parseFloat(calculateBMI(user.healthProfile.weight, user.healthProfile.height))).color}`}>
+            <p className={`text-[10px] sm:text-xs font-black mt-1 px-4 py-1 rounded-full bg-slate-50 border border-slate-100 ${getBMICategory(parseFloat(calculateBMI(user.healthProfile.weight, user.healthProfile.height))).color}`}>
               {getBMICategory(parseFloat(calculateBMI(user.healthProfile.weight, user.healthProfile.height))).label}
             </p>
           </div>
@@ -103,10 +104,11 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 text-right">
         <div className="lg:col-span-8 space-y-6 sm:space-y-10">
-          <section className="bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-xl overflow-hidden relative max-w-md mx-auto lg:max-w-none">
-             <div className="flex items-center justify-between mb-8 sm:mb-10 text-center sm:text-right">
+          <section className="bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative max-w-md mx-auto lg:max-w-none group">
+             <div className="absolute top-0 left-0 w-48 h-48 bg-litcBlue/5 rounded-full -ml-24 -mt-24 blur-3xl group-hover:bg-litcBlue/10 transition-all"></div>
+             <div className="flex items-center justify-between mb-8 sm:mb-10 text-center sm:text-right relative z-10">
                 <h3 className="text-xl sm:text-3xl font-black text-litcBlue flex items-center gap-3 sm:gap-4"><Microscope className="text-litcOrange w-7 h-7 sm:w-9 sm:h-9" /> استشاري التحاليل الذكي</h3>
-                <button onClick={() => labInputRef.current?.click()} className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-50 text-litcBlue rounded-xl sm:rounded-2xl hover:bg-litcBlue hover:text-white transition-all shadow-lg flex items-center justify-center">
+                <button onClick={() => labInputRef.current?.click()} className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-50 text-litcBlue rounded-[1.5rem] hover:bg-litcBlue hover:text-white transition-all shadow-lg flex items-center justify-center group-hover:scale-105">
                    {loading === 'lab' ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <Camera className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </button>
                 <input type="file" ref={labInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'lab')} />
@@ -159,11 +161,11 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
           </section>
         </div>
         <div className="lg:col-span-4 space-y-6 sm:space-y-10">
-          <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-xl relative overflow-hidden group max-w-md mx-auto lg:max-w-none text-right">
+          <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group max-w-md mx-auto lg:max-w-none text-right">
              <div className="absolute top-0 right-0 w-32 h-32 bg-litcOrange/5 rounded-full blur-3xl group-hover:bg-litcOrange/10 transition-all"></div>
              <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
                 <h3 className="text-xl sm:text-2xl font-black text-litcBlue flex items-center gap-2 sm:gap-3"><Utensils className="text-litcOrange w-5 h-5 sm:w-6 sm:h-6" /> محلل التغذية</h3>
-                <button onClick={() => foodInputRef.current?.click()} className="w-12 h-12 sm:w-14 sm:h-14 bg-orange-50 text-litcOrange rounded-xl sm:rounded-2xl flex items-center justify-center hover:bg-litcOrange hover:text-white transition-all shadow-md">
+                <button onClick={() => foodInputRef.current?.click()} className="w-12 h-12 sm:w-14 sm:h-14 bg-orange-50 text-litcOrange rounded-[1.5rem] flex items-center justify-center hover:bg-litcOrange hover:text-white transition-all shadow-md group-hover:scale-105">
                    {loading === 'food' ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <Camera className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </button>
                 <input type="file" ref={foodInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'food')} />
@@ -216,10 +218,11 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
                </div>
              )}
           </section>
-          <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-xl max-w-md mx-auto lg:max-w-none text-right">
-             <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] max-w-md mx-auto lg:max-w-none text-right group relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-24 h-24 bg-litcBlue/5 rounded-full -ml-12 -mt-12 blur-2xl group-hover:bg-litcBlue/10 transition-all"></div>
+             <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
                 <h3 className="text-lg sm:text-xl font-black text-litcBlue flex items-center gap-2 sm:gap-3"><Pill className="text-litcOrange w-5 h-5 sm:w-6 sm:h-6" /> قارئ الأدوية</h3>
-                <button onClick={() => medInputRef.current?.click()} className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-litcBlue rounded-xl sm:rounded-2xl flex items-center justify-center">
+                <button onClick={() => medInputRef.current?.click()} className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-litcBlue rounded-[1.2rem] flex items-center justify-center group-hover:scale-105 transition-transform">
                    {loading === 'med' ? <Loader2 className="w-4.5 h-4.5 sm:w-5 sm:h-5 animate-spin" /> : <Plus className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                 </button>
                 <input type="file" ref={medInputRef} className="hidden" accept="image/*" onChange={(e) => handleUpload(e, 'med')} />

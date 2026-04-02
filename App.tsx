@@ -14,7 +14,7 @@ import {
   Loader2, ShieldCheck, UserCircle, 
   ChevronRight, Database, UserCheck, Stethoscope, HeartPulse, Activity, 
   Shield, Pill, Syringe, ClipboardList, Sparkles, Heart, Mail, Lock, 
-  Phone, Github, Chrome, MessageSquare, AlertCircle
+  Phone, Github, Chrome, MessageSquare, AlertCircle, MapPin, Building2, Briefcase
 } from 'lucide-react';
 import { auth, db, googleProvider, microsoftProvider } from './firebase';
 import { 
@@ -116,6 +116,10 @@ const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [location, setLocation] = useState('');
+  const [building, setBuilding] = useState('');
+  const [department, setDepartment] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +221,10 @@ const App: React.FC = () => {
         email: email,
         name: name,
         role: UserRole.EMPLOYEE,
+        location,
+        building,
+        department,
+        jobTitle,
         healthProfile: {
           bloodType: '',
           height: 0,
@@ -606,8 +614,8 @@ const App: React.FC = () => {
               )}
 
               {loginStep === 'email-signup' && (
-                <form onSubmit={handleEmailSignup} className="space-y-5 animate-in slide-in-from-bottom-10">
-                  <div className="space-y-4">
+                <form onSubmit={handleEmailSignup} className="space-y-4 animate-in slide-in-from-bottom-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="relative">
                       <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
@@ -638,6 +646,56 @@ const App: React.FC = () => {
                         className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                      <select 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm appearance-none"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        required
+                      >
+                        <option value="">اختر الموقع</option>
+                        {['طرابلس', 'بنغازي', 'مصراتة', 'الزاوية', 'سبها', 'الخمس', 'زليتن'].map(loc => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="relative">
+                      <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                      <input 
+                        type="text" 
+                        placeholder="المبنى" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={building}
+                        onChange={(e) => setBuilding(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="relative">
+                      <Briefcase className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                      <select 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm appearance-none"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        required
+                      >
+                        <option value="">اختر الإدارة</option>
+                        {['الإدارة العامة', 'إدارة العمليات', 'إدارة الموارد البشرية', 'إدارة المالية', 'إدارة المبيعات', 'إدارة التقنية'].map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="relative sm:col-span-2">
+                      <UserCheck className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                      <input 
+                        type="text" 
+                        placeholder="الوظيفة" 
+                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                        value={jobTitle}
+                        onChange={(e) => setJobTitle(e.target.value)}
                         required
                       />
                     </div>
@@ -673,6 +731,7 @@ const App: React.FC = () => {
                 <div className="space-y-6 animate-in slide-in-from-bottom-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {[
+                      { role: UserRole.EMPLOYEE, label: 'موظف (مستخدم)', icon: <UserCircle className="w-6 h-6"/>, color: 'hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-600' },
                       { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
@@ -737,7 +796,7 @@ const App: React.FC = () => {
 
     if (currentClaim) {
       if (user.role === UserRole.DATA_ENTRY) {
-        return <DataEntry claim={currentClaim} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
+        return <DataEntry claim={currentClaim} claims={claims} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
       }
       return (
         <ClaimDetail 
@@ -786,8 +845,8 @@ const App: React.FC = () => {
             referenceNumber: `REF-${Date.now().toString().slice(-6)}`,
             invoiceCount: data.invoices.length,
             description: data.description || '',
-            location: data.location || '',
-            department: data.department || '',
+            location: user.location || '',
+            department: user.department || '',
             invoices: data.invoices.map((inv: any) => ({ 
               ...inv, 
               status: ClaimStatus.PENDING_DR,

@@ -6,17 +6,19 @@ import {
   ArrowRight, Sparkles, Loader2, Activity,
   Maximize2, Building2, PlusCircle, 
   Trash2, Hash, Calculator, CheckCircle2, Send,
-  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare
+  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare,
+  Stethoscope, Monitor, Glasses, Coins, Calendar
 } from 'lucide-react';
 
 interface DataEntryProps {
   claim: Claim;
+  claims: Claim[];
   user: User;
   onSave: (updatedInvoices: Invoice[]) => void;
   onBack: () => void;
 }
 
-const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) => {
+const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBack }) => {
   const assignedInvoices = useMemo(() => 
     claim.invoices.filter(inv => inv.assignedToId === user.id || !inv.assignedToId), 
     [claim.invoices, user.id]
@@ -35,11 +37,75 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
   const handleUpdateInvoice = (updates: Partial<Invoice>) => {
     setEditingInvoices(prev => prev.map((inv, idx) => {
       if (idx === activeIndex) {
-        return { ...inv, ...updates };
+        const updatedInv = { ...inv, ...updates };
+        
+        // Financial Logic for Coverage
+        let coverage = 0.9; // Default 90%
+        if (updatedInv.isMajorSurgery || updatedInv.isMedicalDevice) {
+          coverage = 1.0;
+        }
+        
+        const amountLYD = (updatedInv.amount || 0) * (updatedInv.exchangeRate || 1.0);
+        updatedInv.originalAmountInLYD = amountLYD;
+        
+        if (updatedInv.isGlasses) {
+          const cap = 1500;
+          updatedInv.companyPortion = Math.min(amountLYD, cap);
+          updatedInv.employeePortion = Math.max(0, amountLYD - cap);
+          updatedInv.excessPaidByEmployee = updatedInv.employeePortion;
+        } else {
+          updatedInv.companyPortion = amountLYD * coverage;
+          updatedInv.employeePortion = amountLYD * (1 - coverage);
+        }
+        
+        updatedInv.netAmountLYD = updatedInv.companyPortion;
+        updatedInv.coveragePercentage = coverage * 100;
+
+        return updatedInv;
       }
       return inv;
     }));
   };
+
+  // Global Duplicate Detection across all claims
+  const isGlobalDuplicate = useMemo(() => {
+    if (!currentInv) return false;
+    return claims.some(c => 
+      c.invoices.some(inv => 
+        inv.id !== currentInv.id && 
+        inv.invoiceNumber === currentInv.invoiceNumber && 
+        inv.date === currentInv.date && 
+        inv.amount === currentInv.amount
+      )
+    );
+  }, [currentInv, claims]);
+
+  // Check for glasses limit (1 per year)
+  const hasPreviousGlassesThisYear = useMemo(() => {
+    if (!currentInv || !currentInv.isGlasses) return false;
+    const currentYear = new Date().getFullYear().toString();
+    return claims.some(c => 
+      c.employeeId === claim.employeeId && 
+      c.invoices.some(inv => 
+        inv.id !== currentInv.id && 
+        inv.isGlasses && 
+        inv.date.startsWith(currentYear) &&
+        (inv.status === ClaimStatus.PAID || inv.status === ClaimStatus.PENDING_AUDIT)
+      )
+    );
+  }, [currentInv, claims, claim.employeeId]);
+
+  const isDuplicate = useMemo(() => {
+    if (!currentInv) return false;
+    // Local duplicate in current claim
+    const isLocalDuplicate = editingInvoices.some((inv, idx) => 
+      idx !== activeIndex && 
+      inv.invoiceNumber === currentInv.invoiceNumber && 
+      inv.date === currentInv.date && 
+      inv.amount === currentInv.amount
+    );
+    return isLocalDuplicate || isGlobalDuplicate;
+  }, [currentInv, editingInvoices, activeIndex, isGlobalDuplicate]);
 
   const setDecision = (id: string, status: 'VALID' | 'ERROR') => {
     setInvoiceDecisions(prev => ({
@@ -94,15 +160,16 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
       )}
 
       {/* Header */}
-      <div className="flex flex-col xl:flex-row items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-10 bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] shadow-sm border border-slate-100 text-center xl:text-right max-w-md mx-auto xl:max-w-none">
-        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-          <button onClick={onBack} className="p-3 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl hover:bg-litcBlue hover:text-white transition-all shadow-inner"><ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+      <div className="flex flex-col xl:flex-row items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-10 bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] border border-slate-100 text-center xl:text-right max-w-md mx-auto xl:max-w-none relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-litcBlue/10 transition-all"></div>
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 relative z-10">
+          <button onClick={onBack} className="p-3 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl hover:bg-litcBlue hover:text-white transition-all shadow-inner group-hover:scale-110"><ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" /></button>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">المعالجة الفنية للفواتير</h1>
             <p className="text-slate-500 font-bold text-[10px] sm:text-sm">أنت تقوم الآن بتدقيق فواتير الموظف: {claim.employeeName}</p>
           </div>
         </div>
-        <div className="flex -space-x-2 sm:-space-x-3 space-x-reverse">
+        <div className="flex -space-x-2 sm:-space-x-3 space-x-reverse relative z-10">
           {editingInvoices.map((inv, i) => (
             <button 
               key={inv.id} 
@@ -126,30 +193,115 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
         </div>
 
         <div className="lg:col-span-8 space-y-8">
-           <section className="bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-sm max-w-md mx-auto lg:max-w-none">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 mb-8 sm:mb-12 text-center md:text-right">
+           <section className="bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] max-w-md mx-auto lg:max-w-none group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-litcBlue/5 rounded-full -mr-24 -mt-24 blur-3xl group-hover:bg-litcBlue/10 transition-all"></div>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 mb-8 sm:mb-12 text-center md:text-right relative z-10">
                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3 sm:gap-4"><Edit3 className="text-litcBlue w-6 h-6 sm:w-8 sm:h-8" /> تفاصيل البنود والأسعار</h3>
-                 <button onClick={handleAutoAnalyze} disabled={isAnalyzing} className="w-full md:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-litcOrange text-white px-6 py-4 sm:px-8 sm:py-5 rounded-xl sm:rounded-[2rem] text-xs sm:text-sm font-black hover:bg-orange-600 transition-all shadow-xl">
+                 <button onClick={handleAutoAnalyze} disabled={isAnalyzing} className="w-full md:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-litcOrange text-white px-6 py-4 sm:px-8 sm:py-5 rounded-xl sm:rounded-[2rem] text-xs sm:text-sm font-black hover:bg-orange-600 transition-all shadow-xl group-hover:scale-105">
                     {isAnalyzing ? <Loader2 className="w-4.5 h-4.5 sm:w-6 sm:h-6 animate-spin" /> : <Sparkles className="w-4.5 h-4.5 sm:w-6 sm:h-6" />} التحليل الآلي للبنود
                  </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                 <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
-                    <div className="relative">
-                      <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                      <input type="text" value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
+                     <div className="relative">
+                       <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="text" value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
+                     <div className="relative">
+                       <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="text" value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className={`w-full bg-slate-50 border-2 ${isDuplicate ? 'border-rose-500 bg-rose-50' : 'border-slate-100'} rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all`} />
+                       {isDuplicate && <div className="absolute -bottom-6 right-6 text-rose-500 text-[10px] font-black flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> تنبيه: فاتورة مكررة (نفس الرقم والتاريخ والقيمة)</div>}
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">تاريخ الفاتورة</label>
+                     <div className="relative">
+                       <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="date" value={currentInv.date} onChange={(e) => handleUpdateInvoice({ date: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">القيمة والعملة</label>
+                     <div className="flex gap-4">
+                       <div className="relative flex-1">
+                         <Coins className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                         <input type="number" value={currentInv.amount} onChange={(e) => handleUpdateInvoice({ amount: Number(e.target.value) })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                       </div>
+                       <select 
+                         value={currentInv.currency} 
+                         onChange={(e) => handleUpdateInvoice({ currency: e.target.value as any, exchangeRate: e.target.value === 'LYD' ? 1.0 : currentInv.exchangeRate })}
+                         className="bg-slate-50 border-2 border-slate-100 rounded-[2rem] px-6 font-black outline-none focus:border-litcBlue transition-all"
+                       >
+                         <option value="LYD">LYD</option>
+                         <option value="USD">USD</option>
+                         <option value="EUR">EUR</option>
+                         <option value="TND">TND</option>
+                       </select>
+                     </div>
+                  </div>
+                  {currentInv.currency !== 'LYD' && (
+                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                       <label className="text-[11px] font-black text-rose-500 uppercase tracking-widest px-2">سعر الصرف (مقابل الدينار)</label>
+                       <div className="relative">
+                         <Calculator className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-300 w-5 h-5" />
+                         <input 
+                           type="number" 
+                           step="0.01"
+                           value={currentInv.exchangeRate} 
+                           onChange={(e) => handleUpdateInvoice({ exchangeRate: Number(e.target.value) })} 
+                           className="w-full bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-rose-500 transition-all text-rose-600" 
+                         />
+                       </div>
+                    </div>
+                  )}
+               </div>
+
+               {/* Financial Toggles */}
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+                  <button 
+                    onClick={() => handleUpdateInvoice({ isMajorSurgery: !currentInv.isMajorSurgery, isMedicalDevice: false, isGlasses: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMajorSurgery ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Stethoscope className="w-6 h-6" />
+                    <span className="text-[10px] font-black">عملية كبرى (100%)</span>
+                  </button>
+                  <button 
+                    onClick={() => handleUpdateInvoice({ isMedicalDevice: !currentInv.isMedicalDevice, isMajorSurgery: false, isGlasses: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMedicalDevice ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Monitor className="w-6 h-6" />
+                    <span className="text-[10px] font-black">جهاز طبي (100%)</span>
+                  </button>
+                  <button 
+                    onClick={() => handleUpdateInvoice({ isGlasses: !currentInv.isGlasses, isMajorSurgery: false, isMedicalDevice: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 relative ${currentInv.isGlasses ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Glasses className="w-6 h-6" />
+                    <span className="text-[10px] font-black">نظارات (1500 د.ل)</span>
+                    {hasPreviousGlassesThisYear && (
+                      <div className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg animate-bounce">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+               </div>
+
+               {hasPreviousGlassesThisYear && currentInv.isGlasses && (
+                 <div className="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-600 animate-in slide-in-from-top-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm shrink-0">
+                       <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div>
+                       <p className="font-black text-sm">تنبيه: تم تجاوز الحد السنوي للنظارات</p>
+                       <p className="text-[10px] font-bold opacity-80">الموظف (أو أحد أفراد عائلته) حصل بالفعل على نظارة طبية خلال هذا العام. سيتم رفض هذا البند آلياً.</p>
                     </div>
                  </div>
-                 <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
-                    <div className="relative">
-                      <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                      <input type="text" value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
-                    </div>
-                 </div>
-              </div>
+               )}
 
               <div className="space-y-6">
                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">تفكيك الأصناف</h4>

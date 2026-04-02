@@ -84,10 +84,11 @@ const Archive: React.FC<ArchiveProps> = ({ claims, onSelectClaim }) => {
             <button 
               key={claim.id} 
               onClick={() => onSelectClaim(claim)}
-              className="w-full bg-white p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8 group text-center sm:text-right"
+              className="w-full bg-white p-4 sm:p-8 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-indigo-100 transition-all flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8 group text-center sm:text-right relative overflow-hidden"
             >
-              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 w-full md:w-auto">
-                <div className="w-12 h-12 sm:w-20 sm:h-20 bg-slate-50 rounded-xl sm:rounded-[2rem] flex items-center justify-center text-slate-300 font-black text-[10px] sm:text-sm group-hover:bg-[#5351f1] group-hover:text-white transition-all">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-50 transition-all"></div>
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 w-full md:w-auto relative z-10">
+                <div className="w-12 h-12 sm:w-20 sm:h-20 bg-slate-50 rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-slate-300 font-black text-[10px] sm:text-sm group-hover:bg-[#5351f1] group-hover:text-white transition-all shadow-inner">
                   #{claim.id.slice(-4)}
                 </div>
                 <div className="flex-1">
@@ -99,16 +100,16 @@ const Archive: React.FC<ArchiveProps> = ({ claims, onSelectClaim }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 sm:gap-8 w-full md:w-auto justify-between md:justify-end">
+              <div className="flex items-center gap-4 sm:gap-8 w-full md:w-auto justify-between md:justify-end relative z-10">
                 <div className="text-right sm:text-left">
                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
                    <p className="text-xl sm:text-2xl font-black text-slate-900">{claim.totalAmount.toLocaleString()} <span className="text-[10px] sm:text-xs font-medium">د.ل</span></p>
                 </div>
-                <div className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-[8px] sm:text-[10px] font-black uppercase flex items-center gap-1.5 sm:gap-2 ${STATUS_UI[claim.status].color}`}>
+                <div className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-[8px] sm:text-[10px] font-black uppercase flex items-center gap-1.5 sm:gap-2 shadow-sm ${STATUS_UI[claim.status].color}`}>
                   {STATUS_UI[claim.status].icon}
                   {STATUS_UI[claim.status].label}
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-[#5351f1] transition-all">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-[#5351f1] transition-all shadow-inner">
                    <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
               </div>

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, UserCircle, Settings, 
   CheckCircle2, XCircle, Clock, RotateCcw,
   Stethoscope, ShieldCheck, Database, BarChart3,
-  SearchCheck, PlusCircle, BrainCircuit, Search
+  SearchCheck, PlusCircle, BrainCircuit, Search, CreditCard
 } from 'lucide-react';
 import { UserRole, ClaimStatus } from './types';
 
@@ -20,12 +20,13 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon: React.ReactNode }> = {
   [ClaimStatus.PENDING_DR]: { label: 'بانتظار الدكتور', color: 'text-amber-600 bg-amber-50', icon: <Stethoscope className="w-4 h-4" /> },
   [ClaimStatus.PENDING_HEAD]: { label: 'بانتظار رئيس الوحدة', color: 'text-litcBlue bg-blue-50', icon: <ShieldCheck className="w-4 h-4" /> },
-  [ClaimStatus.PENDING_DATA_ENTRY]: { label: 'بانتظار الإدخال الفني', color: 'text-litcBlue bg-blue-50', icon: <Database className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_DATA_ENTRY]: { label: 'بانتظار الإدخال الفني', color: 'text-indigo-600 bg-indigo-50', icon: <Database className="w-4 h-4" /> },
   [ClaimStatus.PENDING_AUDIT]: { label: 'بانتظار المراجعة النهائية', color: 'text-purple-600 bg-purple-50', icon: <SearchCheck className="w-4 h-4" /> },
   [ClaimStatus.RETURNED_TO_DR]: { label: 'معاد للدكتور', color: 'text-orange-600 bg-orange-50', icon: <RotateCcw className="w-4 h-4" /> },
   [ClaimStatus.RETURNED_TO_EMPLOYEE]: { label: 'معاد للموظف', color: 'text-rose-600 bg-rose-50', icon: <RotateCcw className="w-4 h-4" /> },
   [ClaimStatus.APPROVED]: { label: 'تم الاعتماد النهائي', color: 'text-emerald-600 bg-emerald-50', icon: <CheckCircle2 className="w-4 h-4" /> },
   [ClaimStatus.REJECTED]: { label: 'مرفوض', color: 'text-red-600 bg-red-50', icon: <XCircle className="w-4 h-4" /> },
+  [ClaimStatus.PAID]: { label: 'تم الصرف', color: 'text-blue-600 bg-blue-50', icon: <CreditCard className="w-4 h-4" /> },
 };
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {

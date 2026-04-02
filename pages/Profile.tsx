@@ -16,7 +16,8 @@ import {
   HeartPulse, Droplet, Shield, Activity,
   BrainCircuit, Zap, Stethoscope, Utensils, Pill, Plus, History,
   CheckCircle2, Target, Flame, Scale, Info, Sparkles, ArrowUpRight, X,
-  User as UserIcon, UserPlus, ChevronRight, ChevronLeft, Calendar, Timer, ListChecks
+  User as UserIcon, UserPlus, ChevronRight, ChevronLeft, Calendar, Timer, ListChecks,
+  MapPin, Building2, Briefcase
 } from 'lucide-react';
 
 interface ProfileProps {
@@ -369,7 +370,14 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
               </div>
               <div>
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900">{user.name}</h2>
-                <p className="text-[10px] sm:text-sm font-bold text-slate-400 mt-1">المعرف الطبي الذكي | LITC-ID-{user.id}</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                   <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3" /> {user.location || 'الموقع غير محدد'}
+                   </span>
+                   <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                      <Building2 className="w-3 h-3" /> {user.building || 'المبنى غير محدد'}
+                   </span>
+                </div>
               </div>
             </div>
             <div className="flex-1 max-w-md w-full space-y-3">
@@ -426,7 +434,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
           </div>
 
           {/* Data Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {[
               { 
                 label: 'الطول', 
@@ -462,6 +470,27 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                 color: 'bg-rose-50',
                 field: 'bloodType',
                 type: 'select'
+              },
+              { 
+                label: 'الإدارة', 
+                val: user.department || 'غير محدد', 
+                icon: <Briefcase className="text-purple-500 w-5 h-5" />, 
+                color: 'bg-purple-50',
+                readonly: true
+              },
+              { 
+                label: 'الوظيفة', 
+                val: user.jobTitle || 'غير محدد', 
+                icon: <UserIcon className="text-slate-500 w-5 h-5" />, 
+                color: 'bg-slate-50',
+                readonly: true
+              },
+              { 
+                label: 'المبنى', 
+                val: user.building || 'غير محدد', 
+                icon: <Building2 className="text-litcOrange w-5 h-5" />, 
+                color: 'bg-orange-50',
+                readonly: true
               },
               { 
                 label: 'BMI', 
@@ -503,7 +532,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                     </div>
                   )
                 ) : (
-                  <p className="text-base sm:text-lg font-black text-slate-900">
+                  <p className="text-base sm:text-lg font-black text-slate-900 truncate">
                     {item.field === 'bmi' && isEditingProfile 
                       ? (editProfile.height && editProfile.weight ? calculateBMI(editProfile.weight, editProfile.height) : '--')
                       : item.val}

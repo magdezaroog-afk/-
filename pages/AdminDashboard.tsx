@@ -59,24 +59,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-0">
         {stats.map((s, idx) => (
-          <div key={idx} className="bg-white p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition-all text-right">
-            <div className={`absolute top-0 left-0 w-1.5 h-full ${s.color.split(' ')[1]}`}></div>
-            <div className="flex items-start justify-between mb-4 sm:mb-6">
-              <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl ${s.color} transition-transform group-hover:scale-110`}>
+          <div key={idx} className="bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:shadow-md hover:-translate-y-1 transition-all text-right">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-slate-100 transition-all"></div>
+            <div className="flex items-start justify-between mb-4 sm:mb-6 relative z-10">
+              <div className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl ${s.color} transition-transform group-hover:scale-110 shadow-sm`}>
                 {s.icon}
               </div>
-              <span className="text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-3 sm:py-1 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl">{s.trend}</span>
+              <span className="text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-3 sm:py-1 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl border border-emerald-100">{s.trend}</span>
             </div>
-            <p className="text-[10px] sm:text-sm font-bold text-slate-500 mb-1 sm:mb-2">{s.label}</p>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900">{s.value}</p>
+            <p className="text-[10px] sm:text-sm font-bold text-slate-400 mb-1 sm:mb-2 relative z-10 uppercase tracking-widest">{s.label}</p>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 relative z-10">{s.value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10 px-4 sm:px-0">
         <div className="lg:col-span-2 space-y-6 sm:space-y-10">
-          <section className="bg-white p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 sm:mb-10 text-center sm:text-right">
+          <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/30 rounded-full -mr-24 -mt-24 blur-3xl group-hover:bg-indigo-50/50 transition-all"></div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 sm:mb-10 text-center sm:text-right relative z-10">
               <h3 className="text-lg sm:text-xl font-black text-slate-900">منحنى الإنفاق السنوي المجمع</h3>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-indigo-600"></div>
@@ -105,9 +106,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
           </section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
-            <section className="bg-white p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm">
-              <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-6 sm:mb-8 text-center sm:text-right">توزيع التخصصات الطبية</h3>
-              <div className="h-48 sm:h-64">
+            <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-32 h-32 bg-cyan-50/30 rounded-full -ml-16 -mt-16 blur-3xl group-hover:bg-cyan-50/50 transition-all"></div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-6 sm:mb-8 text-center sm:text-right relative z-10">توزيع التخصصات الطبية</h3>
+              <div className="h-48 sm:h-64 relative z-10">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -137,15 +139,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
               </div>
             </section>
 
-            <section className="bg-white p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col justify-center text-center space-y-4 sm:space-y-6">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-indigo-50 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
+            <section className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-center text-center space-y-4 sm:space-y-6 group relative overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-32 h-32 bg-amber-50/30 rounded-full -mr-16 -mb-16 blur-3xl group-hover:bg-amber-50/50 transition-all"></div>
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto text-indigo-600 shadow-inner group-hover:scale-110 transition-transform relative z-10">
                 <MapPin className="w-7 h-7 sm:w-9 sm:h-9" />
               </div>
-              <div>
+              <div className="relative z-10">
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900">المزودين المفضلين</h3>
                 <p className="text-slate-400 text-[10px] sm:text-sm font-medium mt-1">أكثر المستشفيات استقبالاً للموظفين</p>
               </div>
-              <div className="space-y-4 sm:space-y-5 pt-2 sm:pt-4">
+              <div className="space-y-4 sm:space-y-5 pt-2 sm:pt-4 relative z-10">
                 {[
                   { n: 'مستشفى المملكة', v: 38, c: 'bg-indigo-600' },
                   { n: 'مركز الحبيب الطبي', v: 29, c: 'bg-cyan-500' },
@@ -167,10 +170,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
         </div>
 
         <div className="space-y-6 sm:space-y-8">
-          <section className="bg-slate-900 p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl h-full overflow-hidden relative text-right">
-            <div className="absolute -top-10 -left-10 w-40 h-40 bg-indigo-500/10 blur-[80px]"></div>
-            <h3 className="text-lg sm:text-xl font-black text-white mb-6 sm:mb-8">مطالبات عالية القيمة (High Risk)</h3>
-            <div className="space-y-4 sm:space-y-6">
+          <section className="bg-slate-900 p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-white/10 shadow-2xl h-full overflow-hidden relative text-right group">
+            <div className="absolute -top-10 -left-10 w-40 h-40 bg-indigo-500/10 blur-[80px] group-hover:bg-indigo-500/20 transition-all"></div>
+            <h3 className="text-lg sm:text-xl font-black text-white mb-6 sm:mb-8 relative z-10">مطالبات عالية القيمة (High Risk)</h3>
+            <div className="space-y-4 sm:space-y-6 relative z-10">
               {claims.filter(c => c.totalAmount > 2000).map((c, idx) => (
                 <div key={idx} className="flex gap-4 sm:gap-5 p-4 sm:p-5 bg-white/5 hover:bg-white/10 rounded-2xl sm:rounded-3xl transition-all cursor-pointer group border border-white/5">
                   <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform shrink-0">

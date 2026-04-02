@@ -1,12 +1,14 @@
 
 import React, { useState } from 'react';
 import { Claim, User, UserRole, ClaimStatus } from '../types';
+import { STATUS_UI } from '../constants';
 import ClaimCard from '../components/ClaimCard';
 import { 
   Activity, TrendingUp, Sparkles, Clock, 
   UserPlus, ListChecks, ArrowUpRight, 
   Layers, Wallet, CheckCircle2, ChevronRight, HeartPulse, ShieldCheck,
-  Check, X, User as UserIcon, Droplet, Target, Scale
+  Check, X, User as UserIcon, Droplet, Target, Scale, MapPin, Building2, Briefcase,
+  Search, Hand, AlertCircle
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -25,29 +27,56 @@ const DATA_ENTRY_STAFF = [
 
 const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNavigate, onAssign }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const pendingActions = claims.filter(c => {
+  const filteredClaims = claims.filter(c => {
+    const query = searchQuery.toLowerCase();
+    return c.id.toLowerCase().includes(query) || 
+           c.employeeName.toLowerCase().includes(query) ||
+           c.referenceNumber.toLowerCase().includes(query) ||
+           c.invoices.some(inv => inv.invoiceNumber.toLowerCase().includes(query));
+  });
+
+  const pendingActions = filteredClaims.filter(c => {
     if (user.role === UserRole.DOCTOR) return c.status === ClaimStatus.PENDING_DR;
     
     if (user.role === UserRole.HEAD_OF_UNIT) {
-      // رئيس الوحدة يرى المعاملات التي تحتاج لقراره أو لإسناد فواتيرها
       const hasUnassignedInvoices = c.invoices.some(inv => !inv.assignedToId);
       return (c.status === ClaimStatus.PENDING_HEAD) || 
-             (c.status === ClaimStatus.PENDING_DATA_ENTRY && hasUnassignedInvoices) ||
-             (c.status === ClaimStatus.PENDING_DR && hasUnassignedInvoices); // حالة نادرة لكن ممكنة
+             (c.status === ClaimStatus.PENDING_DATA_ENTRY && hasUnassignedInvoices);
     }
     
     if (user.role === UserRole.DATA_ENTRY) {
-      // موظف الإدخال يرى المعاملات التي بها فواتير تخصه
       return c.invoices.some(i => i.assignedToId === user.id);
     }
 
     if (user.role === UserRole.AUDITOR) {
-      // مكتب المراجعة يرى المعاملات المحولة له
       return c.status === ClaimStatus.PENDING_AUDIT;
     }
     return false;
   });
+
+  const poolClaims = filteredClaims.filter(c => {
+    if (user.role !== UserRole.DATA_ENTRY) return false;
+    
+    // Claims in the pool are those that are unassigned
+    const isUnassigned = c.invoices.every(inv => !inv.assignedToId);
+    if (!isUnassigned) return false;
+
+    // Check 24h rule
+    if (c.submittedAt) {
+      const submittedDate = new Date(c.submittedAt);
+      const now = new Date();
+      const diffHours = (now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60);
+      return diffHours >= 24;
+    }
+    return true; // If no submittedAt, assume it's old enough
+  });
+
+  const ceilingLimit = 100000;
+  const ceilingUsed = user.annualCeilingUsed || 0;
+  const ceilingRemaining = ceilingLimit - ceilingUsed;
+  const ceilingPercentage = (ceilingUsed / ceilingLimit) * 100;
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -73,111 +102,152 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
   return (
     <div className="space-y-8 sm:space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 font-cairo px-4 sm:px-0" dir="rtl">
+      {/* Bulk Assignment Bar for Unit Head */}
       {user.role === UserRole.HEAD_OF_UNIT && selectedIds.length > 0 && (
-        <div className="fixed bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-[60] bg-litcDark text-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[3rem] shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex flex-col sm:flex-row items-center gap-4 sm:gap-10 border border-white/10 animate-in slide-in-from-bottom-10 w-[90%] sm:w-auto">
-           <div className="flex items-center gap-3 sm:gap-4 border-b sm:border-b-0 sm:border-l border-white/20 pb-3 sm:pb-0 sm:pl-8 w-full sm:w-auto justify-center sm:justify-start">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-litcOrange rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-sm sm:text-base">{selectedIds.length}</div>
-              <p className="font-black text-[10px] sm:text-sm text-center sm:text-right">معاملات محددة<br/>للإسناد الفوري</p>
-           </div>
-           
-           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <p className="text-[9px] sm:text-xs font-bold text-white/50 ml-1 sm:ml-2">إسناد الكل إلى:</p>
-              {DATA_ENTRY_STAFF.map(s => (
-                <button 
-                   key={s.id} 
-                   onClick={() => handleBulkAssign(s.id)}
-                   className="px-4 py-2 sm:px-6 sm:py-3 bg-white/10 hover:bg-litcOrange rounded-xl sm:rounded-2xl text-[9px] sm:text-xs font-black transition-all border border-white/5 active:scale-95 flex items-center gap-1 sm:gap-2"
-                >
-                   <UserIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                   {s.name}
-                </button>
-              ))}
-           </div>
-
-           <button onClick={() => setSelectedIds([])} className="p-2 sm:p-3 bg-white/5 hover:bg-rose-500 rounded-lg sm:rounded-xl transition-all absolute top-2 left-2 sm:static">
-              <X className="w-4 h-4 sm:w-5 sm:h-5" />
-           </button>
-        </div>
-      )}
-
-      {/* Smart Profile Summary at Top */}
-      {user.role === UserRole.EMPLOYEE && (
-        <div className="space-y-6 animate-in fade-in zoom-in duration-700 max-w-md mx-auto sm:max-w-none">
-          <div className="bg-white/70 backdrop-blur-xl rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-8 border border-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
-            <div className="flex flex-col md:flex-row items-center gap-4 sm:gap-6">
-              <button 
-                onClick={() => onNavigate('profile')}
-                className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-litcBlue to-litcDark rounded-2xl sm:rounded-3xl flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-xl hover:scale-105 transition-all shrink-0"
-              >
-                {user.name.charAt(0)}
-              </button>
-              <div className="cursor-pointer" onClick={() => onNavigate('profile')}>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900">ملفي الصحي الذكي</h2>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-500">متابعة حية للمؤشرات الحيوية والمسار المعتمد</p>
-              </div>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-4xl px-4 animate-in slide-in-from-bottom-10 duration-500">
+          <div className="bg-slate-900 border-4 border-white rounded-[3rem] p-6 sm:p-10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="text-right">
+              <p className="text-white text-xl sm:text-2xl font-black flex items-center gap-3">
+                <div className="w-10 h-10 bg-litcOrange rounded-xl flex items-center justify-center text-white shadow-lg">{selectedIds.length}</div>
+                تم اختيار معاملات للإسناد
+              </p>
+              <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-1">اختر الموظف المناسب من القائمة لإتمام عملية الإسناد الفني</p>
             </div>
             
-            <div className="flex flex-wrap justify-center md:justify-end gap-3 sm:gap-4">
-              {user.healthProfile && (
-                <>
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3 sm:gap-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center"><ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                    <div>
-                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">الطول</p>
-                      <p className="text-xs sm:text-sm font-black text-slate-900">{user.healthProfile.height} سم</p>
-                    </div>
+            <div className="flex flex-wrap justify-center gap-3">
+              {DATA_ENTRY_STAFF.map(staff => (
+                <button 
+                  key={staff.id}
+                  onClick={() => handleBulkAssign(staff.id)}
+                  className="group relative bg-white/5 hover:bg-white/10 border border-white/10 p-4 sm:p-5 rounded-[2rem] transition-all flex items-center gap-4 text-right min-w-[200px]"
+                >
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-litcBlue rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
+                    {staff.name.charAt(0)}
                   </div>
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3 sm:gap-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-50 text-amber-600 rounded-lg sm:rounded-xl flex items-center justify-center"><Scale className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                    <div>
-                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">الوزن</p>
-                      <p className="text-xs sm:text-sm font-black text-slate-900">{user.healthProfile.weight} كجم</p>
-                    </div>
+                  <div>
+                    <p className="text-white text-xs sm:text-sm font-black">{staff.name}</p>
+                    <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{staff.stats}</p>
                   </div>
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3 sm:gap-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-rose-50 text-rose-600 rounded-lg sm:rounded-xl flex items-center justify-center"><Droplet className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                    <div>
-                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">الفصيلة</p>
-                      <p className="text-xs sm:text-sm font-black text-slate-900">{user.healthProfile.bloodType}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <button 
-              onClick={() => onNavigate('profile')}
-              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-litcBlue text-white rounded-2xl sm:rounded-3xl font-black text-[10px] sm:text-xs shadow-lg shadow-litcBlue/20 hover:scale-105 transition-all flex items-center justify-center gap-2"
-            >
-              فتح الملف الصحي الذكي <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-
-          {user.activePlans && user.activePlans.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {user.activePlans.filter(p => p.status === 'active').slice(0, 3).map(plan => (
-                <div key={plan.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-litcBlue transition-all cursor-pointer" onClick={() => onNavigate('profile')}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${plan.type === 'healthy' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-litcBlue'}`}>
-                      {plan.type === 'healthy' ? <Activity className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase">هدف نشط</p>
-                      <p className="text-sm font-black text-slate-900">
-                        {plan.goal === 'weight_loss' ? 'إنقاص الوزن' : 
-                         plan.goal === 'muscle_building' ? 'بناء العضلات' : 'تنظيم المؤشرات'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-litcBlue group-hover:translate-x-1 transition-all" />
-                </div>
+                  <div className="absolute inset-0 bg-litcBlue/0 group-hover:bg-litcBlue/5 rounded-[2rem] transition-all"></div>
+                </button>
               ))}
+              <button 
+                onClick={() => setSelectedIds([])}
+                className="p-4 sm:p-5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-[2rem] transition-all font-black text-xs flex items-center gap-2"
+              >
+                <X className="w-5 h-5" /> إلغاء
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row justify-between items-center xl:items-end gap-6 sm:gap-8 bg-white/30 p-6 sm:p-10 rounded-[2rem] sm:rounded-[3.5rem] border border-white/50 backdrop-blur-xl shadow-sm text-center xl:text-right max-w-md mx-auto sm:max-w-none">
+      {/* Financial Dashboard & Search */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-xl flex flex-col sm:flex-row items-center gap-8">
+          <div className="w-full sm:w-1/3 space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">سقف التغطية السنوي</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-litcBlue">100,000</span>
+              <span className="text-xs font-bold text-slate-400">د.ل</span>
+            </div>
+          </div>
+          <div className="flex-1 w-full space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-[10px] font-black text-emerald-600 uppercase">المتبقي</p>
+                <p className="text-xl font-black text-slate-900">{ceilingRemaining.toLocaleString()} د.ل</p>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black text-slate-400 uppercase">المستهلك</p>
+                <p className="text-sm font-black text-litcBlue">{ceilingUsed.toLocaleString()} د.ل ({ceilingPercentage.toFixed(1)}%)</p>
+              </div>
+            </div>
+            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000"
+                style={{ width: `${Math.min(ceilingPercentage, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-xl flex flex-col justify-center">
+          <div className="relative">
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <input 
+              type="text"
+              placeholder="بحث برقم الفاتورة، الاسم، أو المعرف..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border-none rounded-[1.5rem] py-4 pr-12 pl-6 text-sm font-bold focus:ring-2 focus:ring-litcBlue transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* User Profile Summary Card */}
+      <div className="bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group max-w-md mx-auto lg:max-w-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-litcBlue/10 transition-all duration-700"></div>
+        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-right">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-litcBlue to-litcDark rounded-[2rem] flex items-center justify-center text-3xl text-white font-black shadow-2xl border-4 border-white transform group-hover:rotate-3 transition-transform">
+              {user.name.charAt(0)}
+            </div>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900">{user.name}</h2>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-2">
+                <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3" /> {user.location || 'الموقع غير محدد'}
+                </span>
+                <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                  <Building2 className="w-3 h-3" /> {user.building || 'المبنى غير محدد'}
+                </span>
+                <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black border border-slate-200 flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3" /> {user.jobTitle || 'الوظيفة غير محددة'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+            {user.healthProfile && (
+              <>
+                <div className="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 hover:bg-white transition-colors">
+                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shadow-inner"><ArrowUpRight className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">الطول</p>
+                    <p className="text-sm font-black text-slate-900">{user.healthProfile.height} سم</p>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 hover:bg-white transition-colors">
+                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shadow-inner"><Scale className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">الوزن</p>
+                    <p className="text-sm font-black text-slate-900">{user.healthProfile.weight} كجم</p>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 hover:bg-white transition-colors">
+                  <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shadow-inner"><Droplet className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">الفصيلة</p>
+                    <p className="text-sm font-black text-slate-900">{user.healthProfile.bloodType}</p>
+                  </div>
+                </div>
+              </>
+            )}
+            <button 
+              onClick={() => onNavigate('profile')}
+              className="px-8 py-4 bg-litcBlue text-white rounded-[2rem] font-black text-xs shadow-xl shadow-litcBlue/20 hover:scale-105 transition-all flex items-center gap-2"
+            >
+              الملف الصحي <ArrowUpRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+      <div className="flex flex-col xl:flex-row justify-between items-center xl:items-end gap-6 sm:gap-8 bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] text-center xl:text-right max-w-md mx-auto sm:max-w-none">
         <div className="space-y-2 sm:space-y-3 w-full">
           <div className="flex items-center justify-center xl:justify-start gap-2 sm:gap-3 text-litcBlue font-black text-[8px] sm:text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] bg-litcBlue/5 w-fit mx-auto xl:mx-0 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-litcBlue/10 shadow-inner">
             <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-litcOrange animate-pulse" />
@@ -197,11 +267,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 sm:gap-8 max-w-md mx-auto sm:max-w-none">
         {[
           { label: 'إجمالي السجلات', val: '1,254', icon: <Activity className="w-6 h-6 sm:w-8 sm:h-8" />, color: 'bg-white text-litcBlue', sub: 'سجل طبي مجمع' },
-          { label: 'تحت الإجراء', val: pendingActions.length, icon: <Clock className="w-6 h-6 sm:w-8 sm:h-8" />, color: 'litc-gradient text-white', sub: 'تتطلب مراجعة أو إسناد' },
+          { label: 'تحت الإجراء', val: pendingActions.length, icon: <Clock className="w-6 h-6 sm:w-8 sm:h-8" />, color: 'bg-litcBlue text-white', sub: 'تتطلب مراجعة أو إسناد' },
           { label: 'نسبة الإنجاز', val: '94%', icon: <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />, color: 'bg-white text-emerald-600', sub: 'معدل نجاح التحويل الفني' },
           { label: 'الوقت المستغرق', val: '12h', icon: <Sparkles className="w-6 h-6 sm:w-8 sm:h-8" />, color: 'bg-white text-litcOrange', sub: 'متوسط وقت الاعتماد' }
         ].map((stat, i) => (
-          <div key={i} className={`${stat.color} p-6 sm:p-10 rounded-[2rem] sm:rounded-[3.5rem] shadow-xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 border border-black/5`}>
+          <div key={i} className={`${stat.color} p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:scale-[1.02] transition-all duration-500 border border-slate-100`}>
              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-current opacity-5 rounded-bl-[3rem] sm:rounded-bl-[4rem] group-hover:scale-110 transition-transform"></div>
              <div className="mb-4 sm:mb-6 group-hover:translate-x-2 transition-transform text-right">{stat.icon}</div>
              <p className="text-3xl sm:text-5xl font-black mb-1 text-right">{stat.val}</p>
@@ -224,7 +294,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10">
             {pendingActions.map(claim => {
               const unassignedCount = claim.invoices.filter(i => !i.assignedToId).length;
-              const isPartiallyAssigned = unassignedCount > 0 && unassignedCount < claim.invoices.length;
               
               return (
                 <div key={claim.id} className="relative group">
@@ -256,6 +325,41 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           </div>
         )}
       </section>
+
+      {/* The Pool Section */}
+      {user.role === UserRole.DATA_ENTRY && poolClaims.length > 0 && (
+        <section className="space-y-6 sm:space-y-10">
+          <div className="flex items-center gap-4 px-4 sm:px-6 justify-end">
+             <div className="text-right">
+                <h2 className="text-xl sm:text-3xl font-black text-rose-600">المجمع العام (The Pool)</h2>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">معاملات تجاوزت 24 ساعة بدون إسناد - متاحة للالتقاط</p>
+             </div>
+             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg"><Hand className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10">
+            {poolClaims.map(claim => (
+              <div key={claim.id} className="relative group">
+                <div className="absolute -top-4 -left-4 z-[45] bg-amber-500 text-white px-5 py-2 rounded-2xl font-black text-[10px] shadow-xl flex items-center gap-2 border-2 border-white animate-bounce">
+                  <AlertCircle className="w-3.5 h-3.5" /> متاح للالتقاط
+                </div>
+                <div className="absolute bottom-6 left-6 z-[45] opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      onAssign?.(claim.id, claim.invoices.map(i => i.id), user.id); 
+                    }}
+                    className="bg-litcBlue text-white px-8 py-4 rounded-[2rem] font-black text-sm shadow-2xl hover:bg-litcOrange transition-all flex items-center gap-3 border-4 border-white"
+                  >
+                    <Hand className="w-5 h-5" /> التقاط المعاملة الآن
+                  </button>
+                </div>
+                <ClaimCard claim={claim} onClick={onSelectClaim} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Transactions Tracking Section */}
       {user.role === UserRole.EMPLOYEE && (
@@ -295,17 +399,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                     </div>
                     <div className="text-center">
                       <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase mb-1">الحالة الحالية</p>
-                      <span className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black border ${
-                        claim.status === ClaimStatus.APPROVED ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                        claim.status === ClaimStatus.REJECTED ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                        'bg-amber-50 text-amber-600 border-amber-100'
-                      }`}>
+                      <span className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black border ${STATUS_UI[claim.status].color} border-current/10`}>
                         {claim.status === ClaimStatus.APPROVED ? 'تم الاعتماد والصرف' :
                          claim.status === ClaimStatus.REJECTED ? 'مرفوضة' :
-                         claim.status === ClaimStatus.PENDING_DR ? 'بانتظار مراجعة الطبيب' :
-                         claim.status === ClaimStatus.PENDING_HEAD ? 'بانتظار رئيس الوحدة' :
-                         claim.status === ClaimStatus.PENDING_DATA_ENTRY ? 'جاري إدخال البيانات' :
-                         claim.status === ClaimStatus.PENDING_AUDIT ? 'بانتظار المراجعة المالية' : 'قيد المعالجة'}
+                         STATUS_UI[claim.status].label}
                       </span>
                     </div>
                     <button 
