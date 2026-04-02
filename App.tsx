@@ -483,20 +483,20 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-6 font-cairo overflow-hidden relative" dir="rtl">
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none overflow-hidden">
-           <div className="absolute top-10 left-[10%] rotate-12 text-litcOrange animate-bounce duration-[4s]"><HeartPulse size={120} /></div>
-           <div className="absolute top-[30%] right-[5%] -rotate-12 text-litcOrange"><Stethoscope size={100} /></div>
-           <div className="absolute bottom-[20%] left-[15%] rotate-45 text-litcOrange animate-pulse"><Shield size={140} /></div>
-           <div className="absolute top-[50%] right-[25%] -rotate-45 text-litcOrange"><Pill size={80} /></div>
-           <div className="absolute bottom-10 right-[15%] rotate-12 text-litcOrange"><Activity size={150} /></div>
-           <div className="absolute top-20 left-1/2 -translate-x-1/2 text-litcOrange opacity-50"><Heart size={60} /></div>
-           <div className="absolute bottom-1/3 left-[8%] -rotate-12 text-litcOrange"><ClipboardList size={90} /></div>
+           <div className="absolute top-10 left-[10%] rotate-12 text-litcOrange animate-bounce duration-[4s]"><HeartPulse className="text-litcOrange animate-bounce duration-[4s] w-24 h-24 sm:w-30 sm:h-30" /></div>
+           <div className="absolute top-[30%] right-[5%] -rotate-12 text-litcOrange"><Stethoscope className="text-litcOrange w-20 h-20 sm:w-24 sm:h-24" /></div>
+           <div className="absolute bottom-[20%] left-[15%] rotate-45 text-litcOrange animate-pulse"><Shield className="text-litcOrange animate-pulse w-28 h-28 sm:w-35 sm:h-35" /></div>
+           <div className="absolute top-[50%] right-[25%] -rotate-45 text-litcOrange"><Pill className="text-litcOrange w-16 h-16 sm:w-20 sm:h-20" /></div>
+           <div className="absolute bottom-10 right-[15%] rotate-12 text-litcOrange"><Activity className="text-litcOrange w-30 h-30 sm:w-36 sm:h-36" /></div>
+           <div className="absolute top-20 left-1/2 -translate-x-1/2 text-litcOrange opacity-50"><Heart className="text-litcOrange opacity-50 w-12 h-12 sm:w-15 sm:h-15" /></div>
+           <div className="absolute bottom-1/3 left-[8%] -rotate-12 text-litcOrange"><ClipboardList className="text-litcOrange w-18 h-18 sm:w-22 sm:h-22" /></div>
         </div>
 
         {isLoggingIn ? (
           <div className="text-center space-y-10 animate-in fade-in zoom-in duration-700 relative z-10">
             <div className="relative inline-block">
                <div className="absolute inset-0 bg-litcOrange/10 blur-3xl rounded-full scale-150 animate-pulse"></div>
-               <Loader2 size={100} className="text-litcBlue relative z-10 animate-spin" />
+               <Loader2 className="text-litcBlue relative z-10 animate-spin w-20 h-20 sm:w-24 sm:h-24" />
             </div>
             <div>
                <h2 className="text-2xl font-black text-litcBlue tracking-[0.1em] mb-2">جاري فحص الصلاحيات</h2>
@@ -511,7 +511,7 @@ const App: React.FC = () => {
                   <div className="w-28 h-28 bg-gradient-to-br from-litcBlue to-litcDark rounded-[2.5rem] flex items-center justify-center text-white text-5xl font-black shadow-[0_20px_50px_rgba(0,92,132,0.4)] relative border-4 border-white">
                      <span className="tracking-tighter">LT</span>
                      <div className="absolute -bottom-3 -right-3 bg-white p-2.5 rounded-[1.2rem] shadow-xl border border-slate-100 ring-4 ring-white">
-                        <Activity className="text-litcOrange w-7 h-7 animate-pulse" />
+                        <Activity className="text-litcOrange w-6 h-6 sm:w-7 sm:h-7 animate-pulse" />
                      </div>
                   </div>
                </div>
@@ -528,27 +528,27 @@ const App: React.FC = () => {
                     <button onClick={() => setLoginStep('email-login')} className="w-full group p-6 bg-slate-50 hover:bg-litcBlue rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
                       <div className="flex items-center gap-4 relative z-10">
                         <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-litcBlue transition-all group-hover:scale-110">
-                           <Mail size={24} />
+                           <Mail className="w-6 h-6" />
                         </div>
                         <div className="text-right">
                            <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">تسجيل الدخول</p>
                            <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Email Login</p>
                         </div>
                       </div>
-                      <ChevronRight size={20} className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2" />
+                      <ChevronRight className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2 w-5 h-5" />
                     </button>
 
                     <button onClick={() => setLoginStep('email-signup')} className="w-full group p-6 bg-white hover:bg-litcOrange rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
                       <div className="flex items-center gap-4 relative z-10">
                         <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-litcOrange transition-all group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
-                           <UserCircle size={24} />
+                           <UserCircle className="w-6 h-6" />
                         </div>
                         <div className="text-right">
                            <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">إنشاء حساب جديد</p>
                            <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Create New Account</p>
                         </div>
                       </div>
-                      <ChevronRight size={20} className="text-litcBlue group-hover:text-white transition-colors group-hover:translate-x-2" />
+                      <ChevronRight className="text-litcBlue group-hover:text-white transition-colors group-hover:translate-x-2 w-5 h-5" />
                     </button>
                   </div>
 
@@ -559,13 +559,13 @@ const App: React.FC = () => {
 
                   <div className="grid grid-cols-3 gap-4">
                     <button onClick={handleGoogleLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Chrome size={24} className="text-red-500 group-hover:scale-110 transition-transform" />
+                      <Chrome className="text-red-500 group-hover:scale-110 transition-transform w-6 h-6" />
                     </button>
                     <button onClick={handleMicrosoftLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Database size={24} className="text-litcBlue group-hover:scale-110 transition-transform" />
+                      <Database className="text-litcBlue group-hover:scale-110 transition-transform w-6 h-6" />
                     </button>
                     <button onClick={() => setLoginStep('phone-login')} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Phone size={24} className="text-green-500 group-hover:scale-110 transition-transform" />
+                      <Phone className="text-green-500 group-hover:scale-110 transition-transform w-6 h-6" />
                     </button>
                   </div>
 
@@ -577,7 +577,7 @@ const App: React.FC = () => {
                 <form onSubmit={handleEmailLogin} className="space-y-5 animate-in slide-in-from-bottom-10">
                   <div className="space-y-4">
                     <div className="relative">
-                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="email" 
                         placeholder="البريد الإلكتروني" 
@@ -588,7 +588,7 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="relative">
-                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="password" 
                         placeholder="كلمة المرور" 
@@ -599,7 +599,7 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                   <button type="submit" className="w-full py-4 bg-litcBlue text-white font-black rounded-2xl shadow-lg shadow-litcBlue/20 hover:-translate-y-1 transition-all">دخول</button>
                   <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
                 </form>
@@ -609,7 +609,7 @@ const App: React.FC = () => {
                 <form onSubmit={handleEmailSignup} className="space-y-5 animate-in slide-in-from-bottom-10">
                   <div className="space-y-4">
                     <div className="relative">
-                      <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="text" 
                         placeholder="الاسم بالكامل" 
@@ -620,7 +620,7 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="relative">
-                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="email" 
                         placeholder="البريد الإلكتروني" 
@@ -631,7 +631,7 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="relative">
-                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="password" 
                         placeholder="كلمة المرور" 
@@ -642,7 +642,7 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                   <button type="submit" className="w-full py-4 bg-litcOrange text-white font-black rounded-2xl shadow-lg shadow-litcOrange/20 hover:-translate-y-1 transition-all">إنشاء الحساب</button>
                   <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
                 </form>
@@ -652,7 +652,7 @@ const App: React.FC = () => {
                 <form onSubmit={handlePhoneLogin} className="space-y-5 animate-in slide-in-from-bottom-10">
                   <div className="space-y-4">
                     <div className="relative">
-                      <Phone className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Phone className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
                         type="tel" 
                         placeholder="رقم الهاتف (مثال: +218...)" 
@@ -663,7 +663,7 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
-                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                   <button type="submit" className="w-full py-4 bg-green-500 text-white font-black rounded-2xl shadow-lg shadow-green-500/20 hover:-translate-y-1 transition-all">إرسال رمز التحقق</button>
                   <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
                 </form>
@@ -673,10 +673,10 @@ const App: React.FC = () => {
                 <div className="space-y-6 animate-in slide-in-from-bottom-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {[
-                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck size={24}/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database size={24}/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
-                      { role: UserRole.AUDITOR, label: 'مكتب المراجعة', icon: <UserCheck size={24}/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
+                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
+                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
+                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
+                      { role: UserRole.AUDITOR, label: 'مكتب المراجعة', icon: <UserCheck className="w-6 h-6"/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
                     ].map(o => (
                         <button 
                           key={o.role} 
@@ -689,7 +689,7 @@ const App: React.FC = () => {
                         </button>
                     ))}
                   </div>
-                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                   <button onClick={() => setLoginStep('initial')} className="w-full py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em]">الرجوع للرئيسية</button>
                 </div>
               )}
@@ -710,10 +710,10 @@ const App: React.FC = () => {
                               <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">{s.team}</p>
                            </div>
                         </div>
-                        <ChevronRight size={18} className="group-hover:translate-x-2 transition-transform" />
+                        <ChevronRight className="w-4.5 h-4.5 group-hover:translate-x-2 transition-transform" />
                      </button>
                    ))}
-                   {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+                   {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                    <button onClick={() => setLoginStep('official')} className="w-full py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors">رجوع</button>
                 </div>
               )}
@@ -721,7 +721,7 @@ const App: React.FC = () => {
             
             <div className="mt-12 text-center">
                <div className="inline-flex items-center gap-2 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100">
-                  <Sparkles size={12} className="text-litcOrange" />
+                  <Sparkles className="text-litcOrange w-3 h-3" />
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">v2.8 Enterprise Health Engine</p>
                </div>
             </div>

@@ -52,7 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
           >
-            <X size={24} />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -82,7 +82,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
 
         <div className="p-6 border-t border-white/5 bg-black/10">
           <button onClick={onLogout} className="w-full flex items-center gap-4 p-4 text-white/40 hover:bg-rose-500/10 hover:text-rose-400 rounded-2xl transition-all font-black text-xs group">
-            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             {isSidebarOpen && <span>تسجيل الخروج الآمن</span>}
           </button>
         </div>
@@ -92,19 +92,19 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <header className="h-20 lg:h-24 litc-glass border-b border-slate-200/50 flex items-center justify-between px-4 lg:px-10 z-30 sticky top-0">
           <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 lg:p-3 bg-slate-100/50 hover:bg-white rounded-xl lg:rounded-2xl text-litcBlue transition-all shadow-sm">
-            <Menu size={20} />
+            <Menu className="w-5 h-5" />
           </button>
           
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="hidden md:flex items-center bg-slate-100/50 rounded-2xl px-6 py-3 border border-slate-200/50 group focus-within:bg-white transition-all">
-               <Search size={18} className="text-slate-400 group-focus-within:text-litcBlue" />
+               <Search className="w-4.5 h-4.5 text-slate-400 group-focus-within:text-litcBlue" />
                <input placeholder="البحث في المعاملات..." className="bg-transparent border-none outline-none pr-4 text-sm font-bold text-slate-600 w-48" />
             </div>
             
             <div className="flex items-center gap-4 lg:gap-6">
               <div className="relative group cursor-pointer">
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 lg:w-3 h-3 bg-litcOrange rounded-full border-2 border-white animate-bounce"></div>
-                <Bell className="text-slate-400 group-hover:text-litcBlue transition-colors" size={20} />
+                <Bell className="text-slate-400 group-hover:text-litcBlue transition-colors w-5 h-5" />
               </div>
               <div className="hidden sm:block h-8 w-px bg-slate-200"></div>
               <div className="flex items-center gap-3 lg:gap-4 group cursor-pointer">
