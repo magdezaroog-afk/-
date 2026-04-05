@@ -4,7 +4,7 @@ import { User, Invoice, ClaimStatus } from '../types';
 import { 
   Upload, Plus, Trash2, Camera, Loader2, 
   X, Sparkles, CheckCircle, FileStack, AlertCircle, Coins,
-  HeartPulse, MapPin, Building2, Briefcase, Calendar, Hash, Edit3
+  HeartPulse, MapPin, Building2, Briefcase
 } from 'lucide-react';
 import { performOCR } from '../services/geminiService';
 import { optimizeImage } from '../utils/imageUtils';
@@ -47,6 +47,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       const reader = new FileReader();
       reader.onloadend = async () => {
         let base64 = (reader.result as string).split(',')[1];
+        // ضغط الصورة قبل الإرسال
         base64 = await optimizeImage(base64, 1024, 0.7);
         
         setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, progress: 50 } : item));
@@ -55,24 +56,6 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
         const rate = EXCHANGE_RATES[currency] || 1.0;
         const amountInForeign = ocr.totalAmount || 0;
         const totalInLYD = amountInForeign * rate;
-        const invoiceDate = ocr.date || new Date().toISOString().split('T')[0];
-
-        // Fiscal Year Lock Logic
-        const today = new Date();
-        const invDate = new Date(invoiceDate);
-        const currentYear = today.getFullYear();
-        const invYear = invDate.getFullYear();
-        
-        let isRejected = false;
-        let rejectReason = '';
-
-        if (invYear < currentYear) {
-          const march31 = new Date(currentYear, 2, 31); // Month is 0-indexed
-          if (today > march31) {
-            isRejected = true;
-            rejectReason = 'تجاوز الموعد النهائي (31 مارس) لفواتير العام السابق.';
-          }
-        }
 
         const newInvoice: Partial<Invoice> = {
           id: `INV-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
@@ -83,13 +66,10 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
           currency: currency as any,
           exchangeRate: rate,
           originalAmountInLYD: totalInLYD,
-          companyPortion: totalInLYD * 0.9,
-          employeePortion: totalInLYD * 0.1,
           netAmountLYD: totalInLYD * 0.9,
-          date: invoiceDate,
+          date: ocr.date || new Date().toISOString().split('T')[0],
           lineItems: [],
-          status: isRejected ? ClaimStatus.REJECTED : ClaimStatus.PENDING_DR,
-          ocrData: isRejected ? { rejectReason } : {}
+          status: ClaimStatus.PENDING_DR
         };
 
         setInvoices(prev => [...prev, newInvoice]);
@@ -101,77 +81,14 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
     }
   };
 
-  const updateInvoiceField = (id: string, field: keyof Invoice, value: any) => {
-    setInvoices(prev => prev.map(inv => {
-      if (inv.id === id) {
-        const updatedInv = { ...inv, [field]: value };
-        
-        // Re-evaluate fiscal year lock if date is changed
-        if (field === 'date') {
-          const today = new Date();
-          const invDate = new Date(value);
-          const currentYear = today.getFullYear();
-          const invYear = invDate.getFullYear();
-          
-          let isRejected = false;
-          let rejectReason = '';
-
-          if (invYear < currentYear) {
-            const march31 = new Date(currentYear, 2, 31);
-            if (today > march31) {
-              isRejected = true;
-              rejectReason = 'تجاوز الموعد النهائي (31 مارس) لفواتير العام السابق.';
-            }
-          }
-
-          updatedInv.status = isRejected ? ClaimStatus.REJECTED : ClaimStatus.PENDING_DR;
-          updatedInv.ocrData = isRejected 
-            ? { ...updatedInv.ocrData, rejectReason } 
-            : { ...updatedInv.ocrData, rejectReason: undefined };
-        }
-
-        // Recalculate if amount or currency changes
-        if (field === 'amount' || field === 'currency') {
-          const rate = EXCHANGE_RATES[updatedInv.currency as string] || 1.0;
-          updatedInv.exchangeRate = rate;
-          updatedInv.originalAmountInLYD = (updatedInv.amount || 0) * rate;
-          updatedInv.companyPortion = updatedInv.originalAmountInLYD * 0.9;
-          updatedInv.employeePortion = updatedInv.originalAmountInLYD * 0.1;
-          updatedInv.netAmountLYD = updatedInv.companyPortion;
-        }
-        
-        return updatedInv;
-      }
-      return inv;
-    }));
-  };
-
   const handleSubmit = () => {
     if (invoices.length === 0) {
       alert("يرجى رفع فاتورة واحدة على الأقل.");
       return;
     }
-    
-    const hasRejected = invoices.some(inv => inv.status === ClaimStatus.REJECTED);
-    if (hasRejected) {
-      if (!window.confirm("تحتوي المطالبة على فواتير مرفوضة آلياً. هل تريد الاستمرار؟ سيتم استبعاد الفواتير المرفوضة من الحساب النهائي.")) {
-        return;
-      }
-    }
-
     setIsSubmitting(true);
-    const validInvoices = invoices.filter(inv => inv.status !== ClaimStatus.REJECTED);
-    const totalLYD = validInvoices.reduce((sum, inv) => sum + (inv.originalAmountInLYD || 0), 0);
-    const companyTotal = validInvoices.reduce((sum, inv) => sum + (inv.companyPortion || 0), 0);
-    
-    onSubmit({ 
-      invoices: validInvoices, 
-      totalAmount: totalLYD, 
-      companyTotal,
-      description,
-      submittedAt: new Date().toISOString(),
-      isPool: true
-    });
+    const totalLYD = invoices.reduce((sum, inv) => sum + (inv.originalAmountInLYD || 0), 0);
+    onSubmit({ invoices, totalAmount: totalLYD, description });
   };
 
   return (
@@ -218,89 +135,27 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
               ))}
 
               {invoices.map((inv) => (
-                <div key={inv.id} className="bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-xl flex flex-col gap-6 group hover:border-litcBlue transition-all animate-in zoom-in text-right max-w-md mx-auto sm:max-w-none relative">
-                   {inv.status === ClaimStatus.REJECTED && (
-                     <div className="absolute top-6 left-6 bg-rose-500 text-white px-4 py-6 rounded-3xl text-[10px] font-black z-20 shadow-xl animate-in zoom-in max-w-[200px] text-center border-4 border-white">
-                       <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-                       <p className="mb-2">مرفوضة آلياً: {inv.ocrData?.rejectReason}</p>
-                       <p className="text-[8px] opacity-80 bg-black/10 p-2 rounded-lg leading-relaxed">إذا كان التاريخ المقروء خاطئاً، يرجى تصحيحه يدوياً أدناه.</p>
-                     </div>
-                   )}
-                   
-                   <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-10">
-                      <div className="relative shrink-0 mx-auto sm:mx-0">
-                        <img src={inv.imageUrl} className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] sm:rounded-[3rem] object-cover border-4 border-slate-50 shadow-md" />
-                        <div className="absolute -top-2 -right-2 bg-emerald-500 text-white w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg"><CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /></div>
+                <div key={inv.id} className="bg-white p-4 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border border-slate-100 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 group hover:border-litcBlue transition-all animate-in zoom-in text-center sm:text-right max-w-md mx-auto sm:max-w-none">
+                   <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+                      <div className="relative">
+                        <img src={inv.imageUrl} className="w-20 h-20 sm:w-24 sm:h-24 rounded-[1.5rem] sm:rounded-[2rem] object-cover border-4 border-slate-50 shadow-md" />
+                        <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-emerald-500 text-white w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 sm:border-4 border-white shadow-lg"><CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" /></div>
                       </div>
-                      
-                      <div className="flex-1 space-y-6 w-full">
-                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 flex items-center gap-1"><Building2 className="w-3 h-3" /> اسم المصحة</label>
-                               <input 
-                                 type="text" 
-                                 value={inv.hospitalName} 
-                                 onChange={(e) => updateInvoiceField(inv.id!, 'hospitalName', e.target.value)}
-                                 className="w-full bg-slate-50 border-none rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-litcBlue"
-                               />
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 flex items-center gap-1"><Hash className="w-3 h-3" /> رقم الفاتورة</label>
-                               <input 
-                                 type="text" 
-                                 value={inv.invoiceNumber} 
-                                 onChange={(e) => updateInvoiceField(inv.id!, 'invoiceNumber', e.target.value)}
-                                 className="w-full bg-slate-50 border-none rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-litcBlue"
-                               />
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 flex items-center gap-1"><Calendar className="w-3 h-3" /> التاريخ</label>
-                               <input 
-                                 type="date" 
-                                 value={inv.date} 
-                                 onChange={(e) => updateInvoiceField(inv.id!, 'date', e.target.value)}
-                                 className="w-full bg-slate-50 border-none rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-litcBlue"
-                               />
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 flex items-center gap-1"><Coins className="w-3 h-3" /> القيمة والعملة</label>
-                               <div className="flex gap-2">
-                                  <input 
-                                    type="number" 
-                                    value={inv.amount} 
-                                    onChange={(e) => updateInvoiceField(inv.id!, 'amount', Number(e.target.value))}
-                                    className="flex-1 bg-slate-50 border-none rounded-xl p-3 text-xs font-black focus:ring-2 focus:ring-litcBlue"
-                                  />
-                                  <select 
-                                    value={inv.currency}
-                                    onChange={(e) => updateInvoiceField(inv.id!, 'currency', e.target.value)}
-                                    className="bg-slate-50 border-none rounded-xl p-3 text-[10px] font-black focus:ring-2 focus:ring-litcBlue"
-                                  >
-                                    {Object.keys(EXCHANGE_RATES).map(c => <option key={c} value={c}>{c}</option>)}
-                                  </select>
-                               </div>
-                            </div>
-                         </div>
-
-                         <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-slate-50">
-                            <div className="bg-litcBlue/5 px-4 py-2 rounded-xl border border-litcBlue/10">
-                               <p className="text-[8px] font-black text-slate-400 uppercase">القيمة بالدينار</p>
-                               <p className="text-sm font-black text-litcBlue">{inv.originalAmountInLYD?.toFixed(2)} د.ل</p>
-                            </div>
-                            <div className="bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase">حصة الشركة (90%)</p>
-                               <p className="text-sm font-black text-emerald-700">{inv.companyPortion?.toFixed(2)} د.ل</p>
-                            </div>
-                            <div className="bg-amber-50 px-4 py-2 rounded-xl border border-amber-100">
-                               <p className="text-[8px] font-black text-amber-600 uppercase">حصة الموظف (10%)</p>
-                               <p className="text-sm font-black text-amber-700">{inv.employeePortion?.toFixed(2)} د.ل</p>
-                            </div>
+                      <div>
+                         <h4 className="text-lg sm:text-xl font-black text-litcBlue">{inv.hospitalName}</h4>
+                         <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">المستند رقم: {inv.invoiceNumber}</p>
+                         <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4 mt-3 sm:mt-4">
+                            <span className="text-[9px] sm:text-[11px] bg-slate-100 text-slate-900 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl font-black border border-slate-200">{inv.amount} {inv.currency}</span>
+                            {inv.currency !== 'LYD' && (
+                              <span className="text-[9px] sm:text-[11px] bg-litcOrange/10 text-litcOrange px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl font-black flex items-center gap-1 sm:gap-2 border border-litcOrange/20 shadow-sm shadow-orange-100">
+                                <Coins className="w-3 h-3 sm:w-4 sm:h-4" /> {inv.originalAmountInLYD?.toFixed(2)} د.ل
+                              </span>
+                            )}
                          </div>
                       </div>
                    </div>
-                   
-                   <button onClick={() => setInvoices(prev => prev.filter(i => i.id !== inv.id))} className="absolute bottom-6 left-6 w-12 h-12 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm active:scale-95">
-                      <Trash2 className="w-5 h-5" />
+                   <button onClick={() => setInvoices(prev => prev.filter(i => i.id !== inv.id))} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-[1.8rem] bg-slate-50 text-slate-300 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all group-hover:shadow-lg active:scale-95 shrink-0">
+                      <Trash2 className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
                    </button>
                 </div>
               ))}

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, UserCircle, Settings, 
   CheckCircle2, XCircle, Clock, RotateCcw,
   Stethoscope, ShieldCheck, Database, BarChart3,
-  SearchCheck, PlusCircle, BrainCircuit, Search, CreditCard
+  SearchCheck, PlusCircle, BrainCircuit, Search
 } from 'lucide-react';
 import { UserRole, ClaimStatus } from './types';
 
@@ -26,7 +26,6 @@ export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon
   [ClaimStatus.RETURNED_TO_EMPLOYEE]: { label: 'معاد للموظف', color: 'text-rose-600 bg-rose-50', icon: <RotateCcw className="w-4 h-4" /> },
   [ClaimStatus.APPROVED]: { label: 'تم الاعتماد النهائي', color: 'text-emerald-600 bg-emerald-50', icon: <CheckCircle2 className="w-4 h-4" /> },
   [ClaimStatus.REJECTED]: { label: 'مرفوض', color: 'text-red-600 bg-red-50', icon: <XCircle className="w-4 h-4" /> },
-  [ClaimStatus.PAID]: { label: 'تم الصرف', color: 'text-blue-600 bg-blue-50', icon: <CreditCard className="w-4 h-4" /> },
 };
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {

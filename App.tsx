@@ -731,7 +731,6 @@ const App: React.FC = () => {
                 <div className="space-y-6 animate-in slide-in-from-bottom-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {[
-                      { role: UserRole.EMPLOYEE, label: 'موظف (مستخدم)', icon: <UserCircle className="w-6 h-6"/>, color: 'hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-600' },
                       { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
                       { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
@@ -796,7 +795,7 @@ const App: React.FC = () => {
 
     if (currentClaim) {
       if (user.role === UserRole.DATA_ENTRY) {
-        return <DataEntry claim={currentClaim} claims={claims} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
+        return <DataEntry claim={currentClaim} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
       }
       return (
         <ClaimDetail 

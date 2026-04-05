@@ -6,19 +6,17 @@ import {
   ArrowRight, Sparkles, Loader2, Activity,
   Maximize2, Building2, PlusCircle, 
   Trash2, Hash, Calculator, CheckCircle2, Send,
-  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare,
-  Stethoscope, Monitor, Glasses, Coins, Calendar
+  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare
 } from 'lucide-react';
 
 interface DataEntryProps {
   claim: Claim;
-  claims: Claim[];
   user: User;
   onSave: (updatedInvoices: Invoice[]) => void;
   onBack: () => void;
 }
 
-const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBack }) => {
+const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) => {
   const assignedInvoices = useMemo(() => 
     claim.invoices.filter(inv => inv.assignedToId === user.id || !inv.assignedToId), 
     [claim.invoices, user.id]
@@ -37,75 +35,11 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
   const handleUpdateInvoice = (updates: Partial<Invoice>) => {
     setEditingInvoices(prev => prev.map((inv, idx) => {
       if (idx === activeIndex) {
-        const updatedInv = { ...inv, ...updates };
-        
-        // Financial Logic for Coverage
-        let coverage = 0.9; // Default 90%
-        if (updatedInv.isMajorSurgery || updatedInv.isMedicalDevice) {
-          coverage = 1.0;
-        }
-        
-        const amountLYD = (updatedInv.amount || 0) * (updatedInv.exchangeRate || 1.0);
-        updatedInv.originalAmountInLYD = amountLYD;
-        
-        if (updatedInv.isGlasses) {
-          const cap = 1500;
-          updatedInv.companyPortion = Math.min(amountLYD, cap);
-          updatedInv.employeePortion = Math.max(0, amountLYD - cap);
-          updatedInv.excessPaidByEmployee = updatedInv.employeePortion;
-        } else {
-          updatedInv.companyPortion = amountLYD * coverage;
-          updatedInv.employeePortion = amountLYD * (1 - coverage);
-        }
-        
-        updatedInv.netAmountLYD = updatedInv.companyPortion;
-        updatedInv.coveragePercentage = coverage * 100;
-
-        return updatedInv;
+        return { ...inv, ...updates };
       }
       return inv;
     }));
   };
-
-  // Global Duplicate Detection across all claims
-  const isGlobalDuplicate = useMemo(() => {
-    if (!currentInv) return false;
-    return claims.some(c => 
-      c.invoices.some(inv => 
-        inv.id !== currentInv.id && 
-        inv.invoiceNumber === currentInv.invoiceNumber && 
-        inv.date === currentInv.date && 
-        inv.amount === currentInv.amount
-      )
-    );
-  }, [currentInv, claims]);
-
-  // Check for glasses limit (1 per year)
-  const hasPreviousGlassesThisYear = useMemo(() => {
-    if (!currentInv || !currentInv.isGlasses) return false;
-    const currentYear = new Date().getFullYear().toString();
-    return claims.some(c => 
-      c.employeeId === claim.employeeId && 
-      c.invoices.some(inv => 
-        inv.id !== currentInv.id && 
-        inv.isGlasses && 
-        inv.date.startsWith(currentYear) &&
-        (inv.status === ClaimStatus.PAID || inv.status === ClaimStatus.PENDING_AUDIT)
-      )
-    );
-  }, [currentInv, claims, claim.employeeId]);
-
-  const isDuplicate = useMemo(() => {
-    if (!currentInv) return false;
-    // Local duplicate in current claim
-    const isLocalDuplicate = editingInvoices.some((inv, idx) => 
-      idx !== activeIndex && 
-      inv.invoiceNumber === currentInv.invoiceNumber && 
-      inv.date === currentInv.date && 
-      inv.amount === currentInv.amount
-    );
-    return isLocalDuplicate || isGlobalDuplicate;
-  }, [currentInv, editingInvoices, activeIndex, isGlobalDuplicate]);
 
   const setDecision = (id: string, status: 'VALID' | 'ERROR') => {
     setInvoiceDecisions(prev => ({
@@ -203,105 +137,21 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                  <div className="space-y-4">
-                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
-                     <div className="relative">
-                       <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="text" value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
-                     </div>
-                  </div>
-                  <div className="space-y-4">
-                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
-                     <div className="relative">
-                       <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="text" value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className={`w-full bg-slate-50 border-2 ${isDuplicate ? 'border-rose-500 bg-rose-50' : 'border-slate-100'} rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all`} />
-                       {isDuplicate && <div className="absolute -bottom-6 right-6 text-rose-500 text-[10px] font-black flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> تنبيه: فاتورة مكررة (نفس الرقم والتاريخ والقيمة)</div>}
-                     </div>
-                  </div>
-                  <div className="space-y-4">
-                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">تاريخ الفاتورة</label>
-                     <div className="relative">
-                       <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="date" value={currentInv.date} onChange={(e) => handleUpdateInvoice({ date: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
-                     </div>
-                  </div>
-                  <div className="space-y-4">
-                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">القيمة والعملة</label>
-                     <div className="flex gap-4">
-                       <div className="relative flex-1">
-                         <Coins className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                         <input type="number" value={currentInv.amount} onChange={(e) => handleUpdateInvoice({ amount: Number(e.target.value) })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
-                       </div>
-                       <select 
-                         value={currentInv.currency} 
-                         onChange={(e) => handleUpdateInvoice({ currency: e.target.value as any, exchangeRate: e.target.value === 'LYD' ? 1.0 : currentInv.exchangeRate })}
-                         className="bg-slate-50 border-2 border-slate-100 rounded-[2rem] px-6 font-black outline-none focus:border-litcBlue transition-all"
-                       >
-                         <option value="LYD">LYD</option>
-                         <option value="USD">USD</option>
-                         <option value="EUR">EUR</option>
-                         <option value="TND">TND</option>
-                       </select>
-                     </div>
-                  </div>
-                  {currentInv.currency !== 'LYD' && (
-                    <div className="space-y-4 animate-in slide-in-from-right-4">
-                       <label className="text-[11px] font-black text-rose-500 uppercase tracking-widest px-2">سعر الصرف (مقابل الدينار)</label>
-                       <div className="relative">
-                         <Calculator className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-300 w-5 h-5" />
-                         <input 
-                           type="number" 
-                           step="0.01"
-                           value={currentInv.exchangeRate} 
-                           onChange={(e) => handleUpdateInvoice({ exchangeRate: Number(e.target.value) })} 
-                           className="w-full bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-rose-500 transition-all text-rose-600" 
-                         />
-                       </div>
-                    </div>
-                  )}
-               </div>
-
-               {/* Financial Toggles */}
-               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
-                  <button 
-                    onClick={() => handleUpdateInvoice({ isMajorSurgery: !currentInv.isMajorSurgery, isMedicalDevice: false, isGlasses: false })}
-                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMajorSurgery ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
-                  >
-                    <Stethoscope className="w-6 h-6" />
-                    <span className="text-[10px] font-black">عملية كبرى (100%)</span>
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateInvoice({ isMedicalDevice: !currentInv.isMedicalDevice, isMajorSurgery: false, isGlasses: false })}
-                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMedicalDevice ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
-                  >
-                    <Monitor className="w-6 h-6" />
-                    <span className="text-[10px] font-black">جهاز طبي (100%)</span>
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateInvoice({ isGlasses: !currentInv.isGlasses, isMajorSurgery: false, isMedicalDevice: false })}
-                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 relative ${currentInv.isGlasses ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
-                  >
-                    <Glasses className="w-6 h-6" />
-                    <span className="text-[10px] font-black">نظارات (1500 د.ل)</span>
-                    {hasPreviousGlassesThisYear && (
-                      <div className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg animate-bounce">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
-                    )}
-                  </button>
-               </div>
-
-               {hasPreviousGlassesThisYear && currentInv.isGlasses && (
-                 <div className="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-600 animate-in slide-in-from-top-4">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm shrink-0">
-                       <AlertTriangle className="w-6 h-6" />
-                    </div>
-                    <div>
-                       <p className="font-black text-sm">تنبيه: تم تجاوز الحد السنوي للنظارات</p>
-                       <p className="text-[10px] font-bold opacity-80">الموظف (أو أحد أفراد عائلته) حصل بالفعل على نظارة طبية خلال هذا العام. سيتم رفض هذا البند آلياً.</p>
+                 <div className="space-y-4">
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
+                    <div className="relative">
+                      <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                      <input type="text" value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
                     </div>
                  </div>
-               )}
+                 <div className="space-y-4">
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
+                    <div className="relative">
+                      <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                      <input type="text" value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                    </div>
+                 </div>
+              </div>
 
               <div className="space-y-6">
                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">تفكيك الأصناف</h4>

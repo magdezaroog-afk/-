@@ -7,8 +7,7 @@ import {
   Activity, TrendingUp, Sparkles, Clock, 
   UserPlus, ListChecks, ArrowUpRight, 
   Layers, Wallet, CheckCircle2, ChevronRight, HeartPulse, ShieldCheck,
-  Check, X, User as UserIcon, Droplet, Target, Scale, MapPin, Building2, Briefcase,
-  Search, Hand, AlertCircle
+  Check, X, User as UserIcon, Droplet, Target, Scale, MapPin, Building2, Briefcase
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -27,56 +26,29 @@ const DATA_ENTRY_STAFF = [
 
 const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNavigate, onAssign }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredClaims = claims.filter(c => {
-    const query = searchQuery.toLowerCase();
-    return c.id.toLowerCase().includes(query) || 
-           c.employeeName.toLowerCase().includes(query) ||
-           c.referenceNumber.toLowerCase().includes(query) ||
-           c.invoices.some(inv => inv.invoiceNumber.toLowerCase().includes(query));
-  });
-
-  const pendingActions = filteredClaims.filter(c => {
+  const pendingActions = claims.filter(c => {
     if (user.role === UserRole.DOCTOR) return c.status === ClaimStatus.PENDING_DR;
     
     if (user.role === UserRole.HEAD_OF_UNIT) {
+      // رئيس الوحدة يرى المعاملات التي تحتاج لقراره أو لإسناد فواتيرها
       const hasUnassignedInvoices = c.invoices.some(inv => !inv.assignedToId);
       return (c.status === ClaimStatus.PENDING_HEAD) || 
-             (c.status === ClaimStatus.PENDING_DATA_ENTRY && hasUnassignedInvoices);
+             (c.status === ClaimStatus.PENDING_DATA_ENTRY && hasUnassignedInvoices) ||
+             (c.status === ClaimStatus.PENDING_DR && hasUnassignedInvoices); // حالة نادرة لكن ممكنة
     }
     
     if (user.role === UserRole.DATA_ENTRY) {
+      // موظف الإدخال يرى المعاملات التي بها فواتير تخصه
       return c.invoices.some(i => i.assignedToId === user.id);
     }
 
     if (user.role === UserRole.AUDITOR) {
+      // مكتب المراجعة يرى المعاملات المحولة له
       return c.status === ClaimStatus.PENDING_AUDIT;
     }
     return false;
   });
-
-  const poolClaims = filteredClaims.filter(c => {
-    if (user.role !== UserRole.DATA_ENTRY) return false;
-    
-    // Claims in the pool are those that are unassigned
-    const isUnassigned = c.invoices.every(inv => !inv.assignedToId);
-    if (!isUnassigned) return false;
-
-    // Check 24h rule
-    if (c.submittedAt) {
-      const submittedDate = new Date(c.submittedAt);
-      const now = new Date();
-      const diffHours = (now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60);
-      return diffHours >= 24;
-    }
-    return true; // If no submittedAt, assume it's old enough
-  });
-
-  const ceilingLimit = 100000;
-  const ceilingUsed = user.annualCeilingUsed || 0;
-  const ceilingRemaining = ceilingLimit - ceilingUsed;
-  const ceilingPercentage = (ceilingUsed / ceilingLimit) * 100;
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -102,90 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
   return (
     <div className="space-y-8 sm:space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 font-cairo px-4 sm:px-0" dir="rtl">
-      {/* Bulk Assignment Bar for Unit Head */}
-      {user.role === UserRole.HEAD_OF_UNIT && selectedIds.length > 0 && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-4xl px-4 animate-in slide-in-from-bottom-10 duration-500">
-          <div className="bg-slate-900 border-4 border-white rounded-[3rem] p-6 sm:p-10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-right">
-              <p className="text-white text-xl sm:text-2xl font-black flex items-center gap-3">
-                <div className="w-10 h-10 bg-litcOrange rounded-xl flex items-center justify-center text-white shadow-lg">{selectedIds.length}</div>
-                تم اختيار معاملات للإسناد
-              </p>
-              <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-1">اختر الموظف المناسب من القائمة لإتمام عملية الإسناد الفني</p>
-            </div>
-            
-            <div className="flex flex-wrap justify-center gap-3">
-              {DATA_ENTRY_STAFF.map(staff => (
-                <button 
-                  key={staff.id}
-                  onClick={() => handleBulkAssign(staff.id)}
-                  className="group relative bg-white/5 hover:bg-white/10 border border-white/10 p-4 sm:p-5 rounded-[2rem] transition-all flex items-center gap-4 text-right min-w-[200px]"
-                >
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-litcBlue rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
-                    {staff.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-white text-xs sm:text-sm font-black">{staff.name}</p>
-                    <p className="text-[8px] sm:text-[10px] text-slate-500 font-bold">{staff.stats}</p>
-                  </div>
-                  <div className="absolute inset-0 bg-litcBlue/0 group-hover:bg-litcBlue/5 rounded-[2rem] transition-all"></div>
-                </button>
-              ))}
-              <button 
-                onClick={() => setSelectedIds([])}
-                className="p-4 sm:p-5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-[2rem] transition-all font-black text-xs flex items-center gap-2"
-              >
-                <X className="w-5 h-5" /> إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Financial Dashboard & Search */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-xl flex flex-col sm:flex-row items-center gap-8">
-          <div className="w-full sm:w-1/3 space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">سقف التغطية السنوي</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-litcBlue">100,000</span>
-              <span className="text-xs font-bold text-slate-400">د.ل</span>
-            </div>
-          </div>
-          <div className="flex-1 w-full space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] font-black text-emerald-600 uppercase">المتبقي</p>
-                <p className="text-xl font-black text-slate-900">{ceilingRemaining.toLocaleString()} د.ل</p>
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase">المستهلك</p>
-                <p className="text-sm font-black text-litcBlue">{ceilingUsed.toLocaleString()} د.ل ({ceilingPercentage.toFixed(1)}%)</p>
-              </div>
-            </div>
-            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-              <div 
-                className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000"
-                style={{ width: `${Math.min(ceilingPercentage, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4 bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-xl flex flex-col justify-center">
-          <div className="relative">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input 
-              type="text"
-              placeholder="بحث برقم الفاتورة، الاسم، أو المعرف..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border-none rounded-[1.5rem] py-4 pr-12 pl-6 text-sm font-bold focus:ring-2 focus:ring-litcBlue transition-all"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* User Profile Summary Card */}
       <div className="bg-white rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-10 border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group max-w-md mx-auto lg:max-w-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-litcBlue/10 transition-all duration-700"></div>
@@ -294,6 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10">
             {pendingActions.map(claim => {
               const unassignedCount = claim.invoices.filter(i => !i.assignedToId).length;
+              const isPartiallyAssigned = unassignedCount > 0 && unassignedCount < claim.invoices.length;
               
               return (
                 <div key={claim.id} className="relative group">
@@ -325,41 +214,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           </div>
         )}
       </section>
-
-      {/* The Pool Section */}
-      {user.role === UserRole.DATA_ENTRY && poolClaims.length > 0 && (
-        <section className="space-y-6 sm:space-y-10">
-          <div className="flex items-center gap-4 px-4 sm:px-6 justify-end">
-             <div className="text-right">
-                <h2 className="text-xl sm:text-3xl font-black text-rose-600">المجمع العام (The Pool)</h2>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">معاملات تجاوزت 24 ساعة بدون إسناد - متاحة للالتقاط</p>
-             </div>
-             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg"><Hand className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10">
-            {poolClaims.map(claim => (
-              <div key={claim.id} className="relative group">
-                <div className="absolute -top-4 -left-4 z-[45] bg-amber-500 text-white px-5 py-2 rounded-2xl font-black text-[10px] shadow-xl flex items-center gap-2 border-2 border-white animate-bounce">
-                  <AlertCircle className="w-3.5 h-3.5" /> متاح للالتقاط
-                </div>
-                <div className="absolute bottom-6 left-6 z-[45] opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      onAssign?.(claim.id, claim.invoices.map(i => i.id), user.id); 
-                    }}
-                    className="bg-litcBlue text-white px-8 py-4 rounded-[2rem] font-black text-sm shadow-2xl hover:bg-litcOrange transition-all flex items-center gap-3 border-4 border-white"
-                  >
-                    <Hand className="w-5 h-5" /> التقاط المعاملة الآن
-                  </button>
-                </div>
-                <ClaimCard claim={claim} onClick={onSelectClaim} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Transactions Tracking Section */}
       {user.role === UserRole.EMPLOYEE && (
