@@ -109,11 +109,12 @@ const App: React.FC = () => {
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(true);
   const manualLoginRef = useRef(false);
-  const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'phone-login'>('initial');
+  const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'email-verification' | 'phone-login'>('initial');
   
   // Auth Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [location, setLocation] = useState('');
@@ -121,6 +122,7 @@ const App: React.FC = () => {
   const [department, setDepartment] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -201,7 +203,13 @@ const App: React.FC = () => {
       await signInWithEmailAndPassword(auth, email, password);
       setActivePath('dashboard');
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("تم حظر الدخول مؤقتاً بسبب محاولات فاشلة كثيرة. يرجى المحاولة لاحقاً.");
+      } else {
+        setError(err.message);
+      }
       setIsLoggingIn(false);
     }
   };
@@ -209,7 +217,42 @@ const App: React.FC = () => {
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    if (password !== confirmPassword) {
+      setError("كلمات المرور غير متطابقة");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      return;
+    }
+
+    // For demo purposes, we'll use a fixed code "123456" so you can test it easily.
+    // In a real production app, this would be a random code sent via a backend service (like Firebase Functions).
+    const code = "123456";
+    setGeneratedCode(code);
+    setVerificationCode('');
+    
+    // Simulated success message
+    setError(null);
+    const successMsg = "تم إرسال كود التحقق بنجاح (لأغراض العرض الكود هو: 123456)";
+    console.log(`Verification code for ${email}: ${code}`);
+    
+    setLoginStep('email-verification');
+  };
+
+  const handleEmailVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
     setIsLoggingIn(true);
+
+    if (verificationCode.trim() !== generatedCode.trim()) {
+      setError("كود التحقق غير صحيح");
+      setIsLoggingIn(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
@@ -221,10 +264,6 @@ const App: React.FC = () => {
         email: email,
         name: name,
         role: UserRole.EMPLOYEE,
-        location,
-        building,
-        department,
-        jobTitle,
         healthProfile: {
           bloodType: '',
           height: 0,
@@ -242,7 +281,15 @@ const App: React.FC = () => {
       setUser(newUser);
       setActivePath('dashboard');
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError("هذا البريد الإلكتروني مسجل مسبقاً. يرجى تسجيل الدخول بدلاً من ذلك.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("كلمة المرور ضعيفة جداً.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("البريد الإلكتروني غير صالح.");
+      } else {
+        setError(err.message);
+      }
       setIsLoggingIn(false);
     }
   };
@@ -615,7 +662,7 @@ const App: React.FC = () => {
 
               {loginStep === 'email-signup' && (
                 <form onSubmit={handleEmailSignup} className="space-y-4 animate-in slide-in-from-bottom-10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div className="relative">
                       <UserCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
@@ -650,52 +697,13 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="relative">
-                      <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
-                      <select 
-                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm appearance-none"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        required
-                      >
-                        <option value="">اختر الموقع</option>
-                        {['طرابلس', 'بنغازي', 'مصراتة', 'الزاوية', 'سبها', 'الخمس', 'زليتن'].map(loc => (
-                          <option key={loc} value={loc}>{loc}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="relative">
-                      <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
                       <input 
-                        type="text" 
-                        placeholder="المبنى" 
+                        type="password" 
+                        placeholder="تأكيد كلمة المرور" 
                         className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
-                        value={building}
-                        onChange={(e) => setBuilding(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="relative">
-                      <Briefcase className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
-                      <select 
-                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm appearance-none"
-                        value={department}
-                        onChange={(e) => setDepartment(e.target.value)}
-                        required
-                      >
-                        <option value="">اختر الإدارة</option>
-                        {['الإدارة العامة', 'إدارة العمليات', 'إدارة الموارد البشرية', 'إدارة المالية', 'إدارة المبيعات', 'إدارة التقنية'].map(dept => (
-                          <option key={dept} value={dept}>{dept}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="relative sm:col-span-2">
-                      <UserCheck className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
-                      <input 
-                        type="text" 
-                        placeholder="الوظيفة" 
-                        className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
-                        value={jobTitle}
-                        onChange={(e) => setJobTitle(e.target.value)}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                         required
                       />
                     </div>
@@ -703,6 +711,41 @@ const App: React.FC = () => {
                   {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
                   <button type="submit" className="w-full py-4 bg-litcOrange text-white font-black rounded-2xl shadow-lg shadow-litcOrange/20 hover:-translate-y-1 transition-all">إنشاء الحساب</button>
                   <button type="button" onClick={() => setLoginStep('initial')} className="w-full py-2 text-slate-400 font-black text-xs">رجوع</button>
+                </form>
+              )}
+
+              {loginStep === 'email-verification' && (
+                <form onSubmit={handleEmailVerification} className="space-y-6 animate-in slide-in-from-bottom-10">
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 bg-litcOrange/10 text-litcOrange rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Mail className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-black text-litcBlue">تأكيد البريد الإلكتروني</h3>
+                    <p className="text-xs font-bold text-slate-500">تم إرسال كود التحقق إلى {email}</p>
+                  </div>
+
+                  <div className="relative">
+                    <Shield className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                    <input 
+                      type="text" 
+                      placeholder="أدخل كود التحقق" 
+                      className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-black text-center text-lg tracking-[0.5em]"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+
+                  {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
+                  
+                  <div className="space-y-3">
+                    <button type="submit" className="w-full py-4 bg-litcBlue text-white font-black rounded-2xl shadow-lg shadow-litcBlue/20 hover:-translate-y-1 transition-all">تأكيد وتسجيل الدخول</button>
+                    <div className="flex flex-col gap-2">
+                      <button type="button" onClick={handleEmailSignup} className="w-full py-2 text-litcOrange font-black text-xs hover:underline">إعادة إرسال الكود</button>
+                      <button type="button" onClick={() => setLoginStep('email-signup')} className="w-full py-2 text-slate-400 font-black text-xs">تغيير البريد الإلكتروني</button>
+                    </div>
+                  </div>
                 </form>
               )}
 
@@ -795,7 +838,7 @@ const App: React.FC = () => {
 
     if (currentClaim) {
       if (user.role === UserRole.DATA_ENTRY) {
-        return <DataEntry claim={currentClaim} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
+        return <DataEntry claim={currentClaim} claims={claims} user={user} onSave={handleSaveDataEntry} onBack={() => setSelectedClaim(null)} />;
       }
       return (
         <ClaimDetail 
@@ -835,13 +878,13 @@ const App: React.FC = () => {
       case 'submit-claim':
         return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={async (data) => {
           const newClaim: Claim = {
-            id: `MC-${Math.floor(1000 + Math.random() * 9000)}`,
+            id: data.id || `MC-${Math.floor(1000 + Math.random() * 9000)}`,
             employeeId: user.id,
             employeeName: user.name,
             submissionDate: new Date().toISOString().split('T')[0],
             status: ClaimStatus.PENDING_DR,
             totalAmount: data.totalAmount || 0,
-            referenceNumber: `REF-${Date.now().toString().slice(-6)}`,
+            referenceNumber: data.id || `REF-${Date.now().toString().slice(-6)}`,
             invoiceCount: data.invoices.length,
             description: data.description || '',
             location: user.location || '',
@@ -849,14 +892,15 @@ const App: React.FC = () => {
             invoices: data.invoices.map((inv: any) => ({ 
               ...inv, 
               status: ClaimStatus.PENDING_DR,
-              id: `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+              id: inv.id || `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
             })),
-            auditTrail: [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
+            auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
           };
           
           try {
             await setDoc(doc(db, 'claims', newClaim.id), sanitizeForFirestore(newClaim));
-            setActivePath('dashboard');
+            // We don't call setActivePath('dashboard') here anymore 
+            // because SubmitClaim handles its own success state.
           } catch (error) {
             handleFirestoreError(error, OperationType.WRITE, `claims/${newClaim.id}`);
           }

@@ -1,25 +1,30 @@
 
 import React, { useState, useMemo } from 'react';
-import { Claim, Invoice, InvoiceLineItem, User, ClaimStatus } from '../types';
+import { Claim, Invoice, InvoiceLineItem, User, ClaimStatus, UserRole } from '../types';
 import { analyzeInvoiceDetailed } from '../services/geminiService';
 import { 
   ArrowRight, Sparkles, Loader2, Activity,
   Maximize2, Building2, PlusCircle, 
   Trash2, Hash, Calculator, CheckCircle2, Send,
-  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare
+  X, ShieldCheck, Edit3, Check, Clock, AlertTriangle, MessageSquare,
+  Stethoscope, Monitor, Glasses, Coins, Calendar
 } from 'lucide-react';
 
 interface DataEntryProps {
   claim: Claim;
+  claims: Claim[];
   user: User;
   onSave: (updatedInvoices: Invoice[]) => void;
   onBack: () => void;
 }
 
-const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) => {
+const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBack }) => {
+  const isReadOnly = claim.status === ClaimStatus.PENDING_HEAD || claim.status === ClaimStatus.PENDING_UNIT_HEAD || claim.status === ClaimStatus.APPROVED;
+  const isUnitHead = user.role === UserRole.HEAD_OF_UNIT;
+
   const assignedInvoices = useMemo(() => 
-    claim.invoices.filter(inv => inv.assignedToId === user.id || !inv.assignedToId), 
-    [claim.invoices, user.id]
+    claim.invoices.filter(inv => inv.assignedToId === user.id || !inv.assignedToId || isUnitHead), 
+    [claim.invoices, user.id, isUnitHead]
   );
 
   const [editingInvoices, setEditingInvoices] = useState<Invoice[]>(assignedInvoices);
@@ -28,18 +33,94 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
   const [showFullImage, setShowFullImage] = useState(false);
   
   // تتبع القرارات الفنية لكل فاتورة
-  const [invoiceDecisions, setInvoiceDecisions] = useState<Record<string, { status: 'VALID' | 'ERROR', comment: string }>>({});
+  const [invoiceDecisions, setInvoiceDecisions] = useState<Record<string, { status: 'VALID' | 'ERROR', comment: string }>>(() => {
+    const initial: Record<string, { status: 'VALID' | 'ERROR', comment: string }> = {};
+    assignedInvoices.forEach(inv => {
+      if (inv.ocrData?.dataEntryDecision) {
+        initial[inv.id] = { 
+          status: inv.ocrData.dataEntryDecision, 
+          comment: inv.ocrData.auditorComment || '' 
+        };
+      }
+    });
+    return initial;
+  });
 
   const currentInv = editingInvoices[activeIndex];
 
   const handleUpdateInvoice = (updates: Partial<Invoice>) => {
+    if (isReadOnly && !isUnitHead) return;
     setEditingInvoices(prev => prev.map((inv, idx) => {
       if (idx === activeIndex) {
-        return { ...inv, ...updates };
+        const updatedInv = { ...inv, ...updates };
+        
+        // Financial Logic for Coverage
+        let coverage = 0.9; // Default 90%
+        if (updatedInv.isMajorSurgery || updatedInv.isMedicalDevice) {
+          coverage = 1.0;
+        }
+        
+        const amountLYD = (updatedInv.amount || 0) * (updatedInv.exchangeRate || 1.0);
+        updatedInv.originalAmountInLYD = amountLYD;
+        
+        if (updatedInv.isGlasses) {
+          const cap = 1500;
+          updatedInv.companyPortion = Math.min(amountLYD, cap);
+          updatedInv.employeePortion = Math.max(0, amountLYD - cap);
+          updatedInv.excessPaidByEmployee = updatedInv.employeePortion;
+        } else {
+          updatedInv.companyPortion = amountLYD * coverage;
+          updatedInv.employeePortion = amountLYD * (1 - coverage);
+        }
+        
+        updatedInv.netAmountLYD = updatedInv.companyPortion;
+        updatedInv.coveragePercentage = coverage * 100;
+
+        return updatedInv;
       }
       return inv;
     }));
   };
+
+  // Global Duplicate Detection across all claims
+  const isGlobalDuplicate = useMemo(() => {
+    if (!currentInv) return false;
+    return claims.some(c => 
+      c.invoices.some(inv => 
+        inv.id !== currentInv.id && 
+        inv.invoiceNumber === currentInv.invoiceNumber && 
+        inv.date === currentInv.date && 
+        inv.amount === currentInv.amount
+      )
+    );
+  }, [currentInv, claims]);
+
+  // Check for glasses limit (1 per year)
+  const hasPreviousGlassesThisYear = useMemo(() => {
+    if (!currentInv || !currentInv.isGlasses) return false;
+    const currentYear = new Date().getFullYear().toString();
+    return claims.some(c => 
+      c.employeeId === claim.employeeId && 
+      c.invoices.some(inv => 
+        inv.id !== currentInv.id && 
+        inv.isGlasses && 
+        inv.date.startsWith(currentYear) &&
+        (inv.status === ClaimStatus.PAID || inv.status === ClaimStatus.PENDING_AUDIT)
+      )
+    );
+  }, [currentInv, claims, claim.employeeId]);
+
+  const isDuplicate = useMemo(() => {
+    if (!currentInv) return false;
+    // Local duplicate in current claim
+    const isLocalDuplicate = editingInvoices.some((inv, idx) => 
+      idx !== activeIndex && 
+      inv.invoiceNumber === currentInv.invoiceNumber && 
+      inv.date === currentInv.date && 
+      inv.amount === currentInv.amount
+    );
+    return isLocalDuplicate || isGlobalDuplicate;
+  }, [currentInv, editingInvoices, activeIndex, isGlobalDuplicate]);
 
   const setDecision = (id: string, status: 'VALID' | 'ERROR') => {
     setInvoiceDecisions(prev => ({
@@ -77,12 +158,31 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
   const handleFinalSubmit = () => {
     const finalInvoices = editingInvoices.map(inv => ({
       ...inv,
-      // نقوم بتضمين قرار المدقق في حالة الفاتورة المؤقتة
       status: ClaimStatus.PENDING_HEAD,
-      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id].comment || '', dataEntryDecision: invoiceDecisions[inv.id].status }
+      ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id]?.comment || '', dataEntryDecision: invoiceDecisions[inv.id]?.status }
     }));
     onSave(finalInvoices);
   };
+
+  const handleUnitHeadApprove = () => {
+    const finalInvoices = editingInvoices.map(inv => ({
+      ...inv,
+      status: ClaimStatus.APPROVED
+    }));
+    onSave(finalInvoices);
+  };
+
+  const handleUnitHeadReturn = () => {
+    const finalInvoices = editingInvoices.map(inv => ({
+      ...inv,
+      status: ClaimStatus.CORRECTION_REQUIRED
+    }));
+    onSave(finalInvoices);
+  };
+
+  const totalCompany = editingInvoices.reduce((s, i) => s + (i.companyPortion || 0), 0);
+  const totalEmployee = editingInvoices.reduce((s, i) => s + (i.employeePortion || 0), 0);
+  const totalOriginal = editingInvoices.reduce((s, i) => s + (i.originalAmountInLYD || 0), 0);
 
   return (
     <div className="max-w-full mx-auto pb-32 animate-in fade-in duration-700 font-cairo" dir="rtl">
@@ -127,31 +227,139 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
         </div>
 
         <div className="lg:col-span-8 space-y-8">
-           <section className="bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] max-w-md mx-auto lg:max-w-none group relative overflow-hidden">
+           <section className={`bg-white p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] max-w-md mx-auto lg:max-w-none group relative overflow-hidden ${isReadOnly && !isUnitHead ? 'opacity-80' : ''}`}>
               <div className="absolute top-0 right-0 w-48 h-48 bg-litcBlue/5 rounded-full -mr-24 -mt-24 blur-3xl group-hover:bg-litcBlue/10 transition-all"></div>
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 mb-8 sm:mb-12 text-center md:text-right relative z-10">
                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3 sm:gap-4"><Edit3 className="text-litcBlue w-6 h-6 sm:w-8 sm:h-8" /> تفاصيل البنود والأسعار</h3>
-                 <button onClick={handleAutoAnalyze} disabled={isAnalyzing} className="w-full md:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-litcOrange text-white px-6 py-4 sm:px-8 sm:py-5 rounded-xl sm:rounded-[2rem] text-xs sm:text-sm font-black hover:bg-orange-600 transition-all shadow-xl group-hover:scale-105">
-                    {isAnalyzing ? <Loader2 className="w-4.5 h-4.5 sm:w-6 sm:h-6 animate-spin" /> : <Sparkles className="w-4.5 h-4.5 sm:w-6 sm:h-6" />} التحليل الآلي للبنود
-                 </button>
+                 {!isReadOnly && (
+                   <button onClick={handleAutoAnalyze} disabled={isAnalyzing} className="w-full md:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-litcOrange text-white px-6 py-4 sm:px-8 sm:py-5 rounded-xl sm:rounded-[2rem] text-xs sm:text-sm font-black hover:bg-orange-600 transition-all shadow-xl group-hover:scale-105">
+                      {isAnalyzing ? <Loader2 className="w-4.5 h-4.5 sm:w-6 sm:h-6 animate-spin" /> : <Sparkles className="w-4.5 h-4.5 sm:w-6 sm:h-6" />} التحليل الآلي للبنود
+                   </button>
+                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                 <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
-                    <div className="relative">
-                      <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                      <input type="text" value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
+                     <div className="relative">
+                       <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
+                     <div className="relative">
+                       <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className={`w-full bg-slate-50 border-2 ${isDuplicate ? 'border-rose-500 bg-rose-50' : 'border-slate-100'} rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all`} />
+                       {isDuplicate && <div className="absolute -bottom-6 right-6 text-rose-500 text-[10px] font-black flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> تنبيه: فاتورة مكررة (نفس الرقم والتاريخ والقيمة)</div>}
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">تاريخ الفاتورة</label>
+                     <div className="relative">
+                       <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                       <input type="date" readOnly={isReadOnly && !isUnitHead} value={currentInv.date} onChange={(e) => handleUpdateInvoice({ date: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                     </div>
+                  </div>
+                  <div className="space-y-4">
+                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">القيمة والعملة</label>
+                     <div className="flex gap-4">
+                       <div className="relative flex-1">
+                         <Coins className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                         <input type="number" readOnly={isReadOnly && !isUnitHead} value={currentInv.amount} onChange={(e) => handleUpdateInvoice({ amount: Number(e.target.value) })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                       </div>
+                       <select 
+                         disabled={isReadOnly && !isUnitHead}
+                         value={currentInv.currency} 
+                         onChange={(e) => handleUpdateInvoice({ currency: e.target.value as any, exchangeRate: e.target.value === 'LYD' ? 1.0 : currentInv.exchangeRate })}
+                         className="bg-slate-50 border-2 border-slate-100 rounded-[2rem] px-6 font-black outline-none focus:border-litcBlue transition-all"
+                       >
+                         <option value="LYD">LYD</option>
+                         <option value="USD">USD</option>
+                         <option value="EUR">EUR</option>
+                         <option value="TND">TND</option>
+                       </select>
+                     </div>
+                  </div>
+                  {currentInv.currency !== 'LYD' && (
+                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                       <label className="text-[11px] font-black text-rose-500 uppercase tracking-widest px-2">سعر الصرف (مقابل الدينار)</label>
+                       <div className="relative">
+                         <Calculator className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-300 w-5 h-5" />
+                         <input 
+                           type="number" 
+                           step="0.01"
+                           value={currentInv.exchangeRate} 
+                           onChange={(e) => handleUpdateInvoice({ exchangeRate: Number(e.target.value) })} 
+                           className="w-full bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-rose-500 transition-all text-rose-600" 
+                         />
+                       </div>
+                    </div>
+                  )}
+               </div>
+
+               {/* Financial Summary Box for Unit Head */}
+               {(isUnitHead || isReadOnly) && (
+                 <div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6 animate-in zoom-in duration-500">
+                    <div className="bg-litcBlue/5 p-6 rounded-[2rem] border border-litcBlue/10">
+                       <p className="text-[10px] font-black text-slate-400 uppercase mb-2">إجمالي الفاتورة</p>
+                       <p className="text-2xl font-black text-litcBlue">{currentInv.originalAmountInLYD?.toLocaleString()} <span className="text-xs opacity-60">د.ل</span></p>
+                    </div>
+                    <div className="bg-emerald-50 p-6 rounded-[2rem] border border-emerald-100">
+                       <p className="text-[10px] font-black text-emerald-600 uppercase mb-2">حصة الشركة (90%)</p>
+                       <p className="text-2xl font-black text-emerald-700">{currentInv.companyPortion?.toLocaleString()} <span className="text-xs opacity-60">د.ل</span></p>
+                    </div>
+                    <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100">
+                       <p className="text-[10px] font-black text-amber-600 uppercase mb-2">حصة الموظف (10%)</p>
+                       <p className="text-2xl font-black text-amber-700">{currentInv.employeePortion?.toLocaleString()} <span className="text-xs opacity-60">د.ل</span></p>
                     </div>
                  </div>
-                 <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
-                    <div className="relative">
-                      <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                      <input type="text" value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+               )}
+
+               {/* Financial Toggles */}
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+                  <button 
+                    disabled={isReadOnly && !isUnitHead}
+                    onClick={() => handleUpdateInvoice({ isMajorSurgery: !currentInv.isMajorSurgery, isMedicalDevice: false, isGlasses: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMajorSurgery ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Stethoscope className="w-6 h-6" />
+                    <span className="text-[10px] font-black">عملية كبرى (100%)</span>
+                  </button>
+                  <button 
+                    disabled={isReadOnly && !isUnitHead}
+                    onClick={() => handleUpdateInvoice({ isMedicalDevice: !currentInv.isMedicalDevice, isMajorSurgery: false, isGlasses: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 ${currentInv.isMedicalDevice ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Monitor className="w-6 h-6" />
+                    <span className="text-[10px] font-black">جهاز طبي (100%)</span>
+                  </button>
+                  <button 
+                    disabled={isReadOnly && !isUnitHead}
+                    onClick={() => handleUpdateInvoice({ isGlasses: !currentInv.isGlasses, isMajorSurgery: false, isMedicalDevice: false })}
+                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-3 relative ${currentInv.isGlasses ? 'bg-litcBlue text-white border-litcBlue shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-litcBlue/20'}`}
+                  >
+                    <Glasses className="w-6 h-6" />
+                    <span className="text-[10px] font-black">نظارات (1500 د.ل)</span>
+                    {hasPreviousGlassesThisYear && (
+                      <div className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg animate-bounce">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+               </div>
+
+               {hasPreviousGlassesThisYear && currentInv.isGlasses && (
+                 <div className="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-600 animate-in slide-in-from-top-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm shrink-0">
+                       <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div>
+                       <p className="font-black text-sm">تنبيه: تم تجاوز الحد السنوي للنظارات</p>
+                       <p className="text-[10px] font-bold opacity-80">الموظف (أو أحد أفراد عائلته) حصل بالفعل على نظارة طبية خلال هذا العام. سيتم رفض هذا البند آلياً.</p>
                     </div>
                  </div>
-              </div>
+               )}
 
               <div className="space-y-6">
                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest px-2">تفكيك الأصناف</h4>
@@ -167,25 +375,29 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
                        <tbody className="divide-y divide-slate-50">
                           {currentInv.lineItems?.map((item) => (
                              <tr key={item.id}>
-                                <td className="px-8 py-4"><input type="text" value={item.itemName} onChange={(e) => {
+                                <td className="px-8 py-4"><input type="text" readOnly={isReadOnly && !isUnitHead} value={item.itemName} onChange={(e) => {
                                    const lines = currentInv.lineItems.map(l => l.id === item.id ? { ...l, itemName: e.target.value } : l);
                                    handleUpdateInvoice({ lineItems: lines });
                                 }} className="w-full bg-transparent border-none outline-none font-bold" /></td>
-                                <td className="px-8 py-4"><input type="number" value={item.price} onChange={(e) => {
+                                <td className="px-8 py-4"><input type="number" readOnly={isReadOnly && !isUnitHead} value={item.price} onChange={(e) => {
                                    const lines = currentInv.lineItems.map(l => l.id === item.id ? { ...l, price: Number(e.target.value) } : l);
                                    handleUpdateInvoice({ lineItems: lines });
                                 }} className="w-full bg-transparent border-none outline-none font-black text-center text-litcBlue" /></td>
                                 <td className="px-8 py-4 text-center">
-                                   <button onClick={() => handleUpdateInvoice({ lineItems: currentInv.lineItems.filter(l => l.id !== item.id) })} className="text-slate-200 hover:text-rose-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                                   {!isReadOnly && (
+                                      <button onClick={() => handleUpdateInvoice({ lineItems: currentInv.lineItems.filter(l => l.id !== item.id) })} className="text-slate-200 hover:text-rose-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                                    )}
                                 </td>
                              </tr>
                           ))}
                        </tbody>
                     </table>
                  </div>
-                 <button onClick={() => handleUpdateInvoice({ lineItems: [...(currentInv.lineItems || []), { id: Math.random().toString(), itemName: '', price: 0, serviceType: 'خدمة عامة' }] })} className="text-litcBlue font-black text-xs flex items-center gap-2 px-4 hover:text-litcOrange transition-colors">
-                    <PlusCircle className="w-4.5 h-4.5" /> إضافة بند يدوي
-                 </button>
+                 {!isReadOnly && (
+                    <button onClick={() => handleUpdateInvoice({ lineItems: [...(currentInv.lineItems || []), { id: Math.random().toString(), itemName: '', price: 0, serviceType: 'خدمة عامة' }] })} className="text-litcBlue font-black text-xs flex items-center gap-2 px-4 hover:text-litcOrange transition-colors">
+                       <PlusCircle className="w-4.5 h-4.5" /> إضافة بند يدوي
+                    </button>
+                  )}
               </div>
 
               {/* قرار المدقق الإلزامي للفاتورة */}
@@ -193,14 +405,16 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
                  <h4 className="font-black text-slate-900 flex items-center gap-3"><ShieldCheck className="text-litcBlue w-5 h-5" /> القرار الفني لهذه الفاتورة</h4>
                  <div className="flex gap-4">
                     <button 
-                      onClick={() => setDecision(currentInv.id, 'VALID')} 
+                      disabled={isReadOnly && !isUnitHead}
+                       onClick={() => setDecision(currentInv.id, 'VALID')} 
                       className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all ${invoiceDecisions[currentInv.id]?.status === 'VALID' ? 'bg-emerald-500 text-white border-emerald-500 shadow-xl' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-200'}`}
                     >
                        <CheckCircle2 className="w-8 h-8" />
                        <span className="font-black text-sm">سليمة 100%</span>
                     </button>
                     <button 
-                      onClick={() => setDecision(currentInv.id, 'ERROR')} 
+                      disabled={isReadOnly && !isUnitHead}
+                       onClick={() => setDecision(currentInv.id, 'ERROR')} 
                       className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-[2rem] border-2 transition-all ${invoiceDecisions[currentInv.id]?.status === 'ERROR' ? 'bg-rose-500 text-white border-rose-500 shadow-xl' : 'bg-white border-slate-200 text-slate-400 hover:border-rose-200'}`}
                     >
                        <AlertTriangle className="w-8 h-8" />
@@ -211,7 +425,8 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
                  <div className="relative">
                     <MessageSquare className="absolute right-6 top-6 text-slate-300 w-5 h-5" />
                     <textarea 
-                       placeholder="اذكر ملاحظاتك الفنية هنا (إلزامي في حال وجود خطأ)..."
+                       readOnly={isReadOnly && !isUnitHead}
+                        placeholder="اذكر ملاحظاتك الفنية هنا (إلزامي في حال وجود خطأ)..."
                        value={invoiceDecisions[currentInv.id]?.comment || ''}
                        onChange={(e) => setDecisionComment(currentInv.id, e.target.value)}
                        className="w-full min-h-[120px] bg-white border border-slate-200 rounded-[2rem] p-6 pr-16 font-bold text-sm outline-none focus:border-litcBlue transition-all shadow-inner"
@@ -220,20 +435,56 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, user, onSave, onBack }) =>
               </div>
            </section>
 
-           <div className="bg-litcDark rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-10 shadow-2xl relative overflow-hidden group max-w-md mx-auto lg:max-w-none text-center md:text-right">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
-              <div className="relative z-10">
-                 <p className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-blue-200/60 mb-1 sm:mb-2">إجمالي المطالبة الصافي</p>
-                 <p className="text-4xl sm:text-6xl font-black text-white">{editingInvoices.reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()} <span className="text-xl sm:text-2xl opacity-50">د.ل</span></p>
-              </div>
-              <button 
-                onClick={handleFinalSubmit} 
-                disabled={!isAllDecided}
-                className={`w-full md:w-auto px-8 py-4 sm:px-16 sm:py-7 rounded-xl sm:rounded-[2.5rem] font-black text-sm sm:text-xl shadow-2xl transition-all flex items-center justify-center gap-2 sm:gap-4 ${!isAllDecided ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-litcOrange text-white hover:bg-orange-600 active:scale-95 shadow-orange-500/30'}`}
-              >
-                 <Send className="w-5 h-5 sm:w-7 sm:h-7" /> تحويل النتائج لرئيس الوحدة
-              </button>
-           </div>
+            {/* Summary & Actions Bar */}
+            <div className="bg-litcDark rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 text-white shadow-2xl relative overflow-hidden group max-w-md mx-auto lg:max-w-none">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
+               
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
+                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-12 text-right">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-blue-200/60 mb-1">إجمالي الفواتير</p>
+                      <p className="text-2xl sm:text-3xl font-black">{totalOriginal.toLocaleString()} <span className="text-xs opacity-50">د.ل</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400/60 mb-1">حصة الشركة</p>
+                      <p className="text-2xl sm:text-3xl font-black text-emerald-400">{totalCompany.toLocaleString()} <span className="text-xs opacity-50">د.ل</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-400/60 mb-1">حصة الموظف</p>
+                      <p className="text-2xl sm:text-3xl font-black text-amber-400">{totalEmployee.toLocaleString()} <span className="text-xs opacity-50">د.ل</span></p>
+                    </div>
+                 </div>
+
+                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                   {isUnitHead ? (
+                     <>
+                       <button 
+                         onClick={handleUnitHeadReturn}
+                         className="px-8 py-4 rounded-2xl bg-rose-500 text-white font-black text-sm hover:bg-rose-600 transition-all flex items-center gap-2 justify-center"
+                       >
+                         <AlertTriangle className="w-5 h-5" /> إعادة للتصحيح
+                       </button>
+                       <button 
+                         onClick={handleUnitHeadApprove}
+                         className="px-12 py-4 rounded-2xl bg-emerald-500 text-white font-black text-sm hover:bg-emerald-600 transition-all flex items-center gap-2 justify-center shadow-lg shadow-emerald-500/20"
+                       >
+                         <CheckCircle2 className="w-5 h-5" /> اعتماد نهائي وإغلاق
+                       </button>
+                     </>
+                   ) : (
+                     !isReadOnly && (
+                       <button 
+                         onClick={handleFinalSubmit} 
+                         disabled={!isAllDecided}
+                         className={`px-12 py-5 rounded-[2rem] font-black text-sm sm:text-lg shadow-2xl transition-all flex items-center justify-center gap-3 ${!isAllDecided ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-litcOrange text-white hover:bg-orange-600 active:scale-95 shadow-orange-500/30'}`}
+                       >
+                          <Send className="w-5 h-5 sm:w-6 sm:h-6" /> تحويل النتائج لرئيس الوحدة
+                       </button>
+                     )
+                   )}
+                 </div>
+               </div>
+            </div>
         </div>
       </div>
     </div>

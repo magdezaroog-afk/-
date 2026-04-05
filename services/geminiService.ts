@@ -279,7 +279,7 @@ export const performOCR = async (base64: string): Promise<any> => {
       contents: {
         parts: [
           { inlineData: { data: base64, mimeType: "image/jpeg" } },
-          { text: "استخراج البيانات الأساسية: المرفق الصحي، الرقم، المبلغ، العملة، التاريخ." }
+          { text: "Extract the following medical invoice details in Arabic if possible: [Provider Name, Invoice Number, Date, and Amount]. If the currency is mentioned, extract it too." }
         ]
       },
       config: {
@@ -287,16 +287,19 @@ export const performOCR = async (base64: string): Promise<any> => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            hospitalName: { type: Type.STRING },
-            invoiceNumber: { type: Type.STRING },
-            totalAmount: { type: Type.NUMBER },
-            date: { type: Type.STRING },
-            currency: { type: Type.STRING }
+            hospitalName: { type: Type.STRING, description: "Provider Name / Medical Facility" },
+            invoiceNumber: { type: Type.STRING, description: "Unique Invoice Number" },
+            totalAmount: { type: Type.NUMBER, description: "Total amount on the invoice" },
+            date: { type: Type.STRING, description: "Date of the invoice (YYYY-MM-DD)" },
+            currency: { type: Type.STRING, description: "Currency code (e.g., LYD, USD, EUR)" }
           },
-          required: ["hospitalName", "totalAmount", "currency"]
+          required: ["hospitalName", "totalAmount"]
         }
       }
     });
     return JSON.parse(response.text || '{}');
-  } catch (error) { return {}; }
+  } catch (error) { 
+    console.error("OCR Error:", error);
+    return {}; 
+  }
 };

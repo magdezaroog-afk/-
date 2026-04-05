@@ -1,6 +1,6 @@
 {
-  "name": "MedClaim Pro - Digital Health Claims Management",
-  "description": "An integrated, intelligent medical claims management platform for corporate healthcare, featuring multi-role access, smart OCR validation, and comprehensive audit trails.",
+  "name": "LITC Intelligent Claim Submission",
+  "description": "AI-powered medical claim submission system with smart OCR extraction, RTL support, and automated workflow tracking.",
   "requestFramePermissions": [
     "camera"
   ]

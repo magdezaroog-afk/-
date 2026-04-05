@@ -1,13 +1,24 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { User, Invoice, ClaimStatus } from '../types';
 import { 
   Upload, Plus, Trash2, Camera, Loader2, 
   X, Sparkles, CheckCircle, FileStack, AlertCircle, Coins,
-  HeartPulse, MapPin, Building2, Briefcase
+  HeartPulse, MapPin, Building2, Briefcase, Paperclip, Printer, 
+  QrCode, ChevronLeft, ChevronRight, Info, FileText, Stethoscope, MessageSquare
 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { motion, AnimatePresence } from 'motion/react';
+import { QRCodeSVG } from 'qrcode.react';
+import { jsPDF } from 'jspdf';
 import { performOCR } from '../services/geminiService';
 import { optimizeImage } from '../utils/imageUtils';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface SubmitClaimProps {
   user: User;
@@ -15,209 +26,881 @@ interface SubmitClaimProps {
   onCancel: () => void;
 }
 
-const EXCHANGE_RATES: Record<string, number> = {
-  'LYD': 1.0,
-  'USD': 4.82,
-  'EUR': 5.21,
-  'TND': 1.54,
-};
+const CURRENCY_GROUPS = [
+  {
+    label: 'العملات المحلية والعربية',
+    currencies: [
+      { code: 'LYD', name: 'دينار ليبي', flag: '🇱🇾' },
+      { code: 'TND', name: 'دينار تونسي', flag: '🇹🇳' },
+      { code: 'EGP', name: 'جنيه مصري', flag: '🇪🇬' },
+      { code: 'SAR', name: 'ريال سعودي', flag: '🇸🇦' },
+      { code: 'AED', name: 'درهم إماراتي', flag: '🇦🇪' },
+      { code: 'JOD', name: 'دينار أردني', flag: '🇯🇴' },
+      { code: 'KWD', name: 'دينار كويتي', flag: '🇰🇼' },
+      { code: 'QAR', name: 'ريال قطري', flag: '🇶🇦' },
+      { code: 'OMR', name: 'ريال عماني', flag: '🇴🇲' },
+      { code: 'BHD', name: 'دينار بحريني', flag: '🇧🇭' },
+      { code: 'DZD', name: 'دينار جزائري', flag: '🇩🇿' },
+      { code: 'MAD', name: 'درهم مغربي', flag: '🇲🇦' },
+    ]
+  },
+  {
+    label: 'العملات العالمية',
+    currencies: [
+      { code: 'USD', name: 'دولار أمريكي', flag: '🇺🇸' },
+      { code: 'EUR', name: 'يورو', flag: '🇪🇺' },
+      { code: 'GBP', name: 'جنيه إسترليني', flag: '🇬🇧' },
+      { code: 'TRY', name: 'ليرة تركية', flag: '🇹🇷' },
+      { code: 'CHF', name: 'فرنك سويسري', flag: '🇨🇭' },
+      { code: 'CAD', name: 'دولار كندي', flag: '🇨🇦' },
+      { code: 'AUD', name: 'دولار أسترالي', flag: '🇦🇺' },
+      { code: 'JPY', name: 'ين ياباني', flag: '🇯🇵' },
+      { code: 'CNY', name: 'يوان صيني', flag: '🇨🇳' },
+    ]
+  }
+];
+
+const STEPS = [
+  { id: 'submission', label: 'تقديم الطلب', icon: <FileStack /> },
+  { id: 'paper', label: 'استلام الورقيات', icon: <FileText /> },
+  { id: 'review', label: 'المراجعة الطبية', icon: <Stethoscope /> },
+  { id: 'approval', label: 'الاعتماد النهائي', icon: <CheckCircle /> },
+];
 
 const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) => {
-  const [invoices, setInvoices] = useState<Partial<Invoice>[]>([]);
-  const [uploadQueue, setUploadQueue] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<Partial<Invoice & { attachments: File[] }>[]>([]);
   const [description, setDescription] = useState('');
+  const [currency, setCurrency] = useState('LYD');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [submittedClaim, setSubmittedClaim] = useState<any | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isScanComplete, setIsScanComplete] = useState(false);
+  const [comparisonInvoice, setComparisonInvoice] = useState<Partial<Invoice & { attachments: File[] }> | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const newItems = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      status: 'pending',
-      progress: 0
-    }));
-    setUploadQueue(prev => [...prev, ...newItems]);
-    newItems.forEach(item => processFile(item.file as File, item.id));
-  };
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    setIsProcessing(true);
+    setUploadProgress(5);
+    setIsScanComplete(false);
+    
+    const processFile = (file: File): Promise<Partial<Invoice & { attachments: File[] }>> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            setUploadProgress(15);
+            let base64 = (reader.result as string).split(',')[1];
+            base64 = await optimizeImage(base64, 1024, 0.7);
+            
+            setUploadProgress(30);
+            // Simulate some progress while calling OCR
+            const progressInterval = setInterval(() => {
+              setUploadProgress(prev => {
+                if (prev < 75) return prev + 2;
+                return prev;
+              });
+            }, 200);
 
-  const processFile = async (file: File, queueId: string) => {
-    setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, status: 'processing', progress: 20 } : item));
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        let base64 = (reader.result as string).split(',')[1];
-        // ضغط الصورة قبل الإرسال
-        base64 = await optimizeImage(base64, 1024, 0.7);
-        
-        setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, progress: 50 } : item));
-        const ocr = await performOCR(base64);
-        const currency = (ocr.currency || 'LYD').toUpperCase();
-        const rate = EXCHANGE_RATES[currency] || 1.0;
-        const amountInForeign = ocr.totalAmount || 0;
-        const totalInLYD = amountInForeign * rate;
+            const ocr = await performOCR(base64);
+            clearInterval(progressInterval);
+            setUploadProgress(90);
 
-        const newInvoice: Partial<Invoice> = {
-          id: `INV-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-          imageUrl: `data:image/jpeg;base64,${base64}`,
-          hospitalName: ocr.hospitalName || 'مصحة غير محددة',
-          invoiceNumber: ocr.invoiceNumber || '',
-          amount: amountInForeign,
-          currency: currency as any,
-          exchangeRate: rate,
-          originalAmountInLYD: totalInLYD,
-          netAmountLYD: totalInLYD * 0.9,
-          date: ocr.date || new Date().toISOString().split('T')[0],
-          lineItems: [],
-          status: ClaimStatus.PENDING_DR
+            const newInvoice: Partial<Invoice & { attachments: File[] }> = {
+              id: `INV-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+              imageUrl: `data:image/jpeg;base64,${base64}`,
+              hospitalName: ocr.hospitalName || '',
+              invoiceNumber: ocr.invoiceNumber || '',
+              amount: ocr.totalAmount || 0,
+              date: ocr.date || new Date().toISOString().split('T')[0],
+              currency: (ocr.currency || currency) as any,
+              attachments: [],
+            };
+            resolve(newInvoice);
+          } catch (err) {
+            reject(err);
+          }
         };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
 
-        setInvoices(prev => [...prev, newInvoice]);
-        setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, status: 'done', progress: 100 } : item));
-      };
-      reader.readAsDataURL(file);
+    try {
+      const results = await Promise.all(acceptedFiles.map(processFile));
+      setInvoices(prev => [...prev, ...results]);
+      setUploadProgress(100);
+      setIsScanComplete(true);
+      
+      // Keep the success state visible for a moment
+      setTimeout(() => {
+        setIsProcessing(false);
+        setIsScanComplete(false);
+        setUploadProgress(0);
+        
+        // Automatically open the first uploaded invoice in comparison mode
+        if (results.length > 0) {
+          setComparisonInvoice(results[0]);
+        }
+      }, 1500);
     } catch (err) {
-      setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, status: 'error' } : item));
+      console.error("Error processing files:", err);
+      setIsProcessing(false);
+      setUploadProgress(0);
     }
+  }, [currency]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    multiple: true
+  });
+
+  const handleUpdateInvoice = (id: string, field: string, value: any) => {
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, [field]: value } : inv));
   };
 
-  const handleSubmit = () => {
-    if (invoices.length === 0) {
-      alert("يرجى رفع فاتورة واحدة على الأقل.");
-      return;
-    }
-    setIsSubmitting(true);
-    const totalLYD = invoices.reduce((sum, inv) => sum + (inv.originalAmountInLYD || 0), 0);
-    onSubmit({ invoices, totalAmount: totalLYD, description });
+  const handleRemoveInvoice = (id: string) => {
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
   };
+
+  const handleAddInvoiceAttachment = (invoiceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setInvoices(prev => prev.map(inv => 
+      inv.id === invoiceId 
+        ? { ...inv, attachments: [...(inv.attachments || []), ...files] } 
+        : inv
+    ));
+  };
+
+  const handleRemoveInvoiceAttachment = (invoiceId: string, attachmentIndex: number) => {
+    setInvoices(prev => prev.map(inv => 
+      inv.id === invoiceId 
+        ? { ...inv, attachments: (inv.attachments || []).filter((_, i) => i !== attachmentIndex) } 
+        : inv
+    ));
+  };
+
+  const handleSubmit = async () => {
+    if (invoices.length === 0) return;
+    
+    setIsSubmitting(true);
+    const claimId = `CLM-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+    const totalAmount = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+    
+    const claimData = {
+      id: claimId,
+      employeeId: user.id,
+      employeeName: user.name,
+      submissionDate: new Date().toLocaleString('ar-LY'),
+      status: ClaimStatus.PENDING_DR,
+      invoices,
+      totalAmount,
+      currency,
+      description,
+      referenceNumber: claimId,
+      invoiceCount: invoices.length,
+      location: user.location,
+      department: user.department,
+      auditTrail: [{
+        id: Math.random().toString(),
+        userId: user.id,
+        userName: user.name,
+        action: 'تقديم مطالبة جديدة عبر النظام الذكي',
+        timestamp: new Date().toLocaleString('ar-LY')
+      }]
+    };
+
+    // Simulate network delay
+    await new Promise(r => setTimeout(r, 1500));
+    
+    setSubmittedClaim(claimData);
+    onSubmit(claimData);
+    setIsSubmitting(false);
+  };
+
+  const generatePDF = () => {
+    if (!submittedClaim) return;
+    
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    
+    // Simple PDF Generation (Note: jsPDF has limited RTL support without custom fonts, 
+    // but we'll structure it clearly)
+    doc.setFontSize(22);
+    doc.text('LITC Medical Claim Summary', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`Claim ID: ${submittedClaim.id}`, 20, 40);
+    doc.text(`Employee: ${user.name} (${user.id})`, 20, 50);
+    doc.text(`Department: ${user.department || 'N/A'}`, 20, 60);
+    doc.text(`Date: ${submittedClaim.submissionDate}`, 20, 70);
+    
+    doc.line(20, 75, 190, 75);
+    
+    doc.text('Invoices:', 20, 85);
+    let y = 95;
+    submittedClaim.invoices.forEach((inv: any, i: number) => {
+      doc.text(`${i + 1}. ${inv.hospitalName} - #${inv.invoiceNumber} - ${inv.amount} ${inv.currency}`, 30, y);
+      y += 10;
+    });
+    
+    doc.line(20, y, 190, y);
+    doc.text(`Total Amount: ${submittedClaim.totalAmount} ${submittedClaim.currency}`, 20, y + 10);
+    
+    doc.setFontSize(10);
+    doc.text('Instructions: Please print this summary, attach it to your physical originals,', 20, y + 30);
+    doc.text('and submit them to the Care Unit for processing.', 20, y + 35);
+    
+    doc.save(`Claim_${submittedClaim.id}.pdf`);
+  };
+
+  if (submittedClaim) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-3xl mx-auto bg-white rounded-[2.5rem] p-8 sm:p-16 shadow-2xl border border-slate-100 text-center space-y-10 font-cairo"
+        dir="rtl"
+      >
+        <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="w-12 h-12" />
+        </div>
+        
+        <div className="space-y-4">
+          <h2 className="text-3xl font-black text-litcBlue">تم استلام البيانات بنجاح</h2>
+          <p className="text-slate-500 font-bold leading-relaxed">
+            يرجى طباعة ملخص المطالبة، وإرفاقه مع الأصول الورقية الأصلية، وتسليمها إلى وحدة الرعاية (Care Unit).
+          </p>
+        </div>
+
+        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 flex flex-col items-center gap-6">
+          <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
+            <QRCodeSVG value={submittedClaim.id} size={150} />
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">رقم المطالبة</p>
+            <p className="text-2xl font-black text-litcBlue tracking-wider">{submittedClaim.id}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button 
+            onClick={generatePDF}
+            className="flex items-center justify-center gap-3 p-5 bg-litcBlue text-white rounded-2xl font-black hover:bg-litcBlue/90 transition-all shadow-lg shadow-litcBlue/20"
+          >
+            <Printer className="w-5 h-5" />
+            طباعة الملخص
+          </button>
+          <button 
+            onClick={onCancel}
+            className="flex items-center justify-center gap-3 p-5 bg-slate-100 text-slate-600 rounded-2xl font-black hover:bg-slate-200 transition-all"
+          >
+            العودة للرئيسية
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4 sm:px-0" dir="rtl">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-6">
-        <div className="text-center md:text-right">
-          <h1 className="text-xl sm:text-4xl font-black text-litcBlue tracking-tight flex items-center justify-center md:justify-start gap-2 sm:gap-4">
-             <FileStack className="text-litcOrange w-8 h-8 sm:w-10 sm:h-10" /> معاملة علاجية جديدة
-          </h1>
-          <p className="text-[9px] sm:text-sm font-bold text-slate-500 mt-1 sm:mt-2">نظام المعالجة الذكية التابع لشركة LITC | استخراج البيانات آلياً.</p>
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4" dir="rtl">
+      {/* Comparison Modal */}
+      <AnimatePresence>
+        {comparisonInvoice && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-slate-900/90 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-6xl h-[90vh] rounded-[3rem] overflow-hidden flex flex-col lg:flex-row shadow-2xl"
+            >
+              {/* Image View */}
+              <div className="flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center p-4">
+                <img 
+                  src={comparisonInvoice.imageUrl} 
+                  alt="Invoice Comparison" 
+                  className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute top-6 right-6 bg-white/80 backdrop-blur px-4 py-2 rounded-full text-[10px] font-black text-litcBlue flex items-center gap-2 shadow-sm">
+                  <Info className="w-3 h-3" />
+                  قارن البيانات مع الصورة الأصلية
+                </div>
+              </div>
+
+              {/* Edit View */}
+              <div className="w-full lg:w-[400px] bg-white p-8 sm:p-12 flex flex-col gap-8 border-r border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-black text-litcBlue">مراجعة البيانات</h3>
+                  <button 
+                    onClick={() => setComparisonInvoice(null)}
+                    className="p-3 bg-slate-50 rounded-2xl text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6 flex-1 overflow-y-auto pr-2">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المرفق الصحي</label>
+                    <input 
+                      type="text" 
+                      value={comparisonInvoice.hospitalName} 
+                      onChange={(e) => {
+                        handleUpdateInvoice(comparisonInvoice.id!, 'hospitalName', e.target.value);
+                        setComparisonInvoice(prev => ({ ...prev!, hospitalName: e.target.value }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-litcBlue focus:ring-2 focus:ring-litcBlue outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">رقم الفاتورة</label>
+                    <input 
+                      type="text" 
+                      value={comparisonInvoice.invoiceNumber} 
+                      onChange={(e) => {
+                        handleUpdateInvoice(comparisonInvoice.id!, 'invoiceNumber', e.target.value);
+                        setComparisonInvoice(prev => ({ ...prev!, invoiceNumber: e.target.value }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-600 focus:ring-2 focus:ring-litcBlue outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">التاريخ</label>
+                    <input 
+                      type="date" 
+                      value={comparisonInvoice.date} 
+                      onChange={(e) => {
+                        handleUpdateInvoice(comparisonInvoice.id!, 'date', e.target.value);
+                        setComparisonInvoice(prev => ({ ...prev!, date: e.target.value }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-slate-600 focus:ring-2 focus:ring-litcBlue outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المبلغ ({comparisonInvoice.currency})</label>
+                    <input 
+                      type="number" 
+                      value={comparisonInvoice.amount} 
+                      onChange={(e) => {
+                        handleUpdateInvoice(comparisonInvoice.id!, 'amount', e.target.value);
+                        setComparisonInvoice(prev => ({ ...prev!, amount: Number(e.target.value) }));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-black text-litcOrange focus:ring-2 focus:ring-litcBlue outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setComparisonInvoice(null)}
+                  className="w-full bg-litcBlue text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:bg-litcBlue/90 transition-all"
+                >
+                  حفظ وإغلاق
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header & Timeline */}
+      <div className="space-y-6 sm:space-y-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
+          <div className="text-center sm:text-right">
+            <h1 className="text-2xl sm:text-3xl font-black text-litcBlue flex items-center justify-center sm:justify-start gap-3">
+              <FileStack className="text-litcOrange w-6 h-6 sm:w-8 sm:h-8" /> 
+              تقديم مطالبة طبية ذكية
+            </h1>
+            <p className="text-xs sm:text-sm font-bold text-slate-500 mt-1">نظام LITC المتطور لمعالجة المطالبات آلياً باستخدام الذكاء الاصطناعي.</p>
+          </div>
+          <button onClick={onCancel} className="p-3 sm:p-4 bg-white rounded-2xl border border-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all shadow-sm">
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
         </div>
-        <button onClick={onCancel} className="p-2 sm:p-5 bg-white rounded-lg sm:rounded-2xl border border-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all shadow-sm">
-          <X className="w-4.5 h-4.5 sm:w-6 sm:h-6" />
-        </button>
+
+        {/* Progress Timeline */}
+        <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between gap-2 px-2 overflow-x-auto no-scrollbar">
+            {STEPS.map((step, idx) => (
+              <React.Fragment key={step.id}>
+                <div className="flex flex-col items-center gap-2 relative z-10 shrink-0">
+                  <div className={cn(
+                    "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                    idx === 0 ? "bg-litcBlue border-litcBlue text-white shadow-lg shadow-litcBlue/20" : "bg-white border-slate-200 text-slate-400"
+                  )}>
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center">
+                      {step.icon}
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "text-[8px] sm:text-[10px] font-black uppercase tracking-wider whitespace-nowrap",
+                    idx === 0 ? "text-litcBlue" : "text-slate-400"
+                  )}>{step.label}</span>
+                </div>
+                {idx < STEPS.length - 1 && (
+                  <div className="flex-1 h-[2px] bg-slate-100 min-w-[20px] sm:min-w-[40px]" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12">
-        <div className="lg:col-span-7 space-y-8 sm:space-y-10">
-           <section className="bg-white p-6 sm:p-16 rounded-[2rem] sm:rounded-[4.5rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center text-center group hover:border-litcBlue transition-all cursor-pointer relative overflow-hidden shadow-sm max-w-md mx-auto sm:max-w-none" onClick={() => fileInputRef.current?.click()}>
-              <div className="absolute inset-0 bg-litcBlue/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <div className="w-20 h-20 sm:w-28 sm:h-28 bg-slate-50 rounded-[2rem] sm:rounded-[3rem] flex items-center justify-center text-slate-300 mb-6 sm:mb-8 group-hover:bg-litcBlue group-hover:text-white transition-all shadow-inner group-hover:scale-110 duration-500">
-                 <Upload className="w-8 h-8 sm:w-10 sm:h-10" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Form & Upload */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* OCR Upload Zone */}
+          <div 
+            {...getRootProps()} 
+            className={cn(
+              "relative group cursor-pointer transition-all duration-500",
+              "bg-white p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3rem] border-4 border-dashed flex flex-col items-center justify-center text-center",
+              isDragActive ? "border-litcBlue bg-litcBlue/5 scale-[0.99]" : "border-slate-100 hover:border-litcBlue hover:bg-slate-50"
+            )}
+          >
+            <input {...getInputProps()} />
+            <div className={cn(
+              "w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-[2.5rem] flex items-center justify-center mb-4 sm:mb-6 transition-all duration-500 shadow-inner",
+              isDragActive ? "bg-litcBlue text-white scale-110" : "bg-slate-50 text-slate-300 group-hover:bg-litcBlue group-hover:text-white"
+            )}>
+              {isProcessing ? <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin" /> : <Upload className="w-8 h-8 sm:w-10 sm:h-10" />}
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-2">اسحب وأفلت الفواتير هنا</h3>
+            <p className="text-xs sm:text-sm font-bold text-slate-400 max-w-xs px-4">سيقوم الذكاء الاصطناعي باستخراج البيانات آلياً من صور الفواتير.</p>
+            
+          {isProcessing && (
+            <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xl rounded-[2.5rem] sm:rounded-[3rem] flex flex-col items-center justify-center p-6 sm:p-12 overflow-hidden">
+              <div className="relative w-24 h-24 sm:w-40 sm:h-40 mb-6 sm:mb-10">
+                <AnimatePresence mode="wait">
+                  {!isScanComplete ? (
+                    <motion.div 
+                      key="scanning"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 1.2 }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <motion.div 
+                        className="absolute inset-0 border-4 border-litcBlue/20 rounded-[2rem] sm:rounded-[3rem]"
+                      />
+                      <motion.div 
+                        className="absolute inset-0 border-4 border-litcBlue rounded-[2rem] sm:rounded-[3rem]"
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          opacity: [0.3, 1, 0.3],
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      <motion.div 
+                        className="absolute inset-x-0 h-1.5 bg-litcOrange shadow-[0_0_25px_rgba(255,107,0,0.8)] z-10"
+                        animate={{ top: ['5%', '95%', '5%'] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      <Sparkles className="w-10 h-10 sm:w-16 sm:h-16 text-litcBlue animate-pulse" />
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="complete"
+                      initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                      className="absolute inset-0 flex items-center justify-center bg-emerald-500 rounded-[2rem] sm:rounded-[3rem] shadow-lg shadow-emerald-200"
+                    >
+                      <CheckCircle className="w-12 h-12 sm:w-20 sm:h-20 text-white" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <h3 className="text-lg sm:text-2xl font-black text-slate-900 mb-2">اضغط هنا لإدراج فواتيرك</h3>
-              <p className="text-[10px] sm:text-sm font-bold text-slate-400 max-w-[240px] sm:max-w-[280px]">يمكنك اختيار صور متعددة من هاتفك أو جهازك وسيقوم النظام بتفصيلها.</p>
-              <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileUpload} />
-           </section>
-
-           <div className="space-y-4 sm:space-y-6">
-              {uploadQueue.filter(q => q.status !== 'done').map(item => (
-                <div key={item.id} className="bg-white p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100 flex items-center justify-between animate-in slide-in-from-right-4 shadow-sm max-w-md mx-auto sm:max-w-none">
-                   <div className="flex items-center gap-4 sm:gap-6">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-50 rounded-2xl sm:rounded-3xl flex items-center justify-center text-litcBlue">
-                         {item.status === 'processing' ? <Loader2 className="w-6 h-6 sm:w-7 sm:h-7 animate-spin" /> : <Camera className="w-6 h-6 sm:w-7 sm:h-7" />}
-                      </div>
-                      <div className="flex-1 min-w-[180px] sm:min-w-[240px]">
-                         <p className="text-[10px] sm:text-sm font-black text-litcBlue">محرك الذكاء الاصطناعي يقوم بالتحليل...</p>
-                         <div className="w-full h-2 bg-slate-100 rounded-full mt-2 sm:mt-3 overflow-hidden">
-                            <div className="h-full bg-litcOrange transition-all duration-700 ease-out" style={{ width: `${item.progress}%` }}></div>
-                         </div>
-                      </div>
-                   </div>
+              
+              <div className="text-center space-y-4 sm:space-y-6 max-w-sm px-4">
+                <motion.h3 
+                  className="text-xl sm:text-3xl font-black text-litcBlue"
+                  animate={isScanComplete ? { scale: [1, 1.05, 1] } : {}}
+                >
+                  {isScanComplete ? 'تم التحليل بنجاح!' : 'معالجة ذكية فائقة'}
+                </motion.h3>
+                <p className="text-xs sm:text-base font-bold text-slate-500 leading-relaxed">
+                  {isScanComplete 
+                    ? 'تم استخراج كافة البيانات بدقة، جاري عرض النتائج للمراجعة...'
+                    : 'يقوم محرك الذكاء الاصطناعي بمسح الفاتورة ضوئياً واستخراج البيانات المالية بدقة متناهية...'}
+                </p>
+                
+                <div className="w-full h-2 sm:h-3 bg-slate-100 rounded-full overflow-hidden mt-4 sm:mt-8 relative shadow-inner">
+                  <motion.div 
+                    className={cn(
+                      "h-full transition-colors duration-500",
+                      isScanComplete ? "bg-emerald-500" : "bg-gradient-to-r from-litcBlue via-litcOrange to-litcBlue bg-[length:200%_100%]"
+                    )}
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: `${uploadProgress}%`,
+                      backgroundPosition: ["0% 0%", "100% 0%"]
+                    }}
+                    transition={{ 
+                      width: { duration: 0.5 },
+                      backgroundPosition: { duration: 2, repeat: Infinity, ease: "linear" }
+                    }}
+                  />
                 </div>
-              ))}
-
-              {invoices.map((inv) => (
-                <div key={inv.id} className="bg-white p-4 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border border-slate-100 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 group hover:border-litcBlue transition-all animate-in zoom-in text-center sm:text-right max-w-md mx-auto sm:max-w-none">
-                   <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
-                      <div className="relative">
-                        <img src={inv.imageUrl} className="w-20 h-20 sm:w-24 sm:h-24 rounded-[1.5rem] sm:rounded-[2rem] object-cover border-4 border-slate-50 shadow-md" />
-                        <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-emerald-500 text-white w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 sm:border-4 border-white shadow-lg"><CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" /></div>
-                      </div>
-                      <div>
-                         <h4 className="text-lg sm:text-xl font-black text-litcBlue">{inv.hospitalName}</h4>
-                         <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">المستند رقم: {inv.invoiceNumber}</p>
-                         <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4 mt-3 sm:mt-4">
-                            <span className="text-[9px] sm:text-[11px] bg-slate-100 text-slate-900 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl font-black border border-slate-200">{inv.amount} {inv.currency}</span>
-                            {inv.currency !== 'LYD' && (
-                              <span className="text-[9px] sm:text-[11px] bg-litcOrange/10 text-litcOrange px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl font-black flex items-center gap-1 sm:gap-2 border border-litcOrange/20 shadow-sm shadow-orange-100">
-                                <Coins className="w-3 h-3 sm:w-4 sm:h-4" /> {inv.originalAmountInLYD?.toFixed(2)} د.ل
-                              </span>
-                            )}
-                         </div>
-                      </div>
-                   </div>
-                   <button onClick={() => setInvoices(prev => prev.filter(i => i.id !== inv.id))} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-[1.8rem] bg-slate-50 text-slate-300 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all group-hover:shadow-lg active:scale-95 shrink-0">
-                      <Trash2 className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
-                   </button>
+                <div className="flex justify-between items-center mt-2 sm:mt-3">
+                  <span className="text-[8px] sm:text-xs font-black text-slate-400 tracking-widest">
+                    {isScanComplete ? 'COMPLETE' : 'AI SCANNING IN PROGRESS'}
+                  </span>
+                  <span className={cn(
+                    "text-sm sm:text-lg font-black",
+                    isScanComplete ? "text-emerald-500" : "text-litcBlue"
+                  )}>
+                    {uploadProgress}%
+                  </span>
                 </div>
-              ))}
-           </div>
+              </div>
+
+              {/* Decorative floating elements */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                {[...Array(8)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-1 h-1 bg-litcBlue/30 rounded-full"
+                    initial={{ 
+                      x: Math.random() * 100 + "%", 
+                      y: "110%" 
+                    }}
+                    animate={{ 
+                      y: "-10%",
+                      opacity: [0, 1, 0],
+                      scale: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 3 + Math.random() * 4, 
+                      repeat: Infinity,
+                      delay: Math.random() * 5
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="lg:col-span-5 space-y-6 sm:space-y-10">
-           <section className="litc-gradient text-white p-6 sm:p-12 rounded-[1.5rem] sm:rounded-[4.5rem] shadow-2xl relative overflow-hidden border border-white/10 group max-w-md mx-auto lg:max-w-none">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-litcOrange opacity-10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
-              <h3 className="text-lg sm:text-2xl font-black mb-6 sm:mb-10 flex items-center gap-3 sm:gap-4"><Sparkles className="text-litcOrange animate-pulse w-5 h-5 sm:w-6 sm:h-6" /> ملخص المطالبة</h3>
-              
-              <div className="space-y-4 sm:space-y-8 relative z-10">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="bg-white/10 border border-white/20 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-                      <label className="text-[9px] font-black text-blue-200 uppercase tracking-widest block mb-1 px-2 flex items-center gap-1"><MapPin className="w-2 h-2" /> الموقع</label>
-                      <p className="font-bold text-xs sm:text-sm text-white">{user.location || 'غير محدد'}</p>
-                    </div>
-                    <div className="bg-white/10 border border-white/20 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-                      <label className="text-[9px] font-black text-blue-200 uppercase tracking-widest block mb-1 px-2 flex items-center gap-1"><Briefcase className="w-2 h-2" /> الإدارة</label>
-                      <p className="font-bold text-xs sm:text-sm text-white">{user.department || 'غير محدد'}</p>
-                    </div>
-                    <div className="bg-white/10 border border-white/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                      <label className="text-[9px] font-black text-blue-200 uppercase tracking-widest block mb-1 px-2 flex items-center gap-1"><Building2 className="w-2 h-2" /> المبنى والوظيفة</label>
-                      <p className="font-bold text-xs sm:text-sm text-white">{user.building || '-'} | {user.jobTitle || '-'}</p>
-                    </div>
-                 </div>
+          {/* Editable Grid / Cards */}
+          <AnimatePresence>
+            {invoices.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-4"
+              >
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+                  <h3 className="font-black text-litcBlue flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-litcOrange" />
+                    البيانات المستخرجة (قابلة للتعديل)
+                  </h3>
+                  <span className="text-[10px] font-black bg-litcBlue/10 text-litcBlue px-3 py-1 rounded-full uppercase tracking-wider">
+                    {invoices.length} فواتير
+                  </span>
+                </div>
 
-                 <div>
-                    <label className="text-[9px] font-black text-blue-200 uppercase tracking-widest block mb-1.5 sm:mb-2 px-2">وصف الحالة</label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="مثال: كشف طبي عام وصيدلية..." className="w-full bg-white/10 border border-white/20 rounded-[1.2rem] sm:rounded-[2.5rem] p-4 sm:p-8 font-bold text-[10px] sm:text-sm min-h-[80px] sm:min-h-[140px] focus:outline-none focus:bg-white/20 transition-all shadow-inner" />
-                 </div>
-                 
-                 <div className="pt-4 sm:pt-8 border-t border-white/10 flex flex-col items-center">
-                    <p className="text-[9px] font-black text-blue-200 uppercase tracking-widest mb-1 sm:mb-2">إجمالي المطالب به</p>
-                    <div className="flex items-baseline gap-1.5 sm:gap-2">
-                      <p className="text-3xl sm:text-6xl font-black text-white">{invoices.reduce((s, i) => s + (i.originalAmountInLYD || 0), 0).toLocaleString()}</p>
-                      <span className="text-xs sm:text-lg font-black text-litcOrange uppercase tracking-widest">د.ل</span>
-                    </div>
-                 </div>
+                {/* Desktop Table View */}
+                <div className="hidden md:block bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-black">
+                          <th className="px-6 py-4 text-right">المعاينة</th>
+                          <th className="px-6 py-4 text-right">المرفق الصحي</th>
+                          <th className="px-6 py-4 text-right">رقم الفاتورة</th>
+                          <th className="px-6 py-4 text-center">التاريخ</th>
+                          <th className="px-6 py-4 text-center">المبلغ</th>
+                          <th className="px-6 py-4 text-center">المرفقات</th>
+                          <th className="px-6 py-4 text-center">الإجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {invoices.map((inv) => (
+                          <tr key={inv.id} className="group hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div 
+                                onClick={() => setComparisonInvoice(inv)}
+                                className="w-16 h-16 rounded-xl overflow-hidden border-2 border-slate-100 cursor-zoom-in hover:border-litcBlue transition-all relative group/thumb shadow-sm"
+                              >
+                                <img 
+                                  src={inv.imageUrl} 
+                                  alt="Invoice" 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-litcBlue/60 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center transition-all duration-300">
+                                  <Camera className="w-5 h-5 text-white mb-1" />
+                                  <span className="text-[8px] text-white font-black">تكبير</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <input 
+                                type="text" 
+                                value={inv.hospitalName} 
+                                onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
+                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-litcBlue text-sm"
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <input 
+                                type="text" 
+                                value={inv.invoiceNumber} 
+                                onChange={(e) => handleUpdateInvoice(inv.id!, 'invoiceNumber', e.target.value)}
+                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-600 text-sm"
+                              />
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <input 
+                                type="date" 
+                                value={inv.date} 
+                                onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 font-bold text-slate-500 text-xs text-center"
+                              />
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <input 
+                                  type="number" 
+                                  value={inv.amount} 
+                                  onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
+                                  className="w-24 bg-transparent border-none focus:ring-0 font-black text-litcOrange text-sm text-center"
+                                />
+                                <span className="text-[10px] font-black text-slate-400">{inv.currency}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col items-center gap-2">
+                                <label className="cursor-pointer p-1.5 bg-slate-50 rounded-lg text-litcBlue hover:bg-litcBlue hover:text-white transition-all">
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <input type="file" className="hidden" multiple onChange={(e) => handleAddInvoiceAttachment(inv.id!, e)} />
+                                </label>
+                                {inv.attachments && inv.attachments.length > 0 && (
+                                  <span className="text-[9px] font-black bg-litcOrange/10 text-litcOrange px-2 py-0.5 rounded-full">
+                                    {inv.attachments.length} مرفقات
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button 
+                                  onClick={() => setComparisonInvoice(inv)}
+                                  className="p-2 bg-litcBlue/10 text-litcBlue rounded-lg hover:bg-litcBlue hover:text-white transition-all shadow-sm"
+                                  title="مقارنة مع الأصل"
+                                >
+                                  <Sparkles className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleRemoveInvoice(inv.id!)}
+                                  className="p-2 bg-rose-50 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
-                 <button 
-                    onClick={handleSubmit}
-                    disabled={invoices.length === 0 || isSubmitting}
-                    className="w-full bg-white text-litcBlue py-4 sm:py-6 rounded-[1.2rem] sm:rounded-[2.5rem] font-black text-xs sm:text-lg shadow-2xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 sm:gap-4 group"
-                 >
-                    {isSubmitting ? <Loader2 className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 animate-spin" /> : (
-                      <>
-                        <HeartPulse className="group-hover:animate-pulse transition-colors w-4.5 h-4.5 sm:w-5.5 sm:h-5.5" />
-                        تأكيد المعاملة الطبية
-                      </>
-                    )}
-                 </button>
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                  {invoices.map((inv) => (
+                    <motion.div 
+                      key={inv.id}
+                      layout
+                      className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div 
+                          onClick={() => setComparisonInvoice(inv)}
+                          className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-50 shrink-0"
+                        >
+                          <img src={inv.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <input 
+                            type="text" 
+                            value={inv.hospitalName} 
+                            onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
+                            className="w-full bg-transparent border-none focus:ring-0 font-black text-litcBlue text-base p-0"
+                          />
+                          <div className="flex items-center gap-2 mt-1">
+                            <input 
+                              type="text" 
+                              value={inv.invoiceNumber} 
+                              onChange={(e) => handleUpdateInvoice(inv.id!, 'invoiceNumber', e.target.value)}
+                              className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-400 text-xs p-0"
+                              placeholder="رقم الفاتورة"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">التاريخ</label>
+                          <input 
+                            type="date" 
+                            value={inv.date} 
+                            onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
+                            className="w-full bg-slate-50 border-none rounded-xl p-2 font-bold text-slate-600 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المبلغ ({inv.currency})</label>
+                          <input 
+                            type="number" 
+                            value={inv.amount} 
+                            onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
+                            className="w-full bg-slate-50 border-none rounded-xl p-2 font-black text-litcOrange text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-50 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المرفقات الإضافية</label>
+                          <label className="cursor-pointer p-1.5 bg-litcBlue/5 rounded-lg text-litcBlue hover:bg-litcBlue hover:text-white transition-all">
+                            <Plus className="w-3.5 h-3.5" />
+                            <input type="file" className="hidden" multiple onChange={(e) => handleAddInvoiceAttachment(inv.id!, e)} />
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {inv.attachments?.map((file, fIdx) => (
+                            <div key={fIdx} className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                              <span className="text-[9px] font-bold text-slate-500 truncate max-w-[80px]">{file.name}</span>
+                              <button onClick={() => handleRemoveInvoiceAttachment(inv.id!, fIdx)} className="text-slate-300 hover:text-rose-500">
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!inv.attachments || inv.attachments.length === 0) && (
+                            <p className="text-[9px] font-bold text-slate-300 italic">لا توجد مرفقات لهذه الفاتورة</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <button 
+                          onClick={() => setComparisonInvoice(inv)}
+                          className="flex-1 flex items-center justify-center gap-2 p-3 bg-litcBlue/5 text-litcBlue rounded-2xl font-black text-xs hover:bg-litcBlue hover:text-white transition-all"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          مراجعة ومقارنة
+                        </button>
+                        <button 
+                          onClick={() => handleRemoveInvoice(inv.id!)}
+                          className="p-3 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Comments & Notes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+              <h3 className="font-black text-litcBlue flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-litcOrange" />
+                ملاحظات إضافية
+              </h3>
+              <textarea 
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="أضف أي تفاصيل أخرى ترغب في ذكرها..."
+                className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold text-sm focus:ring-2 focus:ring-litcBlue outline-none transition-all"
+              />
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-start gap-4">
+              <div className="w-12 h-12 bg-orange-50 text-litcOrange rounded-2xl flex items-center justify-center shrink-0 border border-orange-100">
+                <Info className="w-6 h-6" />
               </div>
-           </section>
-
-           <div className="bg-white p-4 sm:p-10 rounded-[1.5rem] sm:rounded-[3.5rem] border border-slate-100 flex items-start gap-3 sm:gap-6 shadow-sm max-w-md mx-auto lg:max-w-none">
-              <div className="w-10 h-10 sm:w-16 sm:h-16 bg-orange-50 text-litcOrange rounded-xl sm:rounded-[1.8rem] flex items-center justify-center shrink-0 border border-orange-100"><AlertCircle className="w-5 h-5 sm:w-7 sm:h-7" /></div>
               <div>
-                 <p className="text-sm sm:text-lg font-black text-litcBlue">مراجعة دقيقة</p>
-                 <p className="text-[9px] sm:text-sm font-bold text-slate-400 mt-0.5 sm:mt-1 leading-relaxed">يرجى مراجعة المبالغ المستخرجة قبل الضغط على تأكيد لضمان دقة المعالجة المالية.</p>
+                <p className="font-black text-litcBlue">تنبيه هام</p>
+                <p className="text-xs font-bold text-slate-400 mt-1 leading-relaxed">
+                  هذا النظام مخصص لإدخال البيانات الرقمية فقط. لا يتم إجراء أي عمليات تحويل عملة أو خصم نسب في هذه المرحلة.
+                </p>
               </div>
-           </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Summary & Actions */}
+        <div className="lg:col-span-1 space-y-8">
+          <div className="bg-litcBlue text-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-litcOrange opacity-10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
+            
+            <h3 className="text-lg sm:text-xl font-black mb-4 sm:mb-6 flex items-center gap-3">
+              <Sparkles className="text-litcOrange animate-pulse w-5 h-5 sm:w-6 sm:h-6" /> 
+              ملخص البيانات
+            </h3>
+
+            <div className="space-y-4 sm:space-y-6 relative z-10">
+              <div className="space-y-2">
+                <label className="text-[9px] sm:text-[10px] font-black text-blue-200 uppercase tracking-widest px-2">العملة المختارة</label>
+                <div className="relative">
+                  <Coins className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-200 w-4 h-4" />
+                  <select 
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 pr-12 font-black text-xs sm:text-sm appearance-none focus:bg-white/20 outline-none"
+                  >
+                    {CURRENCY_GROUPS.map(group => (
+                      <optgroup key={group.label} label={group.label} className="bg-white text-slate-900 font-black">
+                        {group.currencies.map(c => (
+                          <option key={c.code} value={c.code} className="text-slate-900">
+                            {c.flag} {c.code} - {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 sm:pt-6 border-t border-white/10 text-center">
+                <p className="text-[9px] sm:text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">إجمالي المطالبة (بيانات خام)</p>
+                <div className="flex items-baseline justify-center gap-2">
+                  <p className="text-2xl sm:text-4xl font-black text-white">
+                    {invoices.reduce((s, i) => s + (Number(i.amount) || 0), 0).toLocaleString()}
+                  </p>
+                  <span className="text-sm sm:text-base font-black text-litcOrange">{currency}</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSubmit}
+                disabled={invoices.length === 0 || isSubmitting}
+                className="w-full bg-white text-litcBlue py-3.5 sm:py-4 rounded-[1.2rem] sm:rounded-[1.5rem] font-black text-sm sm:text-base shadow-xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
+              >
+                {isSubmitting ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : (
+                  <>
+                    <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6" />
+                    تأكيد وإرسال
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

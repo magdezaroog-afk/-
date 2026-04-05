@@ -11,12 +11,15 @@ export enum UserRole {
 export enum ClaimStatus {
   PENDING_DR = 'PENDING_DR',
   PENDING_HEAD = 'PENDING_HEAD',
+  PENDING_UNIT_HEAD = 'PENDING_UNIT_HEAD',
   PENDING_DATA_ENTRY = 'PENDING_DATA_ENTRY',
   PENDING_AUDIT = 'PENDING_AUDIT',
   RETURNED_TO_DR = 'RETURNED_TO_DR',
   RETURNED_TO_EMPLOYEE = 'RETURNED_TO_EMPLOYEE',
+  CORRECTION_REQUIRED = 'CORRECTION_REQUIRED',
   APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  PAID = 'PAID'
 }
 
 export interface HealthProfile {
@@ -65,6 +68,7 @@ export interface User {
   building?: string;
   department?: string;
   jobTitle?: string;
+  annualCeilingUsed?: number; // Total 90% portion used from 100,000 LYD
 }
 
 export interface InvoiceLineItem {
@@ -96,6 +100,14 @@ export interface Invoice {
   assignedToName?: string;
   serviceType?: string;
   ocrData?: any;
+  coveragePercentage?: number; // 90 or 100
+  isMajorSurgery?: boolean;
+  isMedicalDevice?: boolean;
+  isGlasses?: boolean;
+  excessPaidByEmployee?: number;
+  companyPortion?: number;
+  employeePortion?: number;
+  isDuplicate?: boolean;
 }
 
 export interface AuditLog {
@@ -123,4 +135,6 @@ export interface Claim {
   location?: string;
   department?: string;
   assignedToId?: string;
+  submittedAt?: string; // ISO string for 24h rule
+  isPool?: boolean;
 }
