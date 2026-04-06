@@ -3,13 +3,46 @@ import React, { useState } from 'react';
 import { Claim, ClaimStatus, User, UserRole } from '../types';
 import { STATUS_UI } from '../constants';
 import { 
-  ArrowRight, Check, X, ImageIcon, 
-  Maximize2, RotateCcw, MessageSquare, 
-  ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
-  Calculator, CheckCircle2,
-  AlertCircle, ShieldCheck, FileText, Send, Clock, User as UserIcon,
-  Stethoscope, ShieldAlert, FileSearch, CheckCircle, UserPlus, SearchCheck,
-  CheckCircle2 as CheckCircle2Icon
+  ShieldCheck, 
+  RotateCcw, 
+  CheckCircle2, 
+  SearchCheck, 
+  Clock, 
+  UserPlus, 
+  User as UserIcon,
+  CheckCircle,
+  XCircle,
+  Database,
+  Stethoscope,
+  ShieldAlert,
+  FileSearch,
+  MessageSquare,
+  ArrowRight,
+  ZoomIn,
+  ZoomOut,
+  ChevronRight,
+  ChevronLeft,
+  AlertCircle,
+  Calculator,
+  Check,
+  X,
+  ImageIcon,
+  Maximize2,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  Calculator as CalculatorIcon,
+  CheckCircle2 as CheckCircle2Icon,
+  FileText,
+  Send,
+  ShieldAlert as ShieldAlertIcon,
+  FileSearch as FileSearchIcon,
+  CheckCircle as CheckCircleIcon,
+  UserPlus as UserPlusIcon,
+  SearchCheck as SearchCheckIcon,
+  Heart,
+  HelpCircle
 } from 'lucide-react';
 
 interface ClaimDetailProps {
@@ -32,19 +65,22 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [activeInvoiceIndex, setActiveInvoiceIndex] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  const isHead = user.role === UserRole.HEAD_OF_UNIT;
+  const isReceptionist = user.role === UserRole.RECEPTIONIST;
   const isDoctor = user.role === UserRole.DOCTOR;
-  const isAuditor = user.role === UserRole.AUDITOR;
+  const isDataEntry = user.role === UserRole.DATA_ENTRY;
+  const isHead = user.role === UserRole.HEAD_OF_UNIT;
   const isEmployee = user.role === UserRole.EMPLOYEE;
   const isAdmin = user.role === UserRole.ADMIN;
+  
+  const [archiveBoxId, setArchiveBoxId] = useState(claim.invoices[0]?.archiveBoxId || '');
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
-  const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.APPROVED);
-  const rejectedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.RETURNED_TO_EMPLOYEE || i.status === ClaimStatus.RETURNED_TO_DR);
+  const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_APPROVED);
+  const rejectedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_REJECTED);
 
   const handleInvoiceDecision = (invoiceId: string, decision: 'APPROVE' | 'REJECT') => {
-    const status = decision === 'APPROVE' ? ClaimStatus.APPROVED : ClaimStatus.RETURNED_TO_EMPLOYEE;
+    const status = decision === 'APPROVE' ? ClaimStatus.MEDICALLY_APPROVED : ClaimStatus.MEDICALLY_REJECTED;
     onInvoiceStatusUpdate(claim.id, invoiceId, status, globalComment || 'تمت المراجعة والفرز');
   };
 
@@ -144,25 +180,38 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                           <div className="flex items-center gap-2 sm:gap-4">
                              <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-[1.2rem] flex items-center justify-center font-black text-sm sm:text-lg ${activeInvoiceIndex === idx ? 'bg-white/10 border border-white/20' : 'bg-white text-slate-300 shadow-inner'}`}>{idx + 1}</div>
                              <div className="flex flex-col">
-                                 <p className="font-black text-[10px] sm:text-sm group-hover:translate-x-1 transition-transform">{inv.hospitalName}</p>
-                                 {inv.ocrData?.dataEntryDecision && (
+                                <div className="flex items-center gap-2">
+                                   <p className="font-black text-[10px] sm:text-sm group-hover:translate-x-1 transition-transform">{inv.hospitalName}</p>
+                                   {inv.isChronic && (
+                                     <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-rose-500 fill-rose-500 animate-pulse" />
+                                   )}
+                                </div>
+                                <p className={`text-[7px] sm:text-[10px] font-bold ${activeInvoiceIndex === idx ? 'text-white/70' : 'text-slate-400'}`}>
+                                   {inv.beneficiaryName || 'لم يتم تحديد المستفيد'} ({inv.relationship || 'غير محدد'})
+                                 </p>
+                                 {!inv.relationship && (
+                                   <span className="text-[7px] sm:text-[9px] font-black mt-1 px-1.5 py-0.5 rounded-full w-fit bg-amber-500/20 text-amber-600 flex items-center gap-1">
+                                      تنبيه: لم يتم تحديد المستفيد
+                                   </span>
+                                 )}
+                                {inv.ocrData?.dataEntryDecision && (
                                    <span className={`text-[7px] sm:text-[9px] font-black mt-1 px-1.5 py-0.5 rounded-full w-fit ${inv.ocrData.dataEntryDecision === 'VALID' ? 'bg-emerald-500/20 text-emerald-600' : 'bg-rose-500/20 text-rose-600'}`}>
                                      توصية الإدخال: {inv.ocrData.dataEntryDecision === 'VALID' ? 'سليمة' : 'بها أخطاء'}
                                    </span>
                                  )}
                               </div>
                           </div>
-                          <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 sm:border-4 border-white shadow-lg ${inv.status === ClaimStatus.APPROVED ? 'bg-emerald-500 text-white' : inv.status === ClaimStatus.RETURNED_TO_EMPLOYEE ? 'bg-rose-500 text-white' : 'bg-slate-300'}`}>
-                             {inv.status === ClaimStatus.APPROVED ? <Check className="w-3 h-3 sm:w-4.5 sm:h-4.5" /> : inv.status === ClaimStatus.RETURNED_TO_EMPLOYEE ? <X className="w-3 h-3 sm:w-4.5 sm:h-4.5" /> : <Clock className="w-3 h-3 sm:w-4.5 sm:h-4.5" />}
+                          <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 sm:border-4 border-white shadow-lg ${inv.status === ClaimStatus.MEDICALLY_APPROVED ? 'bg-emerald-500 text-white' : inv.status === ClaimStatus.MEDICALLY_REJECTED ? 'bg-rose-500 text-white' : 'bg-slate-300'}`}>
+                             {inv.status === ClaimStatus.MEDICALLY_APPROVED ? <CheckCircle2 className="w-3 h-3 sm:w-4.5 sm:h-4.5" /> : inv.status === ClaimStatus.MEDICALLY_REJECTED ? <XCircle className="w-3 h-3 sm:w-4.5 sm:h-4.5" /> : <Clock className="w-3 h-3 sm:w-4.5 sm:h-4.5" />}
                           </div>
                        </div>
                        
-                       {((isHead && claim.status === ClaimStatus.PENDING_HEAD && inv.status !== ClaimStatus.PENDING_DATA_ENTRY) || (isDoctor && claim.status === ClaimStatus.PENDING_DR)) && activeInvoiceIndex === idx && (
+                       {((isHead && claim.status === ClaimStatus.FINANCIALLY_PROCESSED) || (isDoctor && claim.status === ClaimStatus.PAPER_RECEIVED)) && activeInvoiceIndex === idx && (
                          <div className="mt-3 sm:mt-6 flex gap-1.5 sm:gap-3 animate-in slide-in-from-top-4" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => handleInvoiceDecision(inv.id, 'APPROVE')} className={`flex-1 py-2 sm:py-3.5 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-[11px] transition-all flex items-center justify-center gap-1 sm:gap-2 ${inv.status === ClaimStatus.APPROVED ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white/10 text-white border border-white/20 hover:bg-emerald-500'}`}>
+                            <button onClick={() => handleInvoiceDecision(inv.id, 'APPROVE')} className={`flex-1 py-2 sm:py-3.5 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-[11px] transition-all flex items-center justify-center gap-1 sm:gap-2 ${inv.status === ClaimStatus.MEDICALLY_APPROVED ? 'bg-emerald-500 text-white shadow-xl' : 'bg-white/10 text-white border border-white/20 hover:bg-emerald-500'}`}>
                                <CheckCircle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
                             </button>
-                            <button onClick={() => handleInvoiceDecision(inv.id, 'REJECT')} className={`flex-1 py-2 sm:py-3.5 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-[11px] transition-all flex items-center justify-center gap-1 sm:gap-2 ${inv.status === ClaimStatus.RETURNED_TO_EMPLOYEE ? 'bg-rose-500 text-white shadow-xl' : 'bg-white/10 text-white border border-white/20 hover:bg-rose-500'}`}>
+                            <button onClick={() => handleInvoiceDecision(inv.id, 'REJECT')} className={`flex-1 py-2 sm:py-3.5 rounded-lg sm:rounded-2xl font-black text-[8px] sm:text-[11px] transition-all flex items-center justify-center gap-1 sm:gap-2 ${inv.status === ClaimStatus.MEDICALLY_REJECTED ? 'bg-rose-500 text-white shadow-xl' : 'bg-white/10 text-white border border-white/20 hover:bg-rose-500'}`}>
                                <ShieldAlert className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
                             </button>
                          </div>
@@ -202,102 +251,79 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
          </div>
 
          <div className="flex flex-wrap justify-center gap-2 sm:gap-8 w-full">
-            {isDoctor && claim.status === ClaimStatus.PENDING_DR && (
-              <>
-                 <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.PENDING_HEAD, globalComment || 'تم الاعتماد طبياً وتحويلها لرئيس الوحدة')} 
-                   className="bg-litcBlue text-white px-4 sm:px-16 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-litcDark hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 shadow-litcBlue/30 group w-full sm:w-auto justify-center"
-                 >
-                    <Stethoscope className="w-4.5 h-4.5 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform" /> اعتماد طبي وتحويل لرئيس الوحدة
-                 </button>
-                 <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع للموظف لنقص البيانات الطبية')} 
-                   className="bg-rose-500 text-white px-4 sm:px-16 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-rose-600 hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 shadow-rose-500/30 w-full sm:w-auto justify-center"
-                 >
-                    <RotateCcw className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> إرجاع للموظف للتصحيح
-                 </button>
-              </>
+            {isReceptionist && claim.status === ClaimStatus.WAITING_FOR_PAPER && (
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-4xl">
+                <div className="flex-1 relative w-full">
+                  <Database className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input 
+                    value={archiveBoxId}
+                    onChange={(e) => setArchiveBoxId(e.target.value)}
+                    placeholder="أدخل رقم صندوق الأرشفة..."
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pr-12 pl-6 font-bold text-sm outline-none focus:border-litcBlue transition-all"
+                  />
+                </div>
+                <button 
+                  onClick={() => onUpdateStatus(ClaimStatus.PAPER_RECEIVED, `تم استلام الأوراق الورقية ووضعها في الصندوق رقم: ${archiveBoxId}`)} 
+                  disabled={!archiveBoxId}
+                  className="bg-litcBlue text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcDark transition-all flex items-center gap-3 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-5 h-5" /> استلام الملف الورقي
+                </button>
+              </div>
             )}
 
-            {isHead && (
-               <>
-                 {(claim.status === ClaimStatus.PENDING_DATA_ENTRY || claim.invoices.some(i => i.status === ClaimStatus.PENDING_DATA_ENTRY)) ? (
-                    <div className="flex flex-col items-center gap-2 sm:gap-4 bg-litcBlue/5 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[3rem] border border-litcBlue/20 w-full max-w-4xl text-center">
-                       <div className="flex items-center gap-2 sm:gap-4 text-litcBlue font-black text-sm sm:text-xl">
-                          <Clock className="animate-spin-slow w-4 h-4 sm:w-6 sm:h-6" /> المعاملة حالياً قيد الإدخال الفني
-                       </div>
-                       <p className="text-slate-500 font-bold text-[10px] sm:text-base">بانتظار انتهاء موظفي الإدخال من مراجعة وتدقيق البيانات المالية للفواتير المسندة إليهم.</p>
-                       <div className="flex gap-1.5 mt-1 sm:mt-2">
-                          {claim.invoices.map((inv, idx) => (
-                             <div key={idx} className={`w-1.5 h-1.5 sm:w-3 sm:h-3 rounded-full ${inv.status === ClaimStatus.PENDING_HEAD ? 'bg-emerald-500' : 'bg-slate-200 animate-pulse'}`} title={inv.assignedToName}></div>
-                          ))}
-                       </div>
-                    </div>
-                 ) : claim.status === ClaimStatus.PENDING_HEAD ? (
-                   claim.invoices.some(i => !i.assignedToId) ? (
-                     <div className="flex flex-col items-center gap-3 sm:gap-6 bg-litcDark/5 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[3rem] border-2 border-dashed border-litcBlue/20 w-full max-w-4xl">
-                        <p className="font-black text-slate-600 text-[10px] sm:text-base flex items-center gap-2 sm:gap-3"><UserPlus className="text-litcBlue w-4 h-4 sm:w-6 sm:h-6" /> إسناد المعاملة لموظف الإدخال الفني:</p>
-                        <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
-                           {DATA_ENTRY_STAFF.map(s => (
-                             <button 
-                                key={s.id} 
-                                onClick={() => onInvoiceAssign(claim.id, claim.invoices.filter(i => !i.assignedToId).map(i => i.id), s.id)}
-                                className="px-3 py-1.5 sm:px-8 sm:py-4 bg-white hover:bg-litcBlue hover:text-white text-slate-700 rounded-lg sm:rounded-2xl font-black text-[9px] sm:text-sm transition-all border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 flex items-center gap-1.5 sm:gap-3"
-                             >
-                                <UserIcon className="w-3 h-3 sm:w-4.5 sm:h-4.5" /> {s.name}
-                             </button>
-                           ))}
-                        </div>
-                     </div>
-                   ) : (
-                     <div className="flex flex-wrap justify-center gap-2 sm:gap-8 w-full">
-                        <button 
-                          onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد والتحويل لمكتب المراجعة')} 
-                          disabled={approvedInvoices.length === 0} 
-                          className="bg-emerald-600 text-white px-4 sm:px-14 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30 w-full sm:w-auto justify-center"
-                        >
-                           <ShieldCheck className="w-4.5 h-4.5 sm:w-7 sm:h-7" /> ({approvedInvoices.length})
-                        </button>
-                        <button 
-                          onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع المعاملة للموظف لوجود أخطاء في الفواتير')} 
-                          disabled={rejectedInvoices.length === 0} 
-                          className="bg-amber-500 text-white px-4 sm:px-14 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 disabled:opacity-30 disabled:grayscale shadow-amber-500/30 w-full sm:w-auto justify-center"
-                        >
-                           <RotateCcw className="w-4.5 h-4.5 sm:w-7 sm:h-7" /> ({rejectedInvoices.length})
-                        </button>
-                        <button 
-                          onClick={() => onUpdateStatus(ClaimStatus.REJECTED, globalComment || 'رفض المعاملة بالكامل')} 
-                          className="bg-slate-900 text-white px-4 sm:px-10 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl hover:bg-rose-600 transition-all flex items-center gap-1.5 sm:gap-4 shadow-2xl w-full sm:w-auto justify-center"
-                        >
-                           <ShieldAlert className="w-4.5 h-4.5 sm:w-7 sm:h-7" />
-                        </button>
-                     </div>
-                   )
-                 ) : null}
-               </>
-            )}
-
-            {isAuditor && claim.status === ClaimStatus.PENDING_AUDIT && (
-              <>
+            {isDoctor && claim.status === ClaimStatus.PAPER_RECEIVED && (
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-5xl">
                  <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.APPROVED, globalComment || 'تمت المراجعة النهائية والاعتماد للصرف')} 
-                   className="bg-emerald-600 text-white px-4 sm:px-16 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 shadow-emerald-500/30 w-full sm:w-auto justify-center"
+                   onClick={() => onUpdateStatus(ClaimStatus.MEDICALLY_APPROVED, globalComment || 'تم الاعتماد طبياً')} 
+                   className="flex-1 bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-3"
                  >
-                    <CheckCircle2 className="w-4.5 h-4.5 sm:w-6 sm:h-6 sm:w-7 sm:h-7" />
+                    <CheckCircle className="w-5 h-5" /> اعتماد طبي
                  </button>
                  <button 
-                   onClick={() => onUpdateStatus(ClaimStatus.RETURNED_TO_EMPLOYEE, globalComment || 'إرجاع للموظف من مكتب المراجعة')} 
-                   className="bg-amber-500 text-white px-4 sm:px-16 py-2.5 sm:py-6 rounded-lg sm:rounded-[3rem] font-black text-[10px] sm:text-xl shadow-2xl hover:bg-amber-600 hover:-translate-y-1 transition-all flex items-center gap-1.5 sm:gap-4 shadow-amber-500/30 w-full sm:w-auto justify-center"
+                   onClick={() => {
+                     if (!globalComment.trim()) {
+                       alert('يرجى إدخال سبب الرفض في حقل الملاحظات');
+                       return;
+                     }
+                     onUpdateStatus(ClaimStatus.MEDICALLY_REJECTED, globalComment);
+                   }} 
+                   className="flex-1 bg-rose-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-rose-600 transition-all flex items-center justify-center gap-3"
                  >
-                    <RotateCcw className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> إرجاع للموظف
+                    <XCircle className="w-5 h-5" /> رفض طبي
                  </button>
-              </>
+                 <button 
+                   onClick={() => onUpdateStatus(ClaimStatus.PENDING_CLARIFICATION, globalComment || 'مطلوب توضيح إضافي')} 
+                   className="flex-1 bg-amber-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-amber-600 transition-all flex items-center justify-center gap-3"
+                 >
+                    <HelpCircle className="w-5 h-5" /> طلب توضيح
+                 </button>
+              </div>
             )}
 
-            {/* Fallback status display for all roles when no actions are available */}
-            {((isDoctor && claim.status !== ClaimStatus.PENDING_DR) || 
-              (isHead && claim.status !== ClaimStatus.PENDING_HEAD && claim.status !== ClaimStatus.PENDING_DATA_ENTRY && !claim.invoices.some(i => i.status === ClaimStatus.PENDING_DATA_ENTRY)) ||
-              (isAuditor && claim.status !== ClaimStatus.PENDING_AUDIT) ||
+            {isDataEntry && claim.status === ClaimStatus.MEDICALLY_APPROVED && (
+              <button 
+                onClick={() => onUpdateStatus(ClaimStatus.FINANCIALLY_PROCESSED, globalComment || 'تمت المعالجة المالية')} 
+                className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-3"
+              >
+                <Database className="w-5 h-5" /> إتمام المعالجة المالية
+              </button>
+            )}
+
+            {isHead && claim.status === ClaimStatus.FINANCIALLY_PROCESSED && (
+              <button 
+                onClick={() => onUpdateStatus(ClaimStatus.CHIEF_APPROVED, globalComment || 'تم الاعتماد النهائي من رئيس الوحدة')} 
+                className="bg-litcBlue text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcDark transition-all flex items-center gap-3"
+              >
+                <ShieldCheck className="w-5 h-5" /> اعتماد نهائي (رئيس الوحدة)
+              </button>
+            )}
+
+            {/* Fallback status display */}
+            {((isReceptionist && claim.status !== ClaimStatus.WAITING_FOR_PAPER) ||
+              (isDoctor && claim.status !== ClaimStatus.PAPER_RECEIVED) ||
+              (isDataEntry && claim.status !== ClaimStatus.MEDICALLY_APPROVED) ||
+              (isHead && claim.status !== ClaimStatus.FINANCIALLY_PROCESSED) ||
               isEmployee || isAdmin) && (
                 <div className="text-slate-400 font-black text-xs sm:text-xl py-3 sm:py-6 flex items-center gap-2 sm:gap-4">
                    <SearchCheck className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> المعاملة في حالة: {STATUS_UI[claim.status].label}

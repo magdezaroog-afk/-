@@ -10,9 +10,10 @@ interface LayoutProps {
   children: React.ReactNode;
   activePath: string;
   setActivePath: (path: string) => void;
+  onRoleChange?: (role: UserRole) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, setActivePath }) => {
+const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, setActivePath, onRoleChange }) => {
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
   const items = NAV_ITEMS[user.role as UserRole] || [];
 
@@ -102,6 +103,25 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, children, activePath, s
             </div>
             
             <div className="flex items-center gap-4 lg:gap-6">
+              {/* Test Role Switcher */}
+              {onRoleChange && (
+                <div className="hidden xl:flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Test Role:</span>
+                  <select 
+                    value={user.role}
+                    onChange={(e) => onRoleChange(e.target.value as UserRole)}
+                    className="bg-transparent border-none outline-none text-xs font-black text-amber-700 cursor-pointer focus:ring-0"
+                  >
+                    <option value={UserRole.ADMIN}>Admin</option>
+                    <option value={UserRole.RECEPTIONIST}>Receptionist</option>
+                    <option value={UserRole.DOCTOR}>Medical Auditor</option>
+                    <option value={UserRole.DATA_ENTRY}>Data Entry</option>
+                    <option value={UserRole.HEAD_OF_UNIT}>Chief</option>
+                    <option value={UserRole.EMPLOYEE}>Employee</option>
+                  </select>
+                </div>
+              )}
+
               <div className="relative group cursor-pointer">
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 lg:w-3 h-3 bg-litcOrange rounded-full border-2 border-white animate-bounce"></div>
                 <Bell className="text-slate-400 group-hover:text-litcBlue transition-colors w-5 h-5" />

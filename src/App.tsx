@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, UserRole, Claim, ClaimStatus, Invoice } from './types';
+import { User, UserRole, Claim, ClaimStatus, Invoice, ChronicApplication } from './types';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SubmitClaim from './pages/SubmitClaim';
@@ -9,14 +9,32 @@ import Profile from './pages/Profile';
 import SmartClinic from './pages/SmartClinic';
 import DataEntry from './pages/DataEntry';
 import AdminDashboard from './pages/AdminDashboard';
+import ChronicEnrollment from './pages/ChronicEnrollment';
 import Archive from './pages/Archive';
 import { 
-  Loader2, ShieldCheck, UserCircle, 
-  ChevronRight, Database, UserCheck, Stethoscope, HeartPulse, Activity, 
-  Shield, Pill, Syringe, ClipboardList, Sparkles, Heart, Mail, Lock, 
-  Phone, Github, Chrome, MessageSquare, AlertCircle, MapPin, Building2, Briefcase
+  ShieldCheck, 
+  Settings, 
+  UserCircle, 
+  ChevronRight, 
+  Chrome, 
+  Phone, 
+  Mail, 
+  Lock, 
+  Activity, 
+  Sparkles, 
+  Loader2, 
+  ClipboardList, 
+  AlertCircle,
+  FileText,
+  HeartPulse,
+  Stethoscope,
+  Shield,
+  Pill,
+  Heart,
+  Database
 } from 'lucide-react';
 import { auth, db, googleProvider, microsoftProvider } from './firebase';
+import { NAV_ITEMS } from './constants';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -107,6 +125,7 @@ const App: React.FC = () => {
   const [activePath, setActivePath] = useState('dashboard');
   const [claims, setClaims] = useState<Claim[]>(INITIAL_CLAIMS);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
+  const [chronicApplications, setChronicApplications] = useState<ChronicApplication[]>([]);
   const [isLoggingIn, setIsLoggingIn] = useState(true);
   const manualLoginRef = useRef(false);
   const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'email-verification' | 'phone-login'>('initial');
@@ -194,6 +213,55 @@ const App: React.FC = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || (user.role !== UserRole.DOCTOR && user.role !== UserRole.ADMIN)) return;
+    
+    const q = query(collection(db, 'chronic_applications'), orderBy('submissionDate', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const apps = snapshot.docs.map(doc => doc.data() as ChronicApplication);
+      setChronicApplications(apps);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleRoleChange = async (newRole: UserRole) => {
+    if (!user) return;
+    const updatedUser = { ...user, role: newRole };
+    try {
+      await setDoc(doc(db, 'users', user.id), sanitizeForFirestore(updatedUser));
+      setUser(updatedUser);
+      // Reset active path if it's not available for the new role
+      const items = NAV_ITEMS[newRole] || [];
+      if (!items.find((i: any) => i.path === activePath)) {
+        setActivePath('dashboard');
+      }
+    } catch (err: any) {
+      setError("فشل تغيير الصلاحية: " + err.message);
+    }
+  };
+
+  const handleUpdateChronicApplication = async (appId: string, status: 'APPROVED' | 'REJECTED', notes: string, expiryDate?: string) => {
+    const app = chronicApplications.find(a => a.id === appId);
+    if (!app) return;
+
+    const updatedApp = {
+      ...app,
+      status,
+      doctorNotes: notes,
+      expiryDate: status === 'APPROVED' ? expiryDate : undefined
+    };
+
+    try {
+      await setDoc(doc(db, 'chronic_applications', appId), sanitizeForFirestore(updatedApp));
+      
+      // If approved, update user's health profile or beneficiary status
+      // For now, we'll just update the application status
+    } catch (err: any) {
+      setError("فشل تحديث طلب الأمراض المزمنة: " + err.message);
+    }
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,7 +426,10 @@ const App: React.FC = () => {
         id: specificUser?.id || firebaseUser.uid,
         email: specificUser?.email || firebaseUser.email || `${role.toLowerCase()}@litc.ly`,
         role: role,
-        name: specificUser?.name || firebaseUser.displayName || (role === UserRole.DOCTOR ? 'د. أحمد علي' : 'مسؤول النظام'),
+        name: specificUser?.name || firebaseUser.displayName || 
+              (role === UserRole.DOCTOR ? 'د. أحمد علي' : 
+               role === UserRole.RECEPTIONIST ? 'سارة علي' :
+               role === UserRole.HEAD_OF_UNIT ? 'أ. عمر' : 'مسؤول النظام'),
         healthProfile: user?.healthProfile || {
           bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
         }
@@ -444,7 +515,7 @@ const App: React.FC = () => {
           ...inv, 
           assignedToId: staffId, 
           assignedToName: staffMember?.name || 'موظف غير معروف',
-          status: ClaimStatus.PENDING_DATA_ENTRY
+          status: ClaimStatus.MEDICALLY_APPROVED
         };
       }
       return inv;
@@ -455,7 +526,7 @@ const App: React.FC = () => {
     const updatedClaim = {
       ...claim,
       invoices: updatedInvoices,
-      status: allAssigned ? ClaimStatus.PENDING_DATA_ENTRY : ClaimStatus.PENDING_HEAD,
+      status: allAssigned ? ClaimStatus.MEDICALLY_APPROVED : claim.status,
       auditTrail: [
         ...claim.auditTrail,
         {
@@ -507,15 +578,15 @@ const App: React.FC = () => {
     
     const mergedInvoices = claimToUpdate.invoices.map(inv => {
       const updated = updatedInvoices.find(u => u.id === inv.id);
-      return updated ? { ...updated, status: ClaimStatus.PENDING_HEAD } : inv;
+      return updated ? { ...updated, status: ClaimStatus.FINANCIALLY_PROCESSED } : inv;
     });
     
-    const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.PENDING_HEAD);
+    const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.FINANCIALLY_PROCESSED);
     
     const updatedClaim = {
       ...claimToUpdate,
       invoices: mergedInvoices,
-      status: allBackToHead ? ClaimStatus.PENDING_HEAD : claimToUpdate.status,
+      status: allBackToHead ? ClaimStatus.FINANCIALLY_PROCESSED : claimToUpdate.status,
       auditTrail: [...claimToUpdate.auditTrail, {
         id: Math.random().toString(),
         userId: user.id,
@@ -774,10 +845,10 @@ const App: React.FC = () => {
                 <div className="space-y-6 animate-in slide-in-from-bottom-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     {[
-                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
-                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-litcOrange/5 hover:text-litcOrange hover:border-litcOrange', action: () => setLoginStep('data-entry-select') },
-                      { role: UserRole.AUDITOR, label: 'مكتب المراجعة', icon: <UserCheck className="w-6 h-6"/>, color: 'hover:bg-purple-50 hover:text-purple-600 hover:border-purple-600' }
+                      { role: UserRole.RECEPTIONIST, label: 'مستقبل بيانات', icon: <FileText className="w-6 h-6"/>, color: 'hover:bg-amber-50 hover:text-amber-600 hover:border-amber-600' },
+                      { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-600' },
+                      { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-600', action: () => setLoginStep('data-entry-select') },
+                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' }
                     ].map(o => (
                         <button 
                           key={o.role} 
@@ -860,6 +931,16 @@ const App: React.FC = () => {
           onSelectClaim={setSelectedClaim} 
           onNavigate={setActivePath} 
           onAssign={handleInvoiceAssign} 
+          onGrab={(claimId) => {
+            const claim = claims.find(c => c.id === claimId);
+            if (claim) {
+              const status = user.role === UserRole.RECEPTIONIST ? ClaimStatus.WAITING_FOR_PAPER :
+                             user.role === UserRole.DOCTOR ? ClaimStatus.PAPER_RECEIVED :
+                             user.role === UserRole.DATA_ENTRY ? ClaimStatus.MEDICALLY_APPROVED : claim.status;
+              
+              handleUpdateClaimStatus(status, 'تم سحب المعاملة من حوض المهام');
+            }
+          }}
         />;
       case 'profile':
         return <Profile 
@@ -882,7 +963,7 @@ const App: React.FC = () => {
             employeeId: user.id,
             employeeName: user.name,
             submissionDate: new Date().toISOString().split('T')[0],
-            status: ClaimStatus.PENDING_DR,
+            status: ClaimStatus.WAITING_FOR_PAPER,
             totalAmount: data.totalAmount || 0,
             referenceNumber: data.id || `REF-${Date.now().toString().slice(-6)}`,
             invoiceCount: data.invoices.length,
@@ -891,7 +972,7 @@ const App: React.FC = () => {
             department: user.department || '',
             invoices: data.invoices.map((inv: any) => ({ 
               ...inv, 
-              status: ClaimStatus.PENDING_DR,
+              status: ClaimStatus.WAITING_FOR_PAPER,
               id: inv.id || `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
             })),
             auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
@@ -906,9 +987,11 @@ const App: React.FC = () => {
           }
         }} />;
       case 'archive':
-        return <Archive claims={claims.filter(c => c.employeeId === user.id)} onSelectClaim={setSelectedClaim} />;
+        return <Archive user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
       case 'admin-dashboard':
-        return <AdminDashboard claims={claims} />;
+        return <AdminDashboard user={user} claims={claims} />;
+      case 'chronic-enrollment':
+        return <ChronicEnrollment user={user} applications={chronicApplications} onUpdate={handleUpdateChronicApplication} />;
       default:
         return <Dashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onNavigate={setActivePath} />;
     }
@@ -920,6 +1003,7 @@ const App: React.FC = () => {
       onLogout={handleLogout} 
       activePath={activePath} 
       setActivePath={setActivePath}
+      onRoleChange={handleRoleChange}
     >
       {renderContent()}
     </Layout>

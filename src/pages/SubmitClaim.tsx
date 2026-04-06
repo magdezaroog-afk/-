@@ -113,6 +113,8 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
               amount: ocr.totalAmount || 0,
               date: ocr.date || new Date().toISOString().split('T')[0],
               currency: (ocr.currency || currency) as any,
+              beneficiaryName: user.name,
+              relationship: 'الموظف نفسه',
               attachments: [],
             };
             resolve(newInvoice);
@@ -192,11 +194,13 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       employeeId: user.id,
       employeeName: user.name,
       submissionDate: new Date().toLocaleString('ar-LY'),
-      status: ClaimStatus.PENDING_DR,
-      invoices,
+      status: ClaimStatus.WAITING_FOR_PAPER,
+      invoices: invoices.map(inv => ({ ...inv, status: ClaimStatus.WAITING_FOR_PAPER, archiveBoxId: '' })),
       totalAmount,
       currency,
       description,
+      medicalNotes: '',
+      isChronic: false,
       referenceNumber: claimId,
       invoiceCount: invoices.length,
       location: user.location,
@@ -268,7 +272,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
         <div className="space-y-4">
           <h2 className="text-3xl font-black text-litcBlue">تم استلام البيانات بنجاح</h2>
           <p className="text-slate-500 font-bold leading-relaxed">
-            يرجى طباعة ملخص المطالبة، وإرفاقه مع الأصول الورقية الأصلية، وتسليمها إلى وحدة الرعاية (Care Unit).
+            تم استلام طلبك إلكترونياً. يرجى تسليم الأصول الورقية لمكتب الرعاية لإتمام الإجراء.
           </p>
         </div>
 
@@ -302,7 +306,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4" dir="rtl">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4" dir="rtl">
       {/* Comparison Modal */}
       <AnimatePresence>
         {comparisonInvoice && (
@@ -453,9 +457,9 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Form & Upload */}
-        <div className="lg:col-span-2 space-y-8">
+      <div className="space-y-8">
+        {/* Top Section: Upload & Grid */}
+        <div className="space-y-8">
           {/* OCR Upload Zone */}
           <div 
             {...getRootProps()} 
@@ -608,27 +612,28 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                 </div>
 
                 {/* Desktop Table View */}
-                <div className="hidden md:block bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-right">
+                <div className="hidden md:block bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden w-full">
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-right border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-black">
-                          <th className="px-6 py-4 text-right">المعاينة</th>
-                          <th className="px-6 py-4 text-right">المرفق الصحي</th>
-                          <th className="px-6 py-4 text-right">رقم الفاتورة</th>
-                          <th className="px-6 py-4 text-center">التاريخ</th>
-                          <th className="px-6 py-4 text-center">المبلغ</th>
-                          <th className="px-6 py-4 text-center">المرفقات</th>
-                          <th className="px-6 py-4 text-center">الإجراءات</th>
+                        <tr className="bg-slate-50/80 text-slate-400 text-[10px] uppercase tracking-widest font-black border-b border-slate-100">
+                          <th className="px-8 py-5 text-right min-w-[100px]">المعاينة</th>
+                          <th className="px-8 py-5 text-right min-w-[200px]">المرفق الصحي</th>
+                          <th className="px-8 py-5 text-right min-w-[150px]">المستفيد</th>
+                          <th className="px-8 py-5 text-right min-w-[150px]">رقم الفاتورة</th>
+                          <th className="px-8 py-5 text-center min-w-[140px]">التاريخ</th>
+                          <th className="px-8 py-5 text-center min-w-[160px]">المبلغ</th>
+                          <th className="px-8 py-5 text-center min-w-[120px]">المرفقات</th>
+                          <th className="px-8 py-5 text-center min-w-[120px]">الإجراءات</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {invoices.map((inv) => (
-                          <tr key={inv.id} className="group hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4">
+                          <tr key={inv.id} className="group hover:bg-slate-50/50 transition-all duration-300">
+                            <td className="px-8 py-5">
                               <div 
                                 onClick={() => setComparisonInvoice(inv)}
-                                className="w-16 h-16 rounded-xl overflow-hidden border-2 border-slate-100 cursor-zoom-in hover:border-litcBlue transition-all relative group/thumb shadow-sm"
+                                className="w-12 h-12 rounded-xl overflow-hidden border-2 border-slate-100 cursor-zoom-in hover:border-litcBlue hover:scale-105 transition-all relative group/thumb shadow-sm mx-auto md:mx-0"
                               >
                                 <img 
                                   src={inv.imageUrl} 
@@ -637,71 +642,102 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                                   referrerPolicy="no-referrer"
                                 />
                                 <div className="absolute inset-0 bg-litcBlue/60 opacity-0 group-hover/thumb:opacity-100 flex flex-col items-center justify-center transition-all duration-300">
-                                  <Camera className="w-5 h-5 text-white mb-1" />
-                                  <span className="text-[8px] text-white font-black">تكبير</span>
+                                  <Camera className="w-4 h-4 text-white" />
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-8 py-5">
+                              <div className="space-y-2">
+                                <select 
+                                  value={inv.relationship}
+                                  onChange={(e) => {
+                                    handleUpdateInvoice(inv.id!, 'relationship', e.target.value);
+                                    if (e.target.value === 'الموظف نفسه') {
+                                      handleUpdateInvoice(inv.id!, 'beneficiaryName', user.name);
+                                    }
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-litcBlue outline-none"
+                                >
+                                  <option value="الموظف نفسه">الموظف نفسه</option>
+                                  <option value="الزوج/الزوجة">الزوج/الزوجة</option>
+                                  <option value="الابن/الابنة">الابن/الابنة</option>
+                                  <option value="الأب/الأم">الأب/الأم</option>
+                                </select>
+                                {inv.relationship !== 'الموظف نفسه' && (
+                                  <input 
+                                    type="text" 
+                                    value={inv.beneficiaryName} 
+                                    onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-slate-600 outline-none"
+                                    placeholder="اسم المستفيد..."
+                                  />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-8 py-5">
                               <input 
                                 type="text" 
                                 value={inv.hospitalName} 
                                 onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
-                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-litcBlue text-sm"
+                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-litcBlue text-sm placeholder:text-slate-300"
+                                placeholder="اسم المستشفى..."
                               />
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-8 py-5">
                               <input 
                                 type="text" 
                                 value={inv.invoiceNumber} 
                                 onChange={(e) => handleUpdateInvoice(inv.id!, 'invoiceNumber', e.target.value)}
-                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-600 text-sm"
+                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-600 text-sm placeholder:text-slate-300"
+                                placeholder="000000"
                               />
                             </td>
-                            <td className="px-6 py-4 text-center">
-                              <input 
-                                type="date" 
-                                value={inv.date} 
-                                onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
-                                className="bg-transparent border-none focus:ring-0 font-bold text-slate-500 text-xs text-center"
-                              />
+                            <td className="px-8 py-5 text-center">
+                              <div className="relative inline-block">
+                                <input 
+                                  type="date" 
+                                  value={inv.date} 
+                                  onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
+                                  className="bg-slate-50/50 border border-slate-100 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-litcBlue/20 outline-none font-bold text-slate-500 text-xs text-center transition-all"
+                                />
+                              </div>
                             </td>
-                            <td className="px-6 py-4 text-center">
-                              <div className="flex items-center justify-center gap-1">
+                            <td className="px-8 py-5 text-center">
+                              <div className="flex items-center justify-center gap-2 bg-slate-50/50 border border-slate-100 rounded-xl px-3 py-1.5 group-hover:border-litcOrange/30 transition-all">
                                 <input 
                                   type="number" 
                                   value={inv.amount} 
                                   onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
-                                  className="w-24 bg-transparent border-none focus:ring-0 font-black text-litcOrange text-sm text-center"
+                                  className="w-20 bg-transparent border-none focus:ring-0 font-black text-litcOrange text-sm text-center p-0"
                                 />
-                                <span className="text-[10px] font-black text-slate-400">{inv.currency}</span>
+                                <span className="text-[10px] font-black text-slate-400 border-r border-slate-200 pr-2 mr-1">{inv.currency}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-8 py-5">
                               <div className="flex flex-col items-center gap-2">
-                                <label className="cursor-pointer p-1.5 bg-slate-50 rounded-lg text-litcBlue hover:bg-litcBlue hover:text-white transition-all">
-                                  <Plus className="w-3.5 h-3.5" />
+                                <label className="cursor-pointer p-2 bg-slate-50 rounded-xl text-litcBlue hover:bg-litcBlue hover:text-white transition-all shadow-sm border border-slate-100">
+                                  <Plus className="w-4 h-4" />
                                   <input type="file" className="hidden" multiple onChange={(e) => handleAddInvoiceAttachment(inv.id!, e)} />
                                 </label>
                                 {inv.attachments && inv.attachments.length > 0 && (
-                                  <span className="text-[9px] font-black bg-litcOrange/10 text-litcOrange px-2 py-0.5 rounded-full">
+                                  <span className="text-[9px] font-black bg-litcOrange/10 text-litcOrange px-2.5 py-1 rounded-full border border-litcOrange/20">
                                     {inv.attachments.length} مرفقات
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-center gap-2">
+                            <td className="px-8 py-5">
+                              <div className="flex items-center justify-center gap-3">
                                 <button 
                                   onClick={() => setComparisonInvoice(inv)}
-                                  className="p-2 bg-litcBlue/10 text-litcBlue rounded-lg hover:bg-litcBlue hover:text-white transition-all shadow-sm"
+                                  className="p-2.5 bg-litcBlue/5 text-litcBlue rounded-xl hover:bg-litcBlue hover:text-white transition-all shadow-sm border border-litcBlue/10"
                                   title="مقارنة مع الأصل"
                                 >
                                   <Sparkles className="w-4 h-4" />
                                 </button>
                                 <button 
                                   onClick={() => handleRemoveInvoice(inv.id!)}
-                                  className="p-2 bg-rose-50 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                  className="p-2.5 bg-rose-50 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"
                                   title="حذف"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -716,96 +752,137 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                 </div>
 
                 {/* Mobile Card View */}
-                <div className="md:hidden space-y-4">
+                <div className="md:hidden space-y-6">
                   {invoices.map((inv) => (
                     <motion.div 
                       key={inv.id}
                       layout
-                      className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4"
+                      className="bg-white rounded-[2rem] border border-slate-100 shadow-lg p-6 space-y-6 relative overflow-hidden"
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="absolute top-0 right-0 w-1 h-full bg-litcBlue"></div>
+                      
+                      <div className="flex items-start gap-5">
                         <div 
                           onClick={() => setComparisonInvoice(inv)}
-                          className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-50 shrink-0"
+                          className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-slate-50 shrink-0 shadow-md cursor-pointer active:scale-95 transition-transform"
                         >
                           <img src={inv.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <input 
-                            type="text" 
-                            value={inv.hospitalName} 
-                            onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
-                            className="w-full bg-transparent border-none focus:ring-0 font-black text-litcBlue text-base p-0"
-                          />
-                          <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 min-w-0 space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المستفيد من الفاتورة</label>
+                            <select 
+                              value={inv.relationship}
+                              onChange={(e) => {
+                                handleUpdateInvoice(inv.id!, 'relationship', e.target.value);
+                                if (e.target.value === 'الموظف نفسه') {
+                                  handleUpdateInvoice(inv.id!, 'beneficiaryName', user.name);
+                                }
+                              }}
+                              className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-black text-litcBlue text-sm focus:ring-2 focus:ring-litcBlue/10"
+                            >
+                              <option value="الموظف نفسه">الموظف نفسه</option>
+                              <option value="الزوج/الزوجة">الزوج/الزوجة</option>
+                              <option value="الابن/الابنة">الابن/الابنة</option>
+                              <option value="الأب/الأم">الأب/الأم</option>
+                            </select>
+                          </div>
+                          {inv.relationship !== 'الموظف نفسه' && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">اسم المستفيد</label>
+                              <input 
+                                type="text" 
+                                value={inv.beneficiaryName} 
+                                onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
+                                className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-bold text-slate-600 text-xs focus:ring-2 focus:ring-litcBlue/10"
+                                placeholder="أدخل اسم المستفيد..."
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المرفق الصحي</label>
+                            <input 
+                              type="text" 
+                              value={inv.hospitalName} 
+                              onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
+                              className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-black text-litcBlue text-sm focus:ring-2 focus:ring-litcBlue/10"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">رقم الفاتورة</label>
                             <input 
                               type="text" 
                               value={inv.invoiceNumber} 
                               onChange={(e) => handleUpdateInvoice(inv.id!, 'invoiceNumber', e.target.value)}
-                              className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-400 text-xs p-0"
-                              placeholder="رقم الفاتورة"
+                              className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-bold text-slate-600 text-xs focus:ring-2 focus:ring-litcBlue/10"
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">التاريخ</label>
                           <input 
                             type="date" 
                             value={inv.date} 
                             onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
-                            className="w-full bg-slate-50 border-none rounded-xl p-2 font-bold text-slate-600 text-xs"
+                            className="w-full bg-slate-50 border-none rounded-xl p-3 font-bold text-slate-600 text-xs"
                           />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المبلغ ({inv.currency})</label>
-                          <input 
-                            type="number" 
-                            value={inv.amount} 
-                            onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
-                            className="w-full bg-slate-50 border-none rounded-xl p-2 font-black text-litcOrange text-sm"
-                          />
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              value={inv.amount} 
+                              onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
+                              className="w-full bg-slate-50 border-none rounded-xl p-3 font-black text-litcOrange text-sm"
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-slate-50 space-y-3">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المرفقات الإضافية</label>
-                          <label className="cursor-pointer p-1.5 bg-litcBlue/5 rounded-lg text-litcBlue hover:bg-litcBlue hover:text-white transition-all">
-                            <Plus className="w-3.5 h-3.5" />
+                          <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-litcBlue text-white rounded-xl font-black text-[10px] hover:bg-litcBlue/90 transition-all shadow-sm">
+                            <Plus className="w-3 h-3" />
+                            إضافة مرفق
                             <input type="file" className="hidden" multiple onChange={(e) => handleAddInvoiceAttachment(inv.id!, e)} />
                           </label>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {inv.attachments?.map((file, fIdx) => (
-                            <div key={fIdx} className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                              <span className="text-[9px] font-bold text-slate-500 truncate max-w-[80px]">{file.name}</span>
-                              <button onClick={() => handleRemoveInvoiceAttachment(inv.id!, fIdx)} className="text-slate-300 hover:text-rose-500">
-                                <X className="w-2.5 h-2.5" />
+                            <div key={fIdx} className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                              <FileText className="w-3 h-3 text-slate-400" />
+                              <span className="text-[10px] font-bold text-slate-600 truncate max-w-[100px]">{file.name}</span>
+                              <button onClick={() => handleRemoveInvoiceAttachment(inv.id!, fIdx)} className="text-slate-300 hover:text-rose-500 transition-colors">
+                                <X className="w-3 h-3" />
                               </button>
                             </div>
                           ))}
                           {(!inv.attachments || inv.attachments.length === 0) && (
-                            <p className="text-[9px] font-bold text-slate-300 italic">لا توجد مرفقات لهذه الفاتورة</p>
+                            <div className="w-full py-4 border border-dashed border-slate-100 rounded-xl flex items-center justify-center">
+                              <p className="text-[10px] font-bold text-slate-300 italic">لا توجد مرفقات إضافية</p>
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2">
+                      <div className="flex items-center gap-3 pt-2">
                         <button 
                           onClick={() => setComparisonInvoice(inv)}
-                          className="flex-1 flex items-center justify-center gap-2 p-3 bg-litcBlue/5 text-litcBlue rounded-2xl font-black text-xs hover:bg-litcBlue hover:text-white transition-all"
+                          className="flex-1 flex items-center justify-center gap-2 py-4 bg-litcBlue/5 text-litcBlue rounded-2xl font-black text-sm hover:bg-litcBlue hover:text-white transition-all border border-litcBlue/10"
                         >
                           <Sparkles className="w-4 h-4" />
                           مراجعة ومقارنة
                         </button>
                         <button 
                           onClick={() => handleRemoveInvoice(inv.id!)}
-                          className="p-3 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
+                          className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-rose-100"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </motion.div>
@@ -815,8 +892,8 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
             )}
           </AnimatePresence>
 
-          {/* Comments & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Comments, Notes & Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
               <h3 className="font-black text-litcBlue flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-litcOrange" />
@@ -830,71 +907,77 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
               />
             </div>
 
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-start gap-4">
-              <div className="w-12 h-12 bg-orange-50 text-litcOrange rounded-2xl flex items-center justify-center shrink-0 border border-orange-100">
-                <Info className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="font-black text-litcBlue">تنبيه هام</p>
-                <p className="text-xs font-bold text-slate-400 mt-1 leading-relaxed">
-                  هذا النظام مخصص لإدخال البيانات الرقمية فقط. لا يتم إجراء أي عمليات تحويل عملة أو خصم نسب في هذه المرحلة.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Summary & Actions */}
-        <div className="lg:col-span-1 space-y-8">
-          <div className="bg-litcBlue text-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-litcOrange opacity-10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
-            
-            <h3 className="text-lg sm:text-xl font-black mb-4 sm:mb-6 flex items-center gap-3">
-              <Sparkles className="text-litcOrange animate-pulse w-5 h-5 sm:w-6 sm:h-6" /> 
-              ملخص البيانات
-            </h3>
-
-            <div className="space-y-4 sm:space-y-6 relative z-10">
-              <div className="space-y-2">
-                <label className="text-[9px] sm:text-[10px] font-black text-blue-200 uppercase tracking-widest px-2">العملة المختارة</label>
-                <div className="relative">
-                  <Coins className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-200 w-4 h-4" />
-                  <select 
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 pr-12 font-black text-xs sm:text-sm appearance-none focus:bg-white/20 outline-none"
-                  >
-                    {CURRENCY_GROUPS.map(group => (
-                      <optgroup key={group.label} label={group.label} className="bg-white text-slate-900 font-black">
-                        {group.currencies.map(c => (
-                          <option key={c.code} value={c.code} className="text-slate-900">
-                            {c.flag} {c.code} - {c.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-orange-50 text-litcOrange rounded-2xl flex items-center justify-center shrink-0 border border-orange-100">
+                  <Info className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-black text-litcBlue">تنبيه هام</p>
+                  <p className="text-xs font-bold text-slate-400 mt-1 leading-relaxed">
+                    هذا النظام مخصص لإدخال البيانات الرقمية فقط. لا يتم إجراء أي عمليات تحويل عملة أو خصم نسب في هذه المرحلة.
+                  </p>
                 </div>
               </div>
+              
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">حالة المعالجة</p>
+                <div className="flex items-center gap-2 text-emerald-600 font-black text-xs">
+                  <CheckCircle className="w-4 h-4" />
+                  تم التحقق من البيانات آلياً
+                </div>
+              </div>
+            </div>
 
-              <div className="pt-4 sm:pt-6 border-t border-white/10 text-center">
-                <p className="text-[9px] sm:text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">إجمالي المطالبة (بيانات خام)</p>
-                <div className="flex items-baseline justify-center gap-2">
-                  <p className="text-2xl sm:text-4xl font-black text-white">
-                    {invoices.reduce((s, i) => s + (Number(i.amount) || 0), 0).toLocaleString()}
-                  </p>
-                  <span className="text-sm sm:text-base font-black text-litcOrange">{currency}</span>
+            <div className="bg-litcBlue text-white p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-litcOrange opacity-10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
+              
+              <div className="relative z-10 space-y-4">
+                <h3 className="text-lg font-black flex items-center gap-3">
+                  <Sparkles className="text-litcOrange animate-pulse w-5 h-5" /> 
+                  ملخص البيانات
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-blue-200 uppercase tracking-widest px-1">العملة</label>
+                    <select 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="w-full bg-white/10 border border-white/20 rounded-xl p-2.5 font-black text-xs appearance-none focus:bg-white/20 outline-none"
+                    >
+                      {CURRENCY_GROUPS.map(group => (
+                        <optgroup key={group.label} label={group.label} className="bg-white text-slate-900 font-black">
+                          {group.currencies.map(c => (
+                            <option key={c.code} value={c.code} className="text-slate-900">
+                              {c.flag} {c.code} - {c.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                    <p className="text-[9px] font-black text-blue-200 uppercase tracking-widest">الإجمالي</p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="text-2xl font-black text-white">
+                        {invoices.reduce((s, i) => s + (Number(i.amount) || 0), 0).toLocaleString()}
+                      </p>
+                      <span className="text-xs font-black text-litcOrange">{currency}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <button 
                 onClick={handleSubmit}
                 disabled={invoices.length === 0 || isSubmitting}
-                className="w-full bg-white text-litcBlue py-3.5 sm:py-4 rounded-[1.2rem] sm:rounded-[1.5rem] font-black text-sm sm:text-base shadow-xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
+                className="relative z-10 w-full bg-white text-litcBlue py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3 mt-6"
               >
-                {isSubmitting ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : (
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                   <>
-                    <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <HeartPulse className="w-5 h-5" />
                     تأكيد وإرسال
                   </>
                 )}

@@ -1,17 +1,20 @@
 
-import React from 'react';
-import { Claim } from '../types';
+import React, { useState } from 'react';
+import { Claim, User } from '../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area 
 } from 'recharts';
-import { TrendingUp, Users, DollarSign, Building2, Download, Filter, MapPin, Sparkles } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Building2, Download, Filter, MapPin, Sparkles, UserCheck } from 'lucide-react';
+import UserManagement from '../components/UserManagement';
 
 interface AdminDashboardProps {
+  user: User;
   claims: Claim[];
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
+  const [activeTab, setActiveTab] = useState<'reports' | 'users'>('reports');
   const COLORS = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
   const stats = [
@@ -42,22 +45,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
     <div className="space-y-10 animate-in fade-in duration-1000">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 sm:px-0 text-center md:text-right">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">التقارير الاستراتيجية</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">تحليلات لحظية لمصروفات الرعاية الطبية وكفاءة العمليات.</p>
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">لوحة التحكم الإدارية</h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">إدارة المستخدمين وتحليل كفاءة العمليات الاستراتيجية.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <button className="flex items-center justify-center gap-2 sm:gap-3 bg-white border-2 border-slate-100 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black text-slate-700 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm">
-            <Filter className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-            تخصيص الفلاتر
-          </button>
-          <button className="flex items-center justify-center gap-2 sm:gap-3 bg-indigo-600 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
-            <Download className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-            تصدير تقرير ذكي (PDF)
-          </button>
+          <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl">
+            <button 
+              onClick={() => setActiveTab('reports')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'reports' ? 'bg-white text-litcBlue shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <TrendingUp className="w-4 h-4" /> التقارير
+            </button>
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-litcBlue shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Users className="w-4 h-4" /> إدارة المستخدمين
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-0">
+      {activeTab === 'users' ? (
+        <UserManagement />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-0">
         {stats.map((s, idx) => (
           <div key={idx} className="bg-white p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:shadow-md hover:-translate-y-1 transition-all text-right">
             <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-slate-100 transition-all"></div>
@@ -199,7 +212,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ claims }) => {
           </section>
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 };
 

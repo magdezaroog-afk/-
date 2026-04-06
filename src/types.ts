@@ -1,23 +1,21 @@
 
 export enum UserRole {
   EMPLOYEE = 'EMPLOYEE',
+  RECEPTIONIST = 'RECEPTIONIST',
   DOCTOR = 'DOCTOR',
-  HEAD_OF_UNIT = 'HEAD_OF_UNIT',
   DATA_ENTRY = 'DATA_ENTRY',
-  AUDITOR = 'AUDITOR', 
+  HEAD_OF_UNIT = 'HEAD_OF_UNIT',
   ADMIN = 'ADMIN'
 }
 
 export enum ClaimStatus {
-  PENDING_DR = 'PENDING_DR',
-  PENDING_HEAD = 'PENDING_HEAD',
-  PENDING_UNIT_HEAD = 'PENDING_UNIT_HEAD',
-  PENDING_DATA_ENTRY = 'PENDING_DATA_ENTRY',
-  PENDING_AUDIT = 'PENDING_AUDIT',
-  RETURNED_TO_DR = 'RETURNED_TO_DR',
-  RETURNED_TO_EMPLOYEE = 'RETURNED_TO_EMPLOYEE',
-  CORRECTION_REQUIRED = 'CORRECTION_REQUIRED',
-  APPROVED = 'APPROVED',
+  WAITING_FOR_PAPER = 'WAITING_FOR_PAPER',
+  PAPER_RECEIVED = 'PAPER_RECEIVED',
+  MEDICALLY_APPROVED = 'MEDICALLY_APPROVED',
+  MEDICALLY_REJECTED = 'MEDICALLY_REJECTED',
+  FINANCIALLY_PROCESSED = 'FINANCIALLY_PROCESSED',
+  CHIEF_APPROVED = 'CHIEF_APPROVED',
+  PENDING_CLARIFICATION = 'PENDING_CLARIFICATION',
   REJECTED = 'REJECTED',
   PAID = 'PAID'
 }
@@ -55,6 +53,20 @@ export interface HealthPlan {
   protein?: number;
   carbs?: number;
   fats?: number;
+}
+
+export interface ChronicApplication {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  beneficiaryName: string;
+  relationship: string;
+  diagnosis: string;
+  attachments: string[];
+  submissionDate: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  expiryDate?: string;
+  doctorNotes?: string;
 }
 
 export interface User {
@@ -104,10 +116,15 @@ export interface Invoice {
   isMajorSurgery?: boolean;
   isMedicalDevice?: boolean;
   isGlasses?: boolean;
+  beneficiaryName?: string;
+  relationship?: string;
+  isChronic?: boolean;
   excessPaidByEmployee?: number;
   companyPortion?: number;
   employeePortion?: number;
   isDuplicate?: boolean;
+  medicalNotes?: string;
+  archiveBoxId?: string;
 }
 
 export interface AuditLog {

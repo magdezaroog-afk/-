@@ -1,20 +1,26 @@
 
 import React, { useState, useMemo } from 'react';
-import { Claim, ClaimStatus } from '../types';
+import { Claim, ClaimStatus, User, UserRole } from '../types';
 import { STATUS_UI } from '../constants';
 import { Search, Filter, Calendar, Building2, ChevronLeft, History, FileText, LayoutGrid, List } from 'lucide-react';
 
 interface ArchiveProps {
+  user: User;
   claims: Claim[];
   onSelectClaim: (claim: Claim) => void;
 }
 
-const Archive: React.FC<ArchiveProps> = ({ claims, onSelectClaim }) => {
+const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   const filteredClaims = useMemo(() => {
-    return claims.filter(claim => {
+    // Filter claims based on role if needed, or just show user's claims if they are an employee
+    const baseClaims = user.role === UserRole.EMPLOYEE 
+      ? claims.filter(c => c.employeeId === user.id)
+      : claims;
+
+    return baseClaims.filter(claim => {
       const matchesSearch = 
         claim.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         claim.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||

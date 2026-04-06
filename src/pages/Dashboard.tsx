@@ -26,23 +26,44 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'my-tasks' | 'pool' | 'sent'>('my-tasks');
 
-  const myAssignments = claims.filter(c => {
-    if (user.role === UserRole.HEAD_OF_UNIT) {
-      return c.status === ClaimStatus.PENDING_UNIT_HEAD;
+  // Role-Based Filtering Logic
+  const getMyTasks = () => {
+    switch (user.role) {
+      case UserRole.RECEPTIONIST:
+        return claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.WAITING_FOR_PAPER);
+      case UserRole.DOCTOR:
+        return claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.PAPER_RECEIVED);
+      case UserRole.DATA_ENTRY:
+        return claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.MEDICALLY_APPROVED);
+      case UserRole.HEAD_OF_UNIT:
+        return claims.filter(c => c.status === ClaimStatus.FINANCIALLY_PROCESSED || c.status === ClaimStatus.CHIEF_APPROVED);
+      default:
+        return claims.filter(c => c.employeeId === user.id);
     }
-    return c.assignedToId === user.id && 
-    (c.status === ClaimStatus.PENDING_DR || c.status === ClaimStatus.CORRECTION_REQUIRED);
-  });
+  };
 
-  const poolClaims = claims.filter(c => 
-    c.assignedToId === null && 
-    c.status === ClaimStatus.PENDING_DR
-  );
+  const getPoolClaims = () => {
+    switch (user.role) {
+      case UserRole.RECEPTIONIST:
+        return claims.filter(c => !c.assignedToId && c.status === ClaimStatus.WAITING_FOR_PAPER);
+      case UserRole.DOCTOR:
+        return claims.filter(c => !c.assignedToId && c.status === ClaimStatus.PAPER_RECEIVED);
+      case UserRole.DATA_ENTRY:
+        return claims.filter(c => !c.assignedToId && c.status === ClaimStatus.MEDICALLY_APPROVED);
+      case UserRole.HEAD_OF_UNIT:
+        return claims.filter(c => !c.assignedToId); // Chief sees all unassigned
+      default:
+        return [];
+    }
+  };
 
-  const sentClaims = claims.filter(c => 
-    c.assignedToId === user.id && 
-    c.status === ClaimStatus.PENDING_UNIT_HEAD
-  );
+  const getSentClaims = () => {
+    return claims.filter(c => c.assignedToId === user.id && c.status !== ClaimStatus.WAITING_FOR_PAPER);
+  };
+
+  const myAssignments = getMyTasks();
+  const poolClaims = getPoolClaims();
+  const sentClaims = getSentClaims();
 
   const displayClaims = activeTab === 'my-tasks' ? myAssignments : 
                         activeTab === 'pool' ? poolClaims : sentClaims;
@@ -75,25 +96,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
   };
 
   const getStatusColor = (status: ClaimStatus) => {
-    switch (status) {
-      case ClaimStatus.PENDING_DR: return 'bg-amber-50 text-amber-600 border-amber-100';
-      case ClaimStatus.PENDING_UNIT_HEAD: return 'bg-blue-50 text-blue-600 border-blue-100';
-      case ClaimStatus.APPROVED: return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-      case ClaimStatus.REJECTED: return 'bg-rose-50 text-rose-600 border-rose-100';
-      case ClaimStatus.CORRECTION_REQUIRED: return 'bg-orange-50 text-orange-600 border-orange-100';
-      default: return 'bg-slate-50 text-slate-600 border-slate-100';
-    }
+    return STATUS_UI[status]?.color || 'bg-slate-50 text-slate-600 border-slate-100';
   };
 
   const getStatusLabel = (status: ClaimStatus) => {
-    switch (status) {
-      case ClaimStatus.PENDING_DR: return 'قيد المراجعة الفنية';
-      case ClaimStatus.PENDING_UNIT_HEAD: return 'بانتظار اعتماد رئيس الوحدة';
-      case ClaimStatus.APPROVED: return 'تم الاعتماد النهائي';
-      case ClaimStatus.REJECTED: return 'مرفوض';
-      case ClaimStatus.CORRECTION_REQUIRED: return 'يتطلب تصحيح';
-      default: return status;
-    }
+    return STATUS_UI[status]?.label || status;
   };
 
   return (
