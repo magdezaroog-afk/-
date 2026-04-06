@@ -140,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           onClick={() => setActiveTab('pool')}
           className={`px-8 py-3 rounded-[1.8rem] text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          <Database className="w-4 h-4" /> الحوض العام
+          <Database className="w-4 h-4" /> {user.role === UserRole.DOCTOR ? 'المراجعة الطبية' : 'الحوض العام'}
           {poolClaims.length > 0 && <span className="bg-litcOrange text-white px-2 py-0.5 rounded-full text-[10px]">{poolClaims.length}</span>}
         </button>
         <button 
@@ -195,8 +195,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
         {/* Table Header */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-10 py-6 bg-slate-50/50 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest">
           <div className="col-span-1">ID</div>
-          <div className="col-span-3">اسم الموظف / الجهة</div>
-          <div className="col-span-2">التاريخ</div>
+          <div className="col-span-2">اسم الموظف / الجهة</div>
+          <div className="col-span-2">المستفيد</div>
+          <div className="col-span-1">التاريخ</div>
           <div className="col-span-2 text-center">الحالة</div>
           <div className="col-span-2">القيمة الإجمالية</div>
           <div className="col-span-2 text-left">الإجراءات</div>
@@ -212,11 +213,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
             filteredClaims.map((claim) => (
               <div 
                 key={claim.id} 
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 sm:px-10 py-6 items-center hover:bg-slate-50/80 transition-all group relative"
+                onClick={() => onSelectClaim(claim)}
+                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 sm:px-10 py-6 items-center hover:bg-slate-50/80 transition-all group relative cursor-pointer"
               >
                 {/* Selection Checkbox for Unit Head */}
                 {user.role === UserRole.HEAD_OF_UNIT && activeTab === 'pool' && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 md:static md:col-span-1">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 md:static md:col-span-1" onClick={(e) => e.stopPropagation()}>
                     <input 
                       type="checkbox" 
                       checked={selectedIds.includes(claim.id)}
@@ -235,13 +237,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                 </div>
 
                 {/* Employee Info */}
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <p className="text-sm font-black text-slate-900 truncate">{claim.employeeName}</p>
                   <p className="text-[10px] font-bold text-slate-400 truncate">{claim.invoices?.[0]?.hospitalName || 'جهة غير محددة'}</p>
                 </div>
 
-                {/* Date */}
+                {/* Beneficiary */}
                 <div className="col-span-2">
+                  <span className="text-[10px] font-black px-2 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                    {claim.invoices?.[0]?.relationship || 'الموظف نفسه'}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="col-span-1">
                   <div className="flex items-center gap-2 text-slate-500">
                     <Clock className="w-3.5 h-3.5" />
                     <span className="text-[11px] font-bold">{new Date(claim.submissionDate || Date.now()).toLocaleDateString('ar-LY')}</span>
@@ -264,14 +273,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                 </div>
 
                 {/* Actions */}
-                <div className="col-span-2 flex justify-end gap-2">
+                <div className="col-span-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                   {activeTab === 'pool' ? (
-                    <button 
-                      onClick={() => onGrab && onGrab(claim.id)}
-                      className="flex items-center gap-2 bg-litcOrange text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5" /> سحب المعاملة
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => onSelectClaim(claim)}
+                        className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black hover:border-litcBlue hover:text-litcBlue transition-all shadow-sm"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> عرض التفاصيل
+                      </button>
+                      <button 
+                        onClick={() => onGrab && onGrab(claim.id)}
+                        className="flex items-center gap-2 bg-litcOrange text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" /> سحب المعاملة
+                      </button>
+                    </div>
                   ) : (
                     <button 
                       onClick={() => onSelectClaim(claim)}

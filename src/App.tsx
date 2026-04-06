@@ -475,12 +475,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateClaimStatus = async (newStatus: ClaimStatus, comment?: string) => {
+  const handleUpdateClaimStatus = async (newStatus: ClaimStatus, comment?: string, extraData?: any) => {
     const claimToUpdate = selectedClaim ? claims.find(c => c.id === selectedClaim.id) || selectedClaim : null;
     if (!claimToUpdate || !user) return;
     
     const updatedClaim = {
       ...claimToUpdate,
+      ...extraData,
       status: newStatus,
       auditTrail: [
         ...claimToUpdate.auditTrail,

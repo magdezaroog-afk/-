@@ -49,7 +49,7 @@ interface ClaimDetailProps {
   claim: Claim;
   user: User;
   onClose: () => void;
-  onUpdateStatus: (newStatus: ClaimStatus, comment?: string) => void;
+  onUpdateStatus: (newStatus: ClaimStatus, comment?: string, extraData?: any) => void;
   onInvoiceAssign: (claimId: string, invoiceIds: string[], staffId: string) => void;
   onInvoiceStatusUpdate: (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => void;
 }
@@ -258,16 +258,16 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                   <input 
                     value={archiveBoxId}
                     onChange={(e) => setArchiveBoxId(e.target.value)}
-                    placeholder="أدخل رقم صندوق الأرشفة..."
+                    placeholder="رقم صندوق الأرشيف - Archive Box ID"
                     className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pr-12 pl-6 font-bold text-sm outline-none focus:border-litcBlue transition-all"
                   />
                 </div>
                 <button 
-                  onClick={() => onUpdateStatus(ClaimStatus.PAPER_RECEIVED, `تم استلام الأوراق الورقية ووضعها في الصندوق رقم: ${archiveBoxId}`)} 
+                  onClick={() => onUpdateStatus(ClaimStatus.PAPER_RECEIVED, `تم استلام الأوراق الورقية ووضعها في الصندوق رقم: ${archiveBoxId}`, { archiveBoxId })} 
                   disabled={!archiveBoxId}
                   className="bg-litcBlue text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcDark transition-all flex items-center gap-3 disabled:opacity-50"
                 >
-                  <CheckCircle className="w-5 h-5" /> استلام الملف الورقي
+                  <CheckCircle className="w-5 h-5" /> تأكيد استلام الملف الورقي
                 </button>
               </div>
             )}
