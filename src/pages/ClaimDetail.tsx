@@ -146,8 +146,8 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
             <p className="text-[8px] sm:text-[11px] font-black text-slate-400 mt-1 uppercase tracking-widest sm:tracking-[0.3em]">معاملة طبية رقم: #{claim.id} | الإجمالي: {claim.totalAmount.toLocaleString()} د.ل</p>
           </div>
         </div>
-        <div className={`px-4 py-2 sm:px-8 sm:py-4 rounded-lg sm:rounded-[2rem] text-[8px] sm:text-[11px] font-black flex items-center gap-2 sm:gap-4 ${STATUS_UI[claim.status].color} shadow-sm border border-current/10 relative z-10`}>
-          {STATUS_UI[claim.status].icon} {STATUS_UI[claim.status].label}
+        <div className={`px-4 py-2 sm:px-8 sm:py-4 rounded-lg sm:rounded-[2rem] text-[8px] sm:text-[11px] font-black flex items-center gap-2 sm:gap-4 ${STATUS_UI[claim.status]?.color || 'bg-slate-50 text-slate-600'} shadow-sm border border-current/10 relative z-10`}>
+          {STATUS_UI[claim.status]?.icon || <Clock className="w-4 h-4" />} {STATUS_UI[claim.status]?.label || claim.status}
         </div>
       </div>
 
@@ -381,7 +381,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
               (isHead && claim.status !== ClaimStatus.FINANCIALLY_PROCESSED) ||
               isEmployee || isAdmin) && (
                 <div className="text-slate-400 font-black text-xs sm:text-xl py-3 sm:py-6 flex items-center gap-2 sm:gap-4">
-                   <SearchCheck className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> المعاملة في حالة: {STATUS_UI[claim.status].label}
+                   <SearchCheck className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> المعاملة في حالة: {STATUS_UI[claim.status]?.label || claim.status}
                 </div>
             )}
          </div>

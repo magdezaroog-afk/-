@@ -230,7 +230,7 @@ const Layout: React.FC<LayoutProps> = ({
         {user.role === UserRole.EMPLOYEE && (
           <button 
             onClick={() => setActivePath('smart-clinic')}
-            className="fixed bottom-8 left-8 z-[60] group"
+            className="fixed bottom-8 right-8 z-[60] group"
           >
             <div className="absolute inset-0 bg-litcOrange rounded-full blur-xl opacity-40 group-hover:opacity-60 group-hover:scale-125 transition-all duration-500"></div>
             <div className="relative w-16 h-16 bg-gradient-to-br from-litcOrange to-orange-600 rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(255,107,0,0.4)] border-4 border-white group-hover:-translate-y-2 transition-all duration-500">

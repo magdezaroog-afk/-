@@ -15,7 +15,7 @@ import {
   Loader2, Camera, Microscope, AlertTriangle, CheckCircle, 
   HeartPulse, Droplet, Shield, Activity,
   BrainCircuit, Zap, Stethoscope, Utensils, Pill, Plus, History,
-  CheckCircle2, Target, Flame, Scale, Info, Sparkles, ArrowUpRight, X,
+  CheckCircle2, Target, Flame, Scale, Info, Sparkles, ArrowUpRight, X, AlertCircle,
   User as UserIcon, UserPlus, ChevronRight, ChevronLeft, Calendar, Timer, ListChecks,
   MapPin, Building2, Briefcase
 } from 'lucide-react';
@@ -464,35 +464,6 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                 suffix: 'سنة'
               },
               { 
-                label: 'الفصيلة', 
-                val: user.healthProfile?.bloodType || 'فارغ', 
-                icon: <Droplet className="text-rose-500 w-5 h-5" />, 
-                color: 'bg-rose-50',
-                field: 'bloodType',
-                type: 'select'
-              },
-              { 
-                label: 'الإدارة', 
-                val: user.department || 'غير محدد', 
-                icon: <Briefcase className="text-purple-500 w-5 h-5" />, 
-                color: 'bg-purple-50',
-                readonly: true
-              },
-              { 
-                label: 'الوظيفة', 
-                val: user.jobTitle || 'غير محدد', 
-                icon: <UserIcon className="text-slate-500 w-5 h-5" />, 
-                color: 'bg-slate-50',
-                readonly: true
-              },
-              { 
-                label: 'المبنى', 
-                val: user.building || 'غير محدد', 
-                icon: <Building2 className="text-litcOrange w-5 h-5" />, 
-                color: 'bg-orange-50',
-                readonly: true
-              },
-              { 
                 label: 'BMI', 
                 val: user.healthProfile?.height && user.healthProfile?.weight ? calculateBMI(user.healthProfile.weight, user.healthProfile.height) : '--', 
                 icon: <Target className="text-litcBlue w-5 h-5" />, 
@@ -501,36 +472,25 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                 readonly: true
               }
             ].map((item, i) => (
-              <div key={i} className="bg-white p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-sm text-center group hover:shadow-md hover:-translate-y-1 transition-all">
+              <div key={i} className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-100 shadow-sm text-center group hover:shadow-md hover:-translate-y-1 transition-all">
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform`}>
                   {item.icon}
                 </div>
                 <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">{item.label}</p>
                 
                 {isEditingProfile && !item.readonly ? (
-                  item.type === 'select' ? (
-                    <select 
-                      value={editProfile.bloodType} 
-                      onChange={(e) => setEditProfile({...editProfile, bloodType: e.target.value})}
-                      className="w-full bg-slate-50 border-none rounded-xl text-[10px] sm:text-xs font-black text-center focus:ring-2 focus:ring-litcBlue p-1"
-                    >
-                      <option value="">اختر...</option>
-                      {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  ) : (
-                    <div className="flex items-center justify-center gap-1">
-                      <input 
-                        type="number"
-                        value={(editProfile as any)[item.field!] || ''}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                          setEditProfile({...editProfile, [item.field!]: isNaN(val) ? 0 : val});
-                        }}
-                        className="w-12 sm:w-16 bg-slate-50 border-none rounded-xl text-xs sm:text-sm font-black text-center focus:ring-2 focus:ring-litcBlue p-1"
-                      />
-                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">{item.suffix}</span>
-                    </div>
-                  )
+                  <div className="flex items-center justify-center gap-1">
+                    <input 
+                      type="number"
+                      value={(editProfile as any)[item.field!] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                        setEditProfile({...editProfile, [item.field!]: isNaN(val) ? 0 : val});
+                      }}
+                      className="w-12 sm:w-16 bg-slate-50 border-none rounded-xl text-xs sm:text-sm font-black text-center focus:ring-2 focus:ring-litcBlue p-1"
+                    />
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">{item.suffix}</span>
+                  </div>
                 ) : (
                   <p className="text-base sm:text-lg font-black text-slate-900 truncate">
                     {item.field === 'bmi' && isEditingProfile 
@@ -540,6 +500,68 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Health Tags Section */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Shield className="w-4 h-4" /> المؤشرات الصحية الأساسية
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {/* Blood Type Tag */}
+              <div className="bg-rose-50 border border-rose-100 px-4 py-2 rounded-xl flex items-center gap-3">
+                <Droplet className="text-rose-500 w-4 h-4" />
+                <div>
+                  <p className="text-[8px] font-black text-rose-400 uppercase">فصيلة الدم</p>
+                  {isEditingProfile ? (
+                    <select 
+                      value={editProfile.bloodType} 
+                      onChange={(e) => setEditProfile({...editProfile, bloodType: e.target.value})}
+                      className="bg-transparent border-none p-0 text-xs font-black text-rose-700 focus:ring-0"
+                    >
+                      <option value="">اختر...</option>
+                      {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  ) : (
+                    <p className="text-xs font-black text-rose-700">{user.healthProfile?.bloodType || 'غير محدد'}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Allergies Tag */}
+              <div className="bg-amber-50 border border-amber-100 px-4 py-2 rounded-xl flex items-center gap-3">
+                <AlertCircle className="text-amber-500 w-4 h-4" />
+                <div>
+                  <p className="text-[8px] font-black text-amber-400 uppercase">الحساسية</p>
+                  {isEditingProfile ? (
+                    <input 
+                      type="text"
+                      placeholder="أضف حساسية..."
+                      value={editProfile.allergies?.join(', ') || ''}
+                      onChange={(e) => setEditProfile({...editProfile, allergies: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '')})}
+                      className="bg-transparent border-none p-0 text-xs font-black text-amber-700 focus:ring-0 placeholder:text-amber-300"
+                    />
+                  ) : (
+                    <p className="text-xs font-black text-amber-700">
+                      {user.healthProfile?.allergies?.length ? user.healthProfile.allergies.join('، ') : 'لا توجد حساسية'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Chronic Conditions Tag */}
+              <div className="bg-litcBlue/5 border border-litcBlue/10 px-4 py-2 rounded-xl flex items-center gap-3">
+                <HeartPulse className="text-litcBlue w-4 h-4" />
+                <div>
+                  <p className="text-[8px] font-black text-litcBlue/50 uppercase">الأمراض المزمنة</p>
+                  <p className="text-xs font-black text-litcBlue">
+                    {user.healthProfile?.chronicDiseases.length && !user.healthProfile.chronicDiseases.includes('لا شيء') 
+                      ? user.healthProfile.chronicDiseases.join('، ') 
+                      : 'لا توجد'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Chronic Diseases Summary */}

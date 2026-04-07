@@ -15,9 +15,9 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
   const [filterFamily, setFilterFamily] = useState<string>('ALL');
+  const [timeFilter, setTimeFilter] = useState<'ALL' | '30DAYS'>('ALL');
 
   const filteredClaims = useMemo(() => {
-    // Filter claims based on role if needed, or just show user's claims if they are an employee
     const baseClaims = user.role === UserRole.EMPLOYEE 
       ? claims.filter(c => c.employeeId === user.id)
       : claims;
@@ -38,9 +38,11 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
 
       const matchesFamily = filterFamily === 'ALL' || claim.invoices.some(inv => inv.beneficiaryName === filterFamily);
       
-      return matchesSearch && matchesStatus && matchesMonth && matchesFamily;
+      const matchesTime = timeFilter === 'ALL' || (Date.now() - claimDate.getTime() <= 30 * 24 * 60 * 60 * 1000);
+
+      return matchesSearch && matchesStatus && matchesMonth && matchesFamily && matchesTime;
     });
-  }, [claims, searchTerm, filterStatus, filterMonth, filterFamily, user.id, user.role]);
+  }, [claims, searchTerm, filterStatus, filterMonth, filterFamily, timeFilter, user.id, user.role]);
 
   const months = [
     { id: '1', label: 'يناير' }, { id: '2', label: 'فبراير' }, { id: '3', label: 'مارس' },
@@ -50,7 +52,7 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
   ];
 
   return (
-    <div className="max-w-[1000px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700 font-cairo" dir="rtl">
+    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700 font-cairo" dir="rtl">
       {/* Header & Search Bar */}
       <div className="space-y-6 sm:space-y-8 px-4 sm:px-0">
         <div className="text-center sm:text-right">
@@ -60,63 +62,47 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
           <p className="text-[10px] sm:text-sm font-bold text-slate-500 mt-1 sm:mt-2">ابحث في سجلاتك الطبية، الفواتير، والمصحات السابقة بسهولة.</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
             <div className="flex-1 relative group">
-              <Search className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-litcBlue transition-colors w-5 h-5 sm:w-6 sm:h-6" />
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-litcBlue transition-colors w-5 h-5" />
               <input 
                 type="text" 
                 placeholder="ابحث برقم المعاملة، اسم المصحة..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white border-2 border-slate-100 rounded-2xl sm:rounded-[2.5rem] py-4 sm:py-6 pr-12 sm:pr-16 pl-6 sm:pl-8 font-black text-sm sm:text-lg focus:outline-none focus:border-litcBlue focus:ring-8 focus:ring-litcBlue/5 transition-all shadow-sm"
+                className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 pr-12 pl-6 font-black text-sm focus:outline-none focus:border-litcBlue focus:ring-8 focus:ring-litcBlue/5 transition-all shadow-sm"
               />
             </div>
           </div>
 
-          {/* Quick Filter Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Quick Filter Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button 
+              onClick={() => { setTimeFilter('ALL'); setFilterFamily('ALL'); setFilterStatus('ALL'); }}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all border ${timeFilter === 'ALL' && filterFamily === 'ALL' && filterStatus === 'ALL' ? 'bg-litcBlue text-white border-litcBlue shadow-lg shadow-litcBlue/20' : 'bg-white text-slate-500 border-slate-100 hover:border-litcBlue hover:text-litcBlue'}`}
+            >
+              عرض الكل
+            </button>
+            <button 
+              onClick={() => setTimeFilter('30DAYS')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all border ${timeFilter === '30DAYS' ? 'bg-litcBlue text-white border-litcBlue shadow-lg shadow-litcBlue/20' : 'bg-white text-slate-500 border-slate-100 hover:border-litcBlue hover:text-litcBlue'}`}
+            >
+              آخر 30 يوم
+            </button>
             <div className="relative">
-               <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
-               <select 
-                 value={filterStatus}
-                 onChange={(e) => setFilterStatus(e.target.value)}
-                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
-               >
-                  <option value="ALL">جميع الحالات</option>
-                  {Object.keys(STATUS_UI).map(status => (
-                    <option key={status} value={status}>{STATUS_UI[status as ClaimStatus].label}</option>
-                  ))}
-               </select>
-            </div>
-
-            <div className="relative">
-               <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
-               <select 
-                 value={filterMonth}
-                 onChange={(e) => setFilterMonth(e.target.value)}
-                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
-               >
-                  <option value="ALL">جميع الأشهر</option>
-                  {months.map(m => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-               </select>
-            </div>
-
-            <div className="relative">
-               <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
                <select 
                  value={filterFamily}
                  onChange={(e) => setFilterFamily(e.target.value)}
-                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
+                 className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all border appearance-none cursor-pointer pr-10 ${filterFamily !== 'ALL' ? 'bg-litcBlue text-white border-litcBlue shadow-lg shadow-litcBlue/20' : 'bg-white text-slate-500 border-slate-100 hover:border-litcBlue hover:text-litcBlue'}`}
                >
-                  <option value="ALL">جميع المستفيدين</option>
+                  <option value="ALL">حسب المستفيد</option>
                   <option value={user.name}>الموظف نفسه</option>
                   {user.familyMembers?.map(m => (
                     <option key={m.id} value={m.name}>{m.name}</option>
                   ))}
                </select>
+               <UserIcon className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${filterFamily !== 'ALL' ? 'text-white' : 'text-slate-400'}`} />
             </div>
           </div>
         </div>
@@ -125,52 +111,51 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
       {/* Results Stats */}
       <div className="flex items-center justify-between px-6">
          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">تم العثور على {filteredClaims.length} معاملة</p>
-         <div className="flex gap-2">
-            <button className="p-2 bg-white rounded-lg border border-slate-100 text-slate-400"><LayoutGrid className="w-4 h-4 sm:w-4.5 sm:h-4.5" /></button>
-            <button className="p-2 bg-indigo-50 rounded-lg border border-indigo-100 text-[#5351f1]"><List className="w-4 h-4 sm:w-4.5 sm:h-4.5" /></button>
-         </div>
       </div>
 
-      {/* Claims List */}
-      <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+      {/* Claims Grid View */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-0">
         {filteredClaims.length > 0 ? (
           filteredClaims.map(claim => (
-            <button 
+            <div 
               key={claim.id} 
               onClick={() => onSelectClaim(claim)}
-              className="w-full bg-white p-4 sm:p-8 rounded-[2.5rem] sm:rounded-[4rem] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-indigo-100 transition-all flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8 group text-center sm:text-right relative overflow-hidden"
+              className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer flex flex-col justify-between relative overflow-hidden"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-50 transition-all"></div>
-              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 w-full md:w-auto relative z-10">
-                <div className="w-12 h-12 sm:w-20 sm:h-20 bg-slate-50 rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-slate-300 font-black text-[10px] sm:text-sm group-hover:bg-[#5351f1] group-hover:text-white transition-all shadow-inner">
-                  #{claim.id.slice(-4)}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-litcBlue/5 transition-all"></div>
+              
+              <div className="relative z-10 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 font-black text-[10px] group-hover:bg-litcBlue group-hover:text-white transition-all shadow-inner">
+                    #{claim.id.slice(-4)}
+                  </div>
+                  <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5 shadow-sm border ${STATUS_UI[claim.status]?.color || 'bg-slate-50 text-slate-600'}`}>
+                    {STATUS_UI[claim.status]?.label || claim.status}
+                  </div>
                 </div>
-                <div className="flex-1">
-                   <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1 group-hover:text-[#5351f1] transition-colors">{claim.description || "مطالبة علاجية"}</h3>
-                   <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 text-[10px] sm:text-xs font-bold text-slate-400">
-                      <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {claim.submissionDate}</span>
-                      <span className="flex items-center gap-1.5"><Building2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {claim.invoices[0]?.hospitalName || "مصحة عامة"}</span>
-                   </div>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-4 sm:gap-8 w-full md:w-auto justify-between md:justify-end relative z-10">
-                <div className="text-right sm:text-left">
-                   <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
-                   <p className="text-xl sm:text-2xl font-black text-slate-900">{claim.totalAmount.toLocaleString()} <span className="text-[10px] sm:text-xs font-medium">د.ل</span></p>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 mb-1 group-hover:text-litcBlue transition-colors truncate">{claim.description || "مطالبة علاجية"}</h3>
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                    <Building2 className="w-3 h-3" />
+                    <span className="truncate">{claim.invoices[0]?.hospitalName || "مصحة عامة"}</span>
+                  </div>
                 </div>
-                <div className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl sm:rounded-2xl text-[8px] sm:text-[10px] font-black uppercase flex items-center gap-1.5 sm:gap-2 shadow-sm ${STATUS_UI[claim.status].color}`}>
-                  {STATUS_UI[claim.status].icon}
-                  {STATUS_UI[claim.status].label}
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-[#5351f1] transition-all shadow-inner">
-                   <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                    <Calendar className="w-3 h-3" />
+                    <span>{claim.submissionDate}</span>
+                  </div>
+                  <p className="text-lg font-black text-slate-900">
+                    {claim.totalAmount.toLocaleString()} <span className="text-[10px] font-medium opacity-50">د.ل</span>
+                  </p>
                 </div>
               </div>
-            </button>
+            </div>
           ))
         ) : (
-          <div className="py-32 bg-white rounded-[4rem] border-4 border-dashed border-slate-50 flex flex-col items-center justify-center text-slate-300">
+          <div className="col-span-full py-32 bg-white rounded-2xl border-4 border-dashed border-slate-50 flex flex-col items-center justify-center text-slate-300">
             <Search className="w-16 h-16 mb-6 opacity-10 animate-pulse" />
             <p className="text-xl font-black text-slate-400">لم نعثر على نتائج مطابقة لبحثك</p>
             <p className="text-sm font-bold mt-2">جرب البحث بكلمات مختلفة أو رقم المعاملة.</p>

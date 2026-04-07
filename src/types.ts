@@ -26,6 +26,7 @@ export interface HealthProfile {
   weight: number;
   age: number;
   chronicDiseases: string[];
+  allergies?: string[];
   pathway: 'therapeutic' | 'healthy' | 'joint';
   systolicBP?: number;
   diastolicBP?: number;

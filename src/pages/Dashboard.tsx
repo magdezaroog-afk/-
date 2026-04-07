@@ -106,74 +106,69 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-700 font-cairo pb-20 px-4 sm:px-0" dir="rtl">
-      {/* Sticky Header & Search */}
-      <div className="sticky top-0 z-40 bg-slate-50/80 backdrop-blur-md py-4 -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-slate-200/50">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-black text-litcBlue tracking-tight flex items-center gap-3">
-              <LayoutDashboard className="text-litcOrange w-6 h-6 sm:w-8 sm:h-8" /> {isEmployee ? 'مرحباً بك في بوابتك الصحية' : 'لوحة التحكم الذكية'}
-            </h1>
+      {/* Consolidated Header */}
+      <div className="bg-white p-6 sm:p-10 rounded-2xl border border-slate-100 shadow-xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
+        
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-8">
+          <div className="flex-1 space-y-6 w-full">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-litcBlue to-litcDark flex items-center justify-center text-2xl text-white font-black shadow-2xl border-4 border-white">
+                {user.name.charAt(0)}
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name}</h1>
+                <p className="text-xs font-bold text-slate-400 mt-1">بوابتك الصحية الذكية لإدارة المطالبات الطبية</p>
+              </div>
+            </div>
+
+            {isEmployee && (
+              <div className="space-y-4 bg-slate-50/50 p-6 rounded-2xl border border-white shadow-inner">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="text-litcBlue w-4 h-4" />
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">السقف السنوي (5,000 د.ل)</span>
+                  </div>
+                  <span className="text-sm font-black text-litcBlue">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-[10px] opacity-50">د.ل متبقي</span></span>
+                </div>
+                <div className="h-4 bg-slate-200/50 rounded-full overflow-hidden border border-white shadow-inner relative">
+                  <div 
+                    className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000 shadow-lg"
+                    style={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
+                  ></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[9px] font-black text-white mix-blend-difference">
+                      {Math.round(((user.annualCeilingUsed || 0) / 5000) * 100)}% مستهلك
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <div className="relative w-full md:w-96 group">
-            <Search className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-litcBlue transition-colors w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="بحث برقم المعاملة، الفاتورة، أو اسم الموظف..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border-2 border-slate-100 rounded-xl py-4 pr-14 pl-6 font-bold text-sm outline-none focus:border-litcBlue focus:ring-4 focus:ring-litcBlue/5 transition-all shadow-sm"
-            />
+
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-4 w-full lg:w-auto">
+            {isEmployee && (
+              <button 
+                onClick={() => onNavigate('submit-claim')}
+                className="flex-1 lg:w-64 bg-litcBlue text-white py-5 px-8 rounded-2xl font-black text-lg shadow-2xl shadow-litcBlue/30 hover:scale-105 hover:bg-litcDark transition-all flex items-center justify-center gap-3 group"
+              >
+                <PlusCircle className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+                تقديم طلب استرجاع جديد
+              </button>
+            )}
+            <div className="relative flex-1 lg:w-64 group">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-litcBlue transition-colors w-4 h-4" />
+              <input 
+                type="text" 
+                placeholder="بحث سريع..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pr-12 pl-6 font-bold text-xs outline-none focus:border-litcBlue focus:ring-4 focus:ring-litcBlue/5 transition-all"
+              />
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Employee Quick Stats */}
-      {isEmployee && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          <div className="sm:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:shadow-md transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">مؤشر السقف السنوي (5,000 د.ل)</p>
-                <p className="text-2xl font-black text-litcBlue">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-xs opacity-50">د.ل متبقي</span></p>
-              </div>
-              <div className="w-12 h-12 bg-litcBlue/5 rounded-xl flex items-center justify-center text-litcBlue group-hover:scale-110 transition-transform">
-                <CreditCard className="w-6 h-6" />
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-[10px] font-black">
-                <span className="text-slate-400">المستهلك: {(user.annualCeilingUsed || 0).toLocaleString()} د.ل</span>
-                <span className="text-litcBlue">{Math.round(((user.annualCeilingUsed || 0) / 5000) * 100)}%</span>
-              </div>
-              <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-50 shadow-inner">
-                <div 
-                  className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000 shadow-lg"
-                  style={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {[
-              { label: 'المعاملات النشطة', value: '3 معاملات', icon: <Clock className="w-5 h-5" />, color: 'bg-white text-amber-600 border border-slate-100' },
-              { label: 'المعاملات المكتملة', value: '12 معاملة', icon: <CheckCircle2 className="w-5 h-5" />, color: 'bg-white text-emerald-600 border border-slate-100' },
-            ].map((stat, i) => (
-              <div key={i} className={`${stat.color} p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all`}>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{stat.label}</p>
-                  <p className="text-lg font-black">{stat.value}</p>
-                </div>
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  {stat.icon}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Tabs Selection */}
       <div className="flex items-center gap-2 p-1.5 bg-slate-200/50 rounded-2xl w-fit mx-auto sm:mx-0">
@@ -181,21 +176,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           onClick={() => setActiveTab('my-tasks')}
           className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'my-tasks' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          <Briefcase className="w-4 h-4" /> {isEmployee ? 'معاملاتي الحالية' : 'مهامي المكلف بها'}
+          <Briefcase className="w-4 h-4" /> {isEmployee ? 'طلباتي الحالية' : 'مهامي المكلف بها'}
           {myAssignments.length > 0 && <span className="bg-litcBlue text-white px-2 py-0.5 rounded-full text-[10px]">{myAssignments.length}</span>}
         </button>
-        <button 
-          onClick={() => setActiveTab('pool')}
-          className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          <Database className="w-4 h-4" /> {user.role === UserRole.DOCTOR ? 'المراجعة الطبية' : 'الحوض العام'}
-          {poolClaims.length > 0 && <span className="bg-litcOrange text-white px-2 py-0.5 rounded-full text-[10px]">{poolClaims.length}</span>}
-        </button>
+        {!isEmployee && (
+          <button 
+            onClick={() => setActiveTab('pool')}
+            className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Database className="w-4 h-4" /> {user.role === UserRole.DOCTOR ? 'المراجعة الطبية' : 'الحوض العام'}
+            {poolClaims.length > 0 && <span className="bg-litcOrange text-white px-2 py-0.5 rounded-full text-[10px]">{poolClaims.length}</span>}
+          </button>
+        )}
         <button 
           onClick={() => setActiveTab('sent')}
           className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'sent' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          <Send className="w-4 h-4" /> {isEmployee ? 'الأرشيف' : 'مرسلة للمراجعة'}
+          <Send className="w-4 h-4" /> {isEmployee ? 'طلبات مكتملة' : 'مرسلة للمراجعة'}
         </button>
       </div>
 
@@ -241,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative min-h-[600px] max-w-6xl mx-auto">
         
         {/* Table Header */}
-        <div className="hidden md:grid grid-cols-12 gap-4 px-10 py-6 bg-slate-50/50 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="hidden md:grid grid-cols-12 gap-4 px-10 py-6 bg-slate-50/50 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest sticky top-0 z-10 backdrop-blur-md">
           <div className="col-span-1">ID</div>
           <div className="col-span-2">اسم الموظف / الجهة</div>
           <div className="col-span-2">المستفيد</div>
