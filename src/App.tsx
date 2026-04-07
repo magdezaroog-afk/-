@@ -184,7 +184,12 @@ const App: React.FC = () => {
               role: UserRole.EMPLOYEE, // Default role
               healthProfile: {
                 bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
-              }
+              },
+              familyMembers: [
+                { id: 'fm1', name: 'سارة أحمد', relationship: 'Spouse' },
+                { id: 'fm2', name: 'ياسين محمد', relationship: 'Son' },
+                { id: 'fm3', name: 'لينا محمد', relationship: 'Daughter' }
+              ]
             });
             await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
             setUser(newUser);

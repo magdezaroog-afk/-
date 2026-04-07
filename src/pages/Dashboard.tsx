@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Claim, User, UserRole, ClaimStatus } from '../types';
 import { STATUS_UI } from '../constants';
 import { 
-  Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase
+  Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase, CreditCard, CheckCircle2
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -61,6 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
     return claims.filter(c => c.assignedToId === user.id && c.status !== ClaimStatus.WAITING_FOR_PAPER);
   };
 
+  const isEmployee = user.role === UserRole.EMPLOYEE;
   const myAssignments = getMyTasks();
   const poolClaims = getPoolClaims();
   const sentClaims = getSentClaims();
@@ -110,7 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto">
           <div>
             <h1 className="text-xl sm:text-3xl font-black text-litcBlue tracking-tight flex items-center gap-3">
-              <LayoutDashboard className="text-litcOrange w-6 h-6 sm:w-8 sm:h-8" /> لوحة التحكم الذكية
+              <LayoutDashboard className="text-litcOrange w-6 h-6 sm:w-8 sm:h-8" /> {isEmployee ? 'مرحباً بك في بوابتك الصحية' : 'لوحة التحكم الذكية'}
             </h1>
           </div>
           
@@ -121,33 +122,54 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
               placeholder="بحث برقم المعاملة، الفاتورة، أو اسم الموظف..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 pr-14 pl-6 font-bold text-sm outline-none focus:border-litcBlue focus:ring-4 focus:ring-litcBlue/5 transition-all shadow-sm"
+              className="w-full bg-white border-2 border-slate-100 rounded-xl py-4 pr-14 pl-6 font-bold text-sm outline-none focus:border-litcBlue focus:ring-4 focus:ring-litcBlue/5 transition-all shadow-sm"
             />
           </div>
         </div>
       </div>
 
+      {/* Employee Quick Stats */}
+      {isEmployee && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          {[
+            { label: 'الرصيد السنوي المتبقي', value: `${(100000 - (user.annualCeilingUsed || 0)).toLocaleString()} د.ل`, icon: <CreditCard className="w-6 h-6" />, color: 'bg-litcBlue text-white' },
+            { label: 'المعاملات النشطة', value: '3 معاملات', icon: <Clock className="w-6 h-6" />, color: 'bg-white text-litcBlue border border-slate-100' },
+            { label: 'المعاملات المكتملة', value: '12 معاملة', icon: <CheckCircle2 className="w-6 h-6" />, color: 'bg-white text-emerald-600 border border-slate-100' },
+          ].map((stat, i) => (
+            <div key={i} className={`${stat.color} p-6 sm:p-8 rounded-2xl shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all`}>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{stat.label}</p>
+                <p className="text-xl sm:text-2xl font-black">{stat.value}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                {stat.icon}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tabs Selection */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-200/50 rounded-[2rem] w-fit mx-auto sm:mx-0">
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/50 rounded-2xl w-fit mx-auto sm:mx-0">
         <button 
           onClick={() => setActiveTab('my-tasks')}
-          className={`px-8 py-3 rounded-[1.8rem] text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'my-tasks' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'my-tasks' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          <Briefcase className="w-4 h-4" /> مهامي المكلف بها
+          <Briefcase className="w-4 h-4" /> {isEmployee ? 'معاملاتي الحالية' : 'مهامي المكلف بها'}
           {myAssignments.length > 0 && <span className="bg-litcBlue text-white px-2 py-0.5 rounded-full text-[10px]">{myAssignments.length}</span>}
         </button>
         <button 
           onClick={() => setActiveTab('pool')}
-          className={`px-8 py-3 rounded-[1.8rem] text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
           <Database className="w-4 h-4" /> {user.role === UserRole.DOCTOR ? 'المراجعة الطبية' : 'الحوض العام'}
           {poolClaims.length > 0 && <span className="bg-litcOrange text-white px-2 py-0.5 rounded-full text-[10px]">{poolClaims.length}</span>}
         </button>
         <button 
           onClick={() => setActiveTab('sent')}
-          className={`px-8 py-3 rounded-[1.8rem] text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'sent' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-8 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'sent' ? 'bg-white text-litcBlue shadow-md scale-105' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          <Send className="w-4 h-4" /> مرسلة للمراجعة
+          <Send className="w-4 h-4" /> {isEmployee ? 'الأرشيف' : 'مرسلة للمراجعة'}
         </button>
       </div>
 
@@ -190,7 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       )}
 
       {/* Main Content Area - Luxury White Box */}
-      <div className="bg-white rounded-[2.5rem] sm:rounded-[3.5rem] border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] overflow-hidden relative min-h-[600px] max-w-6xl mx-auto">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative min-h-[600px] max-w-6xl mx-auto">
         
         {/* Table Header */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-10 py-6 bg-slate-50/50 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest">
@@ -203,104 +225,106 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           <div className="col-span-2 text-left">الإجراءات</div>
         </div>
 
-        <div className="divide-y divide-slate-50">
-          {filteredClaims.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-32 text-slate-300">
-              <SearchCheck className="w-20 h-20 mb-6 opacity-20" />
-              <p className="font-black text-lg">لا توجد معاملات مطابقة للبحث</p>
-            </div>
-          ) : (
-            filteredClaims.map((claim) => (
-              <div 
-                key={claim.id} 
-                onClick={() => onSelectClaim(claim)}
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 sm:px-10 py-6 items-center hover:bg-slate-50/80 transition-all group relative cursor-pointer"
-              >
-                {/* Selection Checkbox for Unit Head */}
-                {user.role === UserRole.HEAD_OF_UNIT && activeTab === 'pool' && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 md:static md:col-span-1" onClick={(e) => e.stopPropagation()}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedIds.includes(claim.id)}
-                      onChange={() => toggleSelect(claim.id)}
-                      className="w-5 h-5 rounded-lg border-2 border-slate-200 text-litcBlue focus:ring-litcBlue transition-all cursor-pointer"
-                    />
+        <div className="divide-y divide-slate-50 overflow-x-auto">
+          <div className="min-w-[1000px] md:min-w-0">
+            {filteredClaims.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 text-slate-300">
+                <SearchCheck className="w-20 h-20 mb-6 opacity-20" />
+                <p className="font-black text-lg">لا توجد معاملات مطابقة للبحث</p>
+              </div>
+            ) : (
+              filteredClaims.map((claim) => (
+                <div 
+                  key={claim.id} 
+                  onClick={() => onSelectClaim(claim)}
+                  className="grid grid-cols-12 gap-4 px-6 sm:px-10 py-6 items-center hover:bg-slate-50/80 transition-all group relative cursor-pointer"
+                >
+                  {/* Selection Checkbox for Unit Head */}
+                  {user.role === UserRole.HEAD_OF_UNIT && activeTab === 'pool' && (
+                    <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(claim.id)}
+                        onChange={() => toggleSelect(claim.id)}
+                        className="w-5 h-5 rounded-lg border-2 border-slate-200 text-litcBlue focus:ring-litcBlue transition-all cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  {/* Claim ID & Type Icon */}
+                  <div className="col-span-1 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-litcBlue/10 group-hover:text-litcBlue transition-colors">
+                      {claim.invoices?.[0]?.isGlasses ? <Glasses className="w-4 h-4" /> : <Stethoscope className="w-4 h-4" />}
+                    </div>
+                    <span className="text-[10px] font-black text-slate-400 font-mono">#{claim.id.slice(-5)}</span>
                   </div>
-                )}
 
-                {/* Claim ID & Type Icon */}
-                <div className="col-span-1 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-litcBlue/10 group-hover:text-litcBlue transition-colors">
-                    {claim.invoices?.[0]?.isGlasses ? <Glasses className="w-4 h-4" /> : <Stethoscope className="w-4 h-4" />}
+                  {/* Employee Info */}
+                  <div className="col-span-2">
+                    <p className="text-sm font-black text-slate-900 truncate">{claim.employeeName}</p>
+                    <p className="text-[10px] font-bold text-slate-400 truncate">{claim.invoices?.[0]?.hospitalName || 'جهة غير محددة'}</p>
                   </div>
-                  <span className="text-[10px] font-black text-slate-400 font-mono">#{claim.id.slice(-5)}</span>
-                </div>
 
-                {/* Employee Info */}
-                <div className="col-span-2">
-                  <p className="text-sm font-black text-slate-900 truncate">{claim.employeeName}</p>
-                  <p className="text-[10px] font-bold text-slate-400 truncate">{claim.invoices?.[0]?.hospitalName || 'جهة غير محددة'}</p>
-                </div>
-
-                {/* Beneficiary */}
-                <div className="col-span-2">
-                  <span className="text-[10px] font-black px-2 py-1 bg-slate-100 text-slate-600 rounded-lg">
-                    {claim.invoices?.[0]?.relationship || 'الموظف نفسه'}
-                  </span>
-                </div>
-
-                {/* Date */}
-                <div className="col-span-1">
-                  <div className="flex items-center gap-2 text-slate-500">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span className="text-[11px] font-bold">{new Date(claim.submissionDate || Date.now()).toLocaleDateString('ar-LY')}</span>
+                  {/* Beneficiary */}
+                  <div className="col-span-2">
+                    <span className="text-[10px] font-black px-2 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                      {claim.invoices?.[0]?.relationship || 'الموظف نفسه'}
+                    </span>
                   </div>
-                </div>
 
-                {/* Status Badge */}
-                <div className="col-span-2 flex justify-center">
-                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black flex items-center gap-2 border ${getStatusColor(claim.status)}`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
-                    {getStatusLabel(claim.status)}
-                  </span>
-                </div>
+                  {/* Date */}
+                  <div className="col-span-1">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-bold">{new Date(claim.submissionDate || Date.now()).toLocaleDateString('ar-LY')}</span>
+                    </div>
+                  </div>
 
-                {/* Amount */}
-                <div className="col-span-2">
-                  <p className="text-sm font-black text-litcBlue">
-                    {claim.totalAmount?.toLocaleString()} <span className="text-[10px] opacity-60">د.ل</span>
-                  </p>
-                </div>
+                  {/* Status Badge */}
+                  <div className="col-span-2 flex justify-center">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black flex items-center gap-2 border ${getStatusColor(claim.status)}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                      {getStatusLabel(claim.status)}
+                    </span>
+                  </div>
 
-                {/* Actions */}
-                <div className="col-span-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                  {activeTab === 'pool' ? (
-                    <div className="flex gap-2">
+                  {/* Amount */}
+                  <div className="col-span-2">
+                    <p className="text-sm font-black text-litcBlue">
+                      {claim.totalAmount?.toLocaleString()} <span className="text-[10px] opacity-60">د.ل</span>
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    {activeTab === 'pool' ? (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => onSelectClaim(claim)}
+                          className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black hover:border-litcBlue hover:text-litcBlue transition-all shadow-sm"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> عرض التفاصيل
+                        </button>
+                        <button 
+                          onClick={() => onGrab && onGrab(claim.id)}
+                          className="flex items-center gap-2 bg-litcOrange text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" /> سحب المعاملة
+                        </button>
+                      </div>
+                    ) : (
                       <button 
                         onClick={() => onSelectClaim(claim)}
                         className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black hover:border-litcBlue hover:text-litcBlue transition-all shadow-sm"
                       >
-                        <Eye className="w-3.5 h-3.5" /> عرض التفاصيل
+                        <Eye className="w-3.5 h-3.5" /> {activeTab === 'sent' ? 'عرض التفاصيل' : 'بدء المعالجة'}
                       </button>
-                      <button 
-                        onClick={() => onGrab && onGrab(claim.id)}
-                        className="flex items-center gap-2 bg-litcOrange text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" /> سحب المعاملة
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => onSelectClaim(claim)}
-                      className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black hover:border-litcBlue hover:text-litcBlue transition-all shadow-sm"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> {activeTab === 'sent' ? 'عرض التفاصيل' : 'بدء المعالجة'}
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

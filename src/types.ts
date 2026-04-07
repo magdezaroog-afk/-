@@ -69,6 +69,12 @@ export interface ChronicApplication {
   doctorNotes?: string;
 }
 
+export interface FamilyMember {
+  id: string;
+  name: string;
+  relationship: 'Spouse' | 'Son' | 'Daughter' | 'Father' | 'Mother';
+}
+
 export interface User {
   id: string;
   name: string;
@@ -81,6 +87,7 @@ export interface User {
   department?: string;
   jobTitle?: string;
   annualCeilingUsed?: number; // Total 90% portion used from 100,000 LYD
+  familyMembers?: FamilyMember[];
 }
 
 export interface InvoiceLineItem {

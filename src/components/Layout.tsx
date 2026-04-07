@@ -12,7 +12,10 @@ import {
   Shield,
   Activity,
   HeartPulse,
-  Share2
+  Share2,
+  CreditCard,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { NAV_ITEMS, ROLE_LABELS } from '../constants';
 
@@ -60,7 +63,7 @@ const Layout: React.FC<LayoutProps> = ({
         ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
         lg:translate-x-0 lg:static lg:block
       `}>
-        <div className="h-full flex flex-col p-6">
+        <div className="h-full flex flex-col p-6 overflow-y-auto">
           <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-litcBlue rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg">
@@ -76,7 +79,32 @@ const Layout: React.FC<LayoutProps> = ({
             </button>
           </div>
 
-          <nav className="flex-1 space-y-2">
+          {/* Employee Dashboard Card in Sidebar */}
+          {user.role === UserRole.EMPLOYEE && (
+            <div className="mb-8 p-5 bg-slate-900 rounded-2xl text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-litcBlue/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000"></div>
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-white/50 uppercase tracking-widest">الرصيد المتبقي</p>
+                  <CreditCard className="w-4 h-4 text-litcOrange" />
+                </div>
+                <p className="text-2xl font-black">{(100000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-xs opacity-50">د.ل</span></p>
+                
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                  <div>
+                    <p className="text-[8px] font-black text-white/40 uppercase">نشطة</p>
+                    <p className="text-sm font-black flex items-center gap-1"><Clock className="w-3 h-3 text-amber-400" /> 3</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-white/40 uppercase">مكتملة</p>
+                    <p className="text-sm font-black flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> 12</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <nav className="flex-1 space-y-1">
             {navItems.map((item, idx) => (
               <button
                 key={idx}
@@ -85,9 +113,9 @@ const Layout: React.FC<LayoutProps> = ({
                   setIsSidebarOpen(false);
                 }}
                 className={`
-                  w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all
+                  w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold text-sm transition-all
                   ${activePath === item.path 
-                    ? 'bg-litcBlue text-white shadow-lg shadow-litcBlue/20' 
+                    ? 'bg-litcBlue text-white shadow-md' 
                     : 'text-slate-500 hover:bg-slate-50 hover:text-litcBlue'}
                 `}
               >
@@ -99,17 +127,17 @@ const Layout: React.FC<LayoutProps> = ({
             ))}
           </nav>
 
-          <div className="mt-auto pt-6 border-t border-slate-100 space-y-4">
+          <div className="mt-auto pt-6 border-t border-slate-100 space-y-2">
             <button 
               onClick={handleShare}
-              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-sm text-slate-500 hover:bg-slate-50 transition-all"
+              className="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 transition-all"
             >
               <Share2 className="w-5 h-5 text-slate-400" />
               مشاركة الرابط
             </button>
             <button 
               onClick={onLogout}
-              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-sm text-rose-500 hover:bg-rose-50 transition-all"
+              className="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold text-sm text-rose-500 hover:bg-rose-50 transition-all"
             >
               <LogOut className="w-5 h-5" />
               تسجيل الخروج
@@ -143,7 +171,7 @@ const Layout: React.FC<LayoutProps> = ({
             <div className="relative">
               <button 
                 onClick={() => setShowRoleSelector(!showRoleSelector)}
-                className="flex items-center gap-3 p-1.5 pr-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-litcBlue transition-all group"
+                className="flex items-center gap-3 p-1.5 pr-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-litcBlue transition-all group"
               >
                 <div className="text-right hidden sm:block">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">الدور الحالي</p>
@@ -155,7 +183,7 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
 
               {showRoleSelector && (
-                <div className="absolute top-full left-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute top-full left-0 mt-3 w-56 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2">
                   {Object.values(UserRole).map((role) => (
                     <button
                       key={role}
@@ -164,7 +192,7 @@ const Layout: React.FC<LayoutProps> = ({
                         setShowRoleSelector(false);
                       }}
                       className={`
-                        w-full text-right px-4 py-2.5 rounded-xl text-xs font-bold transition-all
+                        w-full text-right px-4 py-2.5 rounded-lg text-xs font-bold transition-all
                         ${user.role === role ? 'bg-litcBlue text-white' : 'text-slate-600 hover:bg-slate-50'}
                       `}
                     >

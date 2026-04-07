@@ -4,7 +4,8 @@ import {
   LayoutDashboard, FileText, UserCircle, Settings, 
   CheckCircle2, XCircle, Clock, RotateCcw,
   Stethoscope, ShieldCheck, Database, BarChart3,
-  SearchCheck, PlusCircle, BrainCircuit, Search, CreditCard, HeartPulse, AlertCircle
+  SearchCheck, PlusCircle, BrainCircuit, Search, CreditCard, HeartPulse, AlertCircle,
+  Home, User, Plus, History, Activity, Shield, Users
 } from 'lucide-react';
 import { UserRole, ClaimStatus } from './types';
 
@@ -31,28 +32,28 @@ export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {
   [UserRole.EMPLOYEE]: [
-    { label: 'الرئيسية', icon: <LayoutDashboard className="w-5 h-5" />, path: 'dashboard' },
-    { label: 'الملف الصحي الذكي', icon: <BrainCircuit className="w-5 h-5" />, path: 'profile' },
+    { label: 'الرئيسية', icon: <Home className="w-5 h-5" />, path: 'dashboard' },
+    { label: 'الملف الصحي', icon: <Activity className="w-5 h-5" />, path: 'profile' },
     { label: 'العيادة الذكية', icon: <Stethoscope className="w-5 h-5" />, path: 'smart-clinic' },
-    { label: 'طلب جديد', icon: <PlusCircle className="w-5 h-5" />, path: 'submit-claim' },
-    { label: 'الأرشيف والبحث', icon: <Search className="w-5 h-5" />, path: 'archive' },
+    { label: 'طلب جديد', icon: <Plus className="w-5 h-5" />, path: 'submit-claim' },
+    { label: 'الأرشيف', icon: <History className="w-5 h-5" />, path: 'archive' },
   ],
   [UserRole.RECEPTIONIST]: [
     { label: 'استقبال الأوراق', icon: <FileText className="w-5 h-5" />, path: 'dashboard' },
   ],
   [UserRole.DOCTOR]: [
     { label: 'المراجعة الطبية', icon: <Stethoscope className="w-5 h-5" />, path: 'dashboard' },
-    { label: 'طلبات الأمراض المزمنة', icon: <HeartPulse className="w-5 h-5" />, path: 'chronic-enrollment' },
+    { label: 'الأمراض المزمنة', icon: <HeartPulse className="w-5 h-5" />, path: 'chronic-enrollment' },
   ],
   [UserRole.DATA_ENTRY]: [
     { label: 'المعالجة المالية', icon: <Database className="w-5 h-5" />, path: 'dashboard' },
   ],
   [UserRole.HEAD_OF_UNIT]: [
-    { label: 'لوحة التحكم', icon: <ShieldCheck className="w-5 h-5" />, path: 'dashboard' },
-    { label: 'توزيع المهام', icon: <Settings className="w-5 h-5" />, path: 'dashboard' },
+    { label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" />, path: 'dashboard' },
+    { label: 'توزيع المهام', icon: <Users className="w-5 h-5" />, path: 'dashboard' },
   ],
   [UserRole.ADMIN]: [
-    { label: 'إدارة المستخدمين', icon: <UserCircle className="w-5 h-5" />, path: 'admin-dashboard' },
-    { label: 'التقارير الشاملة', icon: <BarChart3 className="w-5 h-5" />, path: 'admin-dashboard' },
+    { label: 'المستخدمين', icon: <Users className="w-5 h-5" />, path: 'admin-dashboard' },
+    { label: 'التقارير', icon: <BarChart3 className="w-5 h-5" />, path: 'admin-dashboard' },
   ],
 };

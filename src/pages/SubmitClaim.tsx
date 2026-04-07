@@ -664,13 +664,34 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                                   <option value="الأب/الأم">الأب/الأم</option>
                                 </select>
                                 {inv.relationship !== 'الموظف نفسه' && (
-                                  <input 
-                                    type="text" 
-                                    value={inv.beneficiaryName || ''} 
-                                    onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
-                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-slate-600 outline-none"
-                                    placeholder="اسم المستفيد..."
-                                  />
+                                  user.familyMembers && user.familyMembers.length > 0 ? (
+                                    <select
+                                      value={inv.beneficiaryName || ''}
+                                      onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-slate-600 outline-none focus:border-litcBlue transition-all"
+                                    >
+                                      <option value="">اختر المستفيد...</option>
+                                      {user.familyMembers
+                                        .filter(m => {
+                                          if (inv.relationship === 'الزوج/الزوجة') return m.relationship === 'Spouse';
+                                          if (inv.relationship === 'الابن/الابنة') return m.relationship === 'Son' || m.relationship === 'Daughter';
+                                          if (inv.relationship === 'الأب/الأم') return m.relationship === 'Father' || m.relationship === 'Mother';
+                                          return true;
+                                        })
+                                        .map(m => (
+                                          <option key={m.id} value={m.name}>{m.name}</option>
+                                        ))
+                                      }
+                                    </select>
+                                  ) : (
+                                    <input 
+                                      type="text" 
+                                      value={inv.beneficiaryName || ''} 
+                                      onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-slate-600 outline-none focus:border-litcBlue transition-all"
+                                      placeholder="اسم المستفيد..."
+                                    />
+                                  )
                                 )}
                               </div>
                             </td>

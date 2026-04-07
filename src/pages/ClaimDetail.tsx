@@ -36,6 +36,7 @@ import {
   CheckCircle2 as CheckCircle2Icon,
   FileText,
   Send,
+  CreditCard,
   ShieldAlert as ShieldAlertIcon,
   FileSearch as FileSearchIcon,
   CheckCircle as CheckCircleIcon,
@@ -64,6 +65,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [globalComment, setGlobalComment] = useState('');
   const [activeInvoiceIndex, setActiveInvoiceIndex] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const isReceptionist = user.role === UserRole.RECEPTIONIST;
   const isDoctor = user.role === UserRole.DOCTOR;
@@ -74,6 +76,23 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   
   const [archiveBoxId, setArchiveBoxId] = useState(claim.invoices[0]?.archiveBoxId || '');
   const activeInvoice = claim.invoices[activeInvoiceIndex];
+
+  const stages = [
+    { id: ClaimStatus.WAITING_FOR_PAPER, label: 'تقديم الطلب', icon: <Send className="w-4 h-4" /> },
+    { id: ClaimStatus.PAPER_RECEIVED, label: 'استلام الأوراق', icon: <FileText className="w-4 h-4" /> },
+    { id: ClaimStatus.MEDICALLY_APPROVED, label: 'المراجعة الطبية', icon: <Stethoscope className="w-4 h-4" /> },
+    { id: ClaimStatus.FINANCIALLY_PROCESSED, label: 'المراجعة المالية', icon: <Database className="w-4 h-4" /> },
+    { id: ClaimStatus.PAID, label: 'تم الصرف', icon: <CreditCard className="w-4 h-4" /> },
+  ];
+
+  const currentStageIndex = stages.findIndex(s => {
+    if (claim.status === ClaimStatus.PAID) return s.id === ClaimStatus.PAID;
+    if (claim.status === ClaimStatus.CHIEF_APPROVED) return s.id === ClaimStatus.FINANCIALLY_PROCESSED;
+    if (claim.status === ClaimStatus.FINANCIALLY_PROCESSED) return s.id === ClaimStatus.FINANCIALLY_PROCESSED;
+    if (claim.status === ClaimStatus.MEDICALLY_APPROVED) return s.id === ClaimStatus.MEDICALLY_APPROVED;
+    if (claim.status === ClaimStatus.PAPER_RECEIVED) return s.id === ClaimStatus.PAPER_RECEIVED;
+    return s.id === ClaimStatus.WAITING_FOR_PAPER;
+  });
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
   const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_APPROVED);
@@ -86,8 +105,39 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
   return (
     <div className="max-w-full mx-auto pb-64 animate-in fade-in duration-700 font-cairo px-4 sm:px-0" dir="rtl">
+      {/* Status Progress Bar */}
+      <div className="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-[600px] relative">
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -translate-y-1/2 z-0"></div>
+          <div 
+            className="absolute top-1/2 right-0 h-0.5 bg-litcBlue -translate-y-1/2 z-0 transition-all duration-1000"
+            style={{ width: `${(currentStageIndex / (stages.length - 1)) * 100}%` }}
+          ></div>
+          
+          {stages.map((stage, idx) => {
+            const isCompleted = idx <= currentStageIndex;
+            const isActive = idx === currentStageIndex;
+            
+            return (
+              <div key={stage.id} className="relative z-10 flex flex-col items-center gap-2">
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border-4 border-white shadow-md
+                  ${isCompleted ? 'bg-litcBlue text-white' : 'bg-slate-200 text-slate-400'}
+                  ${isActive ? 'scale-125 ring-4 ring-litcBlue/20' : ''}
+                `}>
+                  {isCompleted ? <Check className="w-5 h-5" /> : stage.icon}
+                </div>
+                <span className={`text-[10px] font-black whitespace-nowrap ${isCompleted ? 'text-litcBlue' : 'text-slate-400'}`}>
+                  {stage.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Premium Header Container */}
-      <div className="flex flex-col xl:flex-row items-center justify-between gap-3 sm:gap-6 bg-white p-4 sm:p-10 rounded-[1.5rem] sm:rounded-[4rem] shadow-sm border border-slate-100 mb-6 sm:mb-8 relative overflow-hidden text-center xl:text-right max-w-md mx-auto xl:max-w-none">
+      <div className="flex flex-col xl:flex-row items-center justify-between gap-3 sm:gap-6 bg-white p-4 sm:p-10 rounded-2xl shadow-sm border border-slate-100 mb-6 sm:mb-8 relative overflow-hidden text-center xl:text-right max-w-md mx-auto xl:max-w-none">
         <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full blur-3xl"></div>
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-8 relative z-10">
           <button onClick={onClose} className="p-2.5 sm:p-5 bg-slate-50 hover:bg-litcBlue hover:text-white rounded-xl sm:rounded-[2rem] transition-all shadow-inner border border-slate-100"><ArrowRight className="w-4.5 h-4.5 sm:w-7 sm:h-7" /></button>
@@ -105,9 +155,14 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         {/* Document Interaction Area */}
         <div className="xl:col-span-8 space-y-6 sm:space-y-8 text-right">
            <div className="relative group max-w-md mx-auto xl:max-w-none">
-              <section className="bg-slate-900 rounded-[1.5rem] sm:rounded-[4.5rem] h-[300px] sm:h-[750px] relative flex items-center justify-center overflow-hidden border-4 sm:border-[12px] border-white shadow-2xl">
+              <section className="bg-slate-900 rounded-2xl h-[300px] sm:h-[750px] relative flex items-center justify-center overflow-hidden border-4 sm:border-8 border-white shadow-xl">
                  <div className="w-full h-full flex items-center justify-center transition-transform duration-500" style={{ transform: `scale(${zoomLevel})` }}>
-                    <img src={activeInvoice?.imageUrl} className="max-w-full max-h-full object-contain rounded-xl sm:rounded-3xl" alt="Medical Document" />
+                    <img 
+                      src={activeInvoice?.imageUrl} 
+                      className="max-w-full max-h-full object-contain rounded-xl cursor-zoom-in" 
+                      alt="Medical Document" 
+                      onClick={() => setIsLightboxOpen(true)}
+                    />
                  </div>
                  
                  {/* Navigation Controls */}
@@ -127,7 +182,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
               </section>
            </div>
            
-           <section className="bg-white p-4 sm:p-12 rounded-[1.5rem] sm:rounded-[4.5rem] border border-slate-100 shadow-xl max-w-md mx-auto xl:max-w-none">
+           <section className="bg-white p-4 sm:p-12 rounded-2xl border border-slate-100 shadow-sm max-w-md mx-auto xl:max-w-none">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 sm:mb-10 text-center sm:text-right">
                  <h3 className="text-base sm:text-2xl font-black text-slate-900 flex items-center gap-2 sm:gap-4"><FileSearch className="text-litcBlue shrink-0 w-5 h-5 sm:w-6 sm:h-6" /> تدقيق بنود الفاتورة الحالية</h3>
                  <span className="bg-slate-50 px-3 py-1 sm:px-6 sm:py-2 rounded-lg sm:rounded-2xl text-[8px] sm:text-[10px] font-black text-slate-400 border border-slate-100 shadow-inner shrink-0">الفاتورة {activeInvoiceIndex + 1} من {claim.invoices.length}</span>
@@ -170,12 +225,12 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
         {/* Right Action Panel */}
         <div className="xl:col-span-4 space-y-6 sm:space-y-8 text-right">
-           <section className="bg-white p-4 sm:p-10 rounded-[1.5rem] sm:rounded-[4rem] border border-slate-100 shadow-xl space-y-6 sm:space-y-10 relative overflow-hidden max-w-md mx-auto xl:max-w-none">
+           <section className="bg-white p-4 sm:p-10 rounded-2xl border border-slate-100 shadow-sm space-y-6 sm:space-y-10 relative overflow-hidden max-w-md mx-auto xl:max-w-none">
               <div className="absolute top-0 right-0 w-24 h-24 bg-litcBlue/5 rounded-full blur-2xl"></div>
               <h3 className="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2 sm:gap-4 relative z-10"><Calculator className="text-litcBlue w-5 h-5 sm:w-6 sm:h-6" /> الفرز والتحقق النهائي</h3>
               <div className="space-y-3 sm:space-y-4 max-h-[350px] sm:max-h-[550px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar relative z-10">
                  {claim.invoices.map((inv, idx) => (
-                    <div key={inv.id} onClick={() => setActiveInvoiceIndex(idx)} className={`p-3 sm:p-8 rounded-[1.2rem] sm:rounded-[3rem] border-2 transition-all cursor-pointer group shadow-sm ${activeInvoiceIndex === idx ? 'bg-litcBlue border-litcBlue text-white shadow-2xl scale-[1.02]' : 'bg-slate-50 border-slate-100 hover:border-litcBlue/20'}`}>
+                    <div key={inv.id} onClick={() => setActiveInvoiceIndex(idx)} className={`p-3 sm:p-8 rounded-xl border-2 transition-all cursor-pointer group shadow-sm ${activeInvoiceIndex === idx ? 'bg-litcBlue border-litcBlue text-white shadow-lg scale-[1.02]' : 'bg-slate-50 border-slate-100 hover:border-litcBlue/20'}`}>
                        <div className="flex items-center justify-between mb-3 sm:mb-6">
                           <div className="flex items-center gap-2 sm:gap-4">
                              <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-[1.2rem] flex items-center justify-center font-black text-sm sm:text-lg ${activeInvoiceIndex === idx ? 'bg-white/10 border border-white/20' : 'bg-white text-slate-300 shadow-inner'}`}>{idx + 1}</div>
@@ -221,7 +276,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
               </div>
            </section>
 
-           <section className="bg-litcDark rounded-[1.5rem] sm:rounded-[4rem] p-4 sm:p-12 text-white shadow-2xl relative overflow-hidden group max-w-md mx-auto xl:max-w-none">
+           <section className="bg-litcDark rounded-2xl p-4 sm:p-12 text-white shadow-lg relative overflow-hidden group max-w-md mx-auto xl:max-w-none">
               <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/20 rounded-full blur-[80px] group-hover:scale-150 transition-transform duration-1000"></div>
               <h3 className="text-base sm:text-xl font-black mb-6 sm:mb-10 flex items-center gap-2 sm:gap-4"><Clock className="text-litcOrange w-4.5 h-4.5 sm:w-6 sm:h-6" /> سجل التحركات</h3>
               <div className="space-y-6 sm:space-y-8 max-h-[180px] sm:max-h-[250px] overflow-y-auto pr-3 sm:pr-4 custom-scrollbar-white">
@@ -331,6 +386,36 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
             )}
          </div>
       </div>
+      {/* Lightbox Modal */}
+      {isLightboxOpen && (
+        <div className="fixed inset-0 bg-slate-900/95 z-[100] flex flex-col items-center justify-center p-4 sm:p-10 animate-in fade-in duration-300">
+          <button 
+            onClick={() => setIsLightboxOpen(false)}
+            className="absolute top-6 left-6 p-4 bg-white/10 hover:bg-white text-white hover:text-slate-900 rounded-2xl transition-all z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          
+          <div className="w-full h-full flex items-center justify-center">
+            <img 
+              src={activeInvoice?.imageUrl} 
+              className="max-w-full max-h-full object-contain shadow-2xl rounded-xl" 
+              alt="Full Detail" 
+            />
+          </div>
+          
+          <div className="absolute bottom-10 flex gap-4 bg-white/10 backdrop-blur-xl p-4 rounded-2xl border border-white/10">
+            <div className="text-white text-center px-6 border-l border-white/10">
+              <p className="text-[10px] font-black text-white/50 uppercase">المرفق الصحي</p>
+              <p className="text-lg font-black">{activeInvoice?.hospitalName}</p>
+            </div>
+            <div className="text-white text-center px-6">
+              <p className="text-[10px] font-black text-white/50 uppercase">القيمة</p>
+              <p className="text-lg font-black">{activeInvoice?.amount.toLocaleString()} د.ل</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
