@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Claim, User, UserRole, ClaimStatus } from '../types';
 import { STATUS_UI } from '../constants';
 import { 
-  Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase, CreditCard, CheckCircle2
+  Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase, CreditCard, CheckCircle2,
+  TrendingUp, Target, Wallet
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -129,11 +130,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                     <CreditCard className="text-litcBlue w-4 h-4" />
                     <span className="text-xs font-black text-slate-500 uppercase tracking-widest">السقف السنوي (5,000 د.ل)</span>
                   </div>
-                  <span className="text-sm font-black text-litcBlue">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-[10px] opacity-50">د.ل متبقي</span></span>
+                  <span className={`text-sm font-black ${(user.annualCeilingUsed || 0) > 4000 ? 'text-orange-600' : 'text-litcBlue'}`}>
+                    {(5000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-[10px] opacity-50">د.ل متبقي</span>
+                  </span>
                 </div>
                 <div className="h-4 bg-slate-200/50 rounded-full overflow-hidden border border-white shadow-inner relative">
                   <div 
-                    className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000 shadow-lg"
+                    className={`h-full transition-all duration-1000 shadow-lg ${
+                      (user.annualCeilingUsed || 0) > 4000 ? 'bg-orange-500' : 'bg-litcBlue'
+                    }`}
                     style={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
                   ></div>
                   <div className="absolute inset-0 flex items-center justify-center">

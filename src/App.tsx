@@ -11,6 +11,7 @@ import DataEntry from './pages/DataEntry';
 import AdminDashboard from './pages/AdminDashboard';
 import ChronicEnrollment from './pages/ChronicEnrollment';
 import Archive from './pages/Archive';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
   Settings, 
@@ -31,7 +32,9 @@ import {
   Shield,
   Pill,
   Heart,
-  Database
+  Database,
+  BrainCircuit,
+  X
 } from 'lucide-react';
 import { auth, db, googleProvider, microsoftProvider } from './firebase';
 import { NAV_ITEMS } from './constants';
@@ -127,6 +130,7 @@ const App: React.FC = () => {
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [chronicApplications, setChronicApplications] = useState<ChronicApplication[]>([]);
   const [isLoggingIn, setIsLoggingIn] = useState(true);
+  const [isSmartClinicOpen, setIsSmartClinicOpen] = useState(false);
   const manualLoginRef = useRef(false);
   const [loginStep, setLoginStep] = useState<'initial' | 'official' | 'data-entry-select' | 'email-login' | 'email-signup' | 'email-verification' | 'phone-login'>('initial');
   
@@ -957,11 +961,6 @@ const App: React.FC = () => {
           onUpdateHealthProfile={handleUpdateHealthProfile}
           onUpdatePlans={handleUpdatePlans}
         />;
-      case 'smart-clinic':
-        return <SmartClinic 
-          user={user} 
-          onUpdateHealthProfile={handleUpdateHealthProfile} 
-        />;
       case 'submit-claim':
         return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={async (data) => {
           const newClaim: Claim = {
@@ -1012,6 +1011,60 @@ const App: React.FC = () => {
       onRoleChange={handleRoleChange}
     >
       {renderContent()}
+      
+      {/* Floating Smart Clinic Assistant */}
+      {user && user.role === UserRole.EMPLOYEE && (
+        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">
+          <AnimatePresence>
+            {isSmartClinicOpen && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20, scale: 0.9, transformOrigin: 'bottom right' }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                className="w-[90vw] sm:w-[450px] h-[70vh] bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden flex flex-col"
+              >
+                <div className="bg-litcBlue p-6 flex items-center justify-between text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                      <BrainCircuit className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm">العيادة الذكية AI</h3>
+                      <p className="text-[10px] opacity-70">مساعدك الصحي الشخصي</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsSmartClinicOpen(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <SmartClinic 
+                    user={user} 
+                    onUpdateHealthProfile={handleUpdateHealthProfile} 
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <button 
+            onClick={() => setIsSmartClinicOpen(!isSmartClinicOpen)}
+            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group ${isSmartClinicOpen ? 'bg-rose-500 rotate-90' : 'bg-litcBlue'}`}
+          >
+            {isSmartClinicOpen ? (
+              <X className="w-8 h-8 text-white" />
+            ) : (
+              <div className="relative">
+                <BrainCircuit className="w-8 h-8 text-white" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-litcOrange rounded-full border-2 border-litcBlue animate-ping"></span>
+              </div>
+            )}
+          </button>
+        </div>
+      )}
     </Layout>
   );
 };

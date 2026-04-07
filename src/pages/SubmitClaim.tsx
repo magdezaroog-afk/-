@@ -832,13 +832,24 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                           {inv.relationship !== 'الموظف نفسه' && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">اسم المستفيد</label>
-                              <input 
-                                type="text" 
+                              <select 
                                 value={inv.beneficiaryName} 
                                 onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
-                                className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-bold text-slate-600 text-xs focus:ring-2 focus:ring-litcBlue/10"
-                                placeholder="أدخل اسم المستفيد..."
-                              />
+                                className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 font-black text-litcBlue text-sm focus:ring-2 focus:ring-litcBlue/10"
+                              >
+                                <option value="">اختر المستفيد...</option>
+                                {user.familyMembers?.filter(m => {
+                                  if (inv.relationship === 'الزوج/الزوجة') return m.relationship === 'Spouse';
+                                  if (inv.relationship === 'الابن/الابنة') return m.relationship === 'Son' || m.relationship === 'Daughter';
+                                  if (inv.relationship === 'الأب/الأم') return m.relationship === 'Father' || m.relationship === 'Mother';
+                                  return true;
+                                }).map(member => (
+                                  <option key={member.id} value={member.name}>{member.name}</option>
+                                ))}
+                                {(!user.familyMembers || user.familyMembers.length === 0) && (
+                                  <option disabled>لا يوجد أفراد عائلة مسجلين</option>
+                                )}
+                              </select>
                             </div>
                           )}
                           <div className="space-y-1">

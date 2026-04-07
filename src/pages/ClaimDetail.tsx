@@ -79,10 +79,9 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
   const stages = [
     { id: ClaimStatus.WAITING_FOR_PAPER, label: 'تقديم الطلب', icon: <Send className="w-4 h-4" /> },
-    { id: ClaimStatus.PAPER_RECEIVED, label: 'استلام الأوراق', icon: <FileText className="w-4 h-4" /> },
+    { id: ClaimStatus.PAPER_RECEIVED, label: 'تم الاستلام', icon: <FileText className="w-4 h-4" /> },
     { id: ClaimStatus.MEDICALLY_APPROVED, label: 'المراجعة الطبية', icon: <Stethoscope className="w-4 h-4" /> },
-    { id: ClaimStatus.FINANCIALLY_PROCESSED, label: 'المراجعة المالية', icon: <Database className="w-4 h-4" /> },
-    { id: ClaimStatus.PAID, label: 'تم الصرف', icon: <CreditCard className="w-4 h-4" /> },
+    { id: ClaimStatus.PAID, label: 'الصرف النهائي', icon: <CreditCard className="w-4 h-4" /> },
   ];
 
   const currentStageIndex = stages.findIndex(s => {
