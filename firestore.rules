@@ -27,5 +27,11 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated(); // For now, allow all authenticated users to update for easier testing
     }
+
+    match /chronic_applications/{appId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
   }
 }

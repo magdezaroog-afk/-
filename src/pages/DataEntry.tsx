@@ -243,14 +243,14 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">اسم الجهة</label>
                      <div className="relative">
                        <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.hospitalName} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.hospitalName || ''} onChange={(e) => handleUpdateInvoice({ hospitalName: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
                      </div>
                   </div>
                   <div className="space-y-4">
                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">رقم الفاتورة</label>
                      <div className="relative">
                        <Hash className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.invoiceNumber} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className={`w-full bg-slate-50 border-2 ${isDuplicate ? 'border-rose-500 bg-rose-50' : 'border-slate-100'} rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all`} />
+                       <input type="text" readOnly={isReadOnly && !isUnitHead} value={currentInv.invoiceNumber || ''} onChange={(e) => handleUpdateInvoice({ invoiceNumber: e.target.value })} className={`w-full bg-slate-50 border-2 ${isDuplicate ? 'border-rose-500 bg-rose-50' : 'border-slate-100'} rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all`} />
                        {isDuplicate && <div className="absolute -bottom-6 right-6 text-rose-500 text-[10px] font-black flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> تنبيه: فاتورة مكررة (نفس الرقم والتاريخ والقيمة)</div>}
                      </div>
                   </div>
@@ -258,7 +258,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">تاريخ الفاتورة</label>
                      <div className="relative">
                        <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                       <input type="date" readOnly={isReadOnly && !isUnitHead} value={currentInv.date} onChange={(e) => handleUpdateInvoice({ date: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                       <input type="date" readOnly={isReadOnly && !isUnitHead} value={currentInv.date || ''} onChange={(e) => handleUpdateInvoice({ date: e.target.value })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
                      </div>
                   </div>
                   <div className="space-y-4">
@@ -266,7 +266,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
                      <div className="flex gap-4">
                        <div className="relative flex-1">
                          <Coins className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                         <input type="number" readOnly={isReadOnly && !isUnitHead} value={currentInv.amount} onChange={(e) => handleUpdateInvoice({ amount: Number(e.target.value) })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
+                         <input type="number" readOnly={isReadOnly && !isUnitHead} value={currentInv.amount || 0} onChange={(e) => handleUpdateInvoice({ amount: Number(e.target.value) })} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-litcBlue transition-all" />
                        </div>
                        <select 
                          disabled={isReadOnly && !isUnitHead}
@@ -289,7 +289,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
                          <input 
                            type="number" 
                            step="0.01"
-                           value={currentInv.exchangeRate} 
+                           value={currentInv.exchangeRate || 1} 
                            onChange={(e) => handleUpdateInvoice({ exchangeRate: Number(e.target.value) })} 
                            className="w-full bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-6 pr-16 font-black outline-none focus:border-rose-500 transition-all text-rose-600" 
                          />

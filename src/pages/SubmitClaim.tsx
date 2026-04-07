@@ -666,7 +666,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                                 {inv.relationship !== 'الموظف نفسه' && (
                                   <input 
                                     type="text" 
-                                    value={inv.beneficiaryName} 
+                                    value={inv.beneficiaryName || ''} 
                                     onChange={(e) => handleUpdateInvoice(inv.id!, 'beneficiaryName', e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl p-2 font-bold text-xs text-slate-600 outline-none"
                                     placeholder="اسم المستفيد..."
@@ -677,7 +677,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                             <td className="px-8 py-5">
                               <input 
                                 type="text" 
-                                value={inv.hospitalName} 
+                                value={inv.hospitalName || ''} 
                                 onChange={(e) => handleUpdateInvoice(inv.id!, 'hospitalName', e.target.value)}
                                 className="w-full bg-transparent border-none focus:ring-0 font-bold text-litcBlue text-sm placeholder:text-slate-300"
                                 placeholder="اسم المستشفى..."
@@ -686,7 +686,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                             <td className="px-8 py-5">
                               <input 
                                 type="text" 
-                                value={inv.invoiceNumber} 
+                                value={inv.invoiceNumber || ''} 
                                 onChange={(e) => handleUpdateInvoice(inv.id!, 'invoiceNumber', e.target.value)}
                                 className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-600 text-sm placeholder:text-slate-300"
                                 placeholder="000000"
@@ -696,7 +696,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                               <div className="relative inline-block">
                                 <input 
                                   type="date" 
-                                  value={inv.date} 
+                                  value={inv.date || ''} 
                                   onChange={(e) => handleUpdateInvoice(inv.id!, 'date', e.target.value)}
                                   className="bg-slate-50/50 border border-slate-100 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-litcBlue/20 outline-none font-bold text-slate-500 text-xs text-center transition-all"
                                 />
@@ -706,7 +706,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                               <div className="flex items-center justify-center gap-2 bg-slate-50/50 border border-slate-100 rounded-xl px-3 py-1.5 group-hover:border-litcOrange/30 transition-all">
                                 <input 
                                   type="number" 
-                                  value={inv.amount} 
+                                  value={inv.amount || 0} 
                                   onChange={(e) => handleUpdateInvoice(inv.id!, 'amount', e.target.value)}
                                   className="w-20 bg-transparent border-none focus:ring-0 font-black text-litcOrange text-sm text-center p-0"
                                 />
