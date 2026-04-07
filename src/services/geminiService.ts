@@ -237,3 +237,24 @@ export const analyzeInvoiceDetailed = async (base64Image: string) => {
   
   return JSON.parse(response.text || '[]');
 };
+
+export const chatWithAI = async (message: string, history: any[], profile?: any) => {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [
+      ...history,
+      { role: 'user', parts: [{ text: message }] }
+    ],
+    config: {
+      systemInstruction: `أنت مساعد طبي ذكي لشركة LITC (شركة ليبيا للاتصالات والتقنية). 
+      مهمتك هي الإجابة على استفسارات الموظفين حول "سياسة التأمين الطبي لشركة LITC" والمعلومات الطبية العامة.
+      ${profile ? `ملف المستخدم الصحي: ${JSON.stringify(profile)}` : ''}
+      كن ودوداً، مهنياً، وقدم إجابات دقيقة ومختصرة باللغة العربية.
+      إذا سألك المستخدم عن السقف السنوي، فهو 5000 دينار ليبي.
+      إذا سألك عن التغطية، فهي تشمل العيادات والمستشفيات المعتمدة.
+      لا تقدم تشخيصات طبية نهائية، بل نصائح عامة وإرشادات.`
+    }
+  });
+  
+  return response.text;
+};

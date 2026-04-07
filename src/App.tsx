@@ -1012,58 +1012,75 @@ const App: React.FC = () => {
     >
       {renderContent()}
       
-      {/* Floating Smart Clinic Assistant */}
+      {/* Floating AI Assistant Drawer */}
       {user && user.role === UserRole.EMPLOYEE && (
-        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-4">
+        <>
           <AnimatePresence>
             {isSmartClinicOpen && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20, scale: 0.9, transformOrigin: 'bottom right' }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="w-[90vw] sm:w-[450px] h-[70vh] bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden flex flex-col"
-              >
-                <div className="bg-litcBlue p-6 flex items-center justify-between text-white">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                      <BrainCircuit className="w-6 h-6" />
+              <>
+                {/* Backdrop */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsSmartClinicOpen(false)}
+                  className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998]"
+                />
+                
+                {/* Drawer */}
+                <motion.div 
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                  className="fixed top-0 right-0 h-full w-full sm:w-[450px] bg-white shadow-[-20px_0_60px_-15px_rgba(0,0,0,0.2)] z-[9999] flex flex-col border-l border-slate-100"
+                >
+                  <div className="p-6 bg-litcBlue text-white flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                        <BrainCircuit className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black">العيادة الذكية AI</h2>
+                        <p className="text-[10px] font-bold opacity-70">مساعدك الطبي الشخصي</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-black text-sm">العيادة الذكية AI</h3>
-                      <p className="text-[10px] opacity-70">مساعدك الصحي الشخصي</p>
-                    </div>
+                    <button 
+                      onClick={() => setIsSmartClinicOpen(false)}
+                      className="w-10 h-10 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => setIsSmartClinicOpen(false)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                  <SmartClinic 
-                    user={user} 
-                    onUpdateHealthProfile={handleUpdateHealthProfile} 
-                  />
-                </div>
-              </motion.div>
+                  
+                  <div className="flex-1 overflow-hidden">
+                    <SmartClinic 
+                      user={user} 
+                      onUpdateHealthProfile={handleUpdateHealthProfile} 
+                    />
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
-          
-          <button 
-            onClick={() => setIsSmartClinicOpen(!isSmartClinicOpen)}
-            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group ${isSmartClinicOpen ? 'bg-rose-500 rotate-90' : 'bg-litcBlue'}`}
-          >
-            {isSmartClinicOpen ? (
-              <X className="w-8 h-8 text-white" />
-            ) : (
-              <div className="relative">
-                <BrainCircuit className="w-8 h-8 text-white" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-litcOrange rounded-full border-2 border-litcBlue animate-ping"></span>
+
+          {/* Floating Toggle Button */}
+          {!isSmartClinicOpen && (
+            <motion.button
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setIsSmartClinicOpen(true)}
+              className="fixed bottom-6 right-6 w-16 h-16 bg-litcBlue text-white rounded-2xl shadow-2xl shadow-litcBlue/40 flex items-center justify-center z-[9997] group"
+            >
+              <BrainCircuit className="w-8 h-8 group-hover:animate-pulse" />
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-litcOrange text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce">
+                1
               </div>
-            )}
-          </button>
-        </div>
+            </motion.button>
+          )}
+        </>
       )}
     </Layout>
   );
