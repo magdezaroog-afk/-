@@ -262,37 +262,58 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-3xl mx-auto bg-white rounded-[2.5rem] p-8 sm:p-16 shadow-2xl border border-slate-100 text-center space-y-10 font-cairo"
+        className="max-w-3xl mx-auto bg-white rounded-[3rem] p-8 sm:p-16 shadow-2xl border border-slate-100 text-center space-y-10 font-cairo relative overflow-hidden"
         dir="rtl"
       >
-        <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="w-12 h-12" />
+        <div className="absolute top-0 left-0 w-full h-2 bg-emerald-500"></div>
+        
+        <div className="relative">
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.2 }}
+            className="w-24 h-24 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-200 relative z-10"
+          >
+            <CheckCircle className="w-12 h-12" />
+          </motion.div>
+          
+          {/* Success Ring Animation */}
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1.5, opacity: 0 }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 border-4 border-emerald-500 rounded-full"
+          />
         </div>
         
         <div className="space-y-4">
-          <h2 className="text-3xl font-black text-litcBlue">تم استلام البيانات بنجاح</h2>
-          <p className="text-slate-500 font-bold leading-relaxed">
-            تم استلام طلبك إلكترونياً. يرجى تسليم الأصول الورقية لمكتب الرعاية لإتمام الإجراء.
-          </p>
-        </div>
-
-        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 flex flex-col items-center gap-6">
-          <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-            <QRCodeSVG value={submittedClaim.id} size={150} />
-          </div>
-          <div className="text-center">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">رقم المطالبة</p>
-            <p className="text-2xl font-black text-litcBlue tracking-wider">{submittedClaim.id}</p>
+          <h2 className="text-3xl font-black text-litcBlue">تم تقديم المطالبة بنجاح!</h2>
+          <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+            <p className="text-emerald-800 font-black text-lg leading-relaxed">
+              يرجى تسليم الملف الورقي لمكتب الاستلام
+            </p>
+            <p className="text-emerald-600 text-xs font-bold mt-2">
+              رقم المراجعة: {submittedClaim.id}
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 flex flex-col items-center gap-6 relative">
+          <div className="absolute -top-3 right-1/2 translate-x-1/2 bg-white px-4 py-1 rounded-full border border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            QR Code للمراجعة السريعة
+          </div>
+          <div className="p-6 bg-white rounded-3xl shadow-sm border border-slate-100 group hover:scale-105 transition-transform">
+            <QRCodeSVG value={submittedClaim.id} size={180} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
           <button 
             onClick={generatePDF}
-            className="flex items-center justify-center gap-3 p-5 bg-litcBlue text-white rounded-2xl font-black hover:bg-litcBlue/90 transition-all shadow-lg shadow-litcBlue/20"
+            className="flex items-center justify-center gap-3 p-5 bg-litcBlue text-white rounded-2xl font-black hover:bg-litcBlue/90 transition-all shadow-lg shadow-litcBlue/20 group"
           >
-            <Printer className="w-5 h-5" />
-            طباعة الملخص
+            <Printer className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            طباعة ملخص المطالبة
           </button>
           <button 
             onClick={onCancel}

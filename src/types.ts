@@ -73,6 +73,7 @@ export interface FamilyMember {
   id: string;
   name: string;
   relationship: 'Spouse' | 'Son' | 'Daughter' | 'Father' | 'Mother';
+  isChronic?: boolean;
 }
 
 export interface User {

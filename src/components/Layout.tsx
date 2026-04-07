@@ -15,7 +15,8 @@ import {
   Share2,
   CreditCard,
   CheckCircle2,
-  Clock
+  Clock,
+  Sparkles as SparklesIcon
 } from 'lucide-react';
 import { NAV_ITEMS, ROLE_LABELS } from '../constants';
 
@@ -224,6 +225,22 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
           {children}
         </div>
+
+        {/* Floating Smart Clinic Bubble */}
+        {user.role === UserRole.EMPLOYEE && (
+          <button 
+            onClick={() => setActivePath('smart-clinic')}
+            className="fixed bottom-8 left-8 z-[60] group"
+          >
+            <div className="absolute inset-0 bg-litcOrange rounded-full blur-xl opacity-40 group-hover:opacity-60 group-hover:scale-125 transition-all duration-500"></div>
+            <div className="relative w-16 h-16 bg-gradient-to-br from-litcOrange to-orange-600 rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(255,107,0,0.4)] border-4 border-white group-hover:-translate-y-2 transition-all duration-500">
+              <SparklesIcon className="w-8 h-8 animate-pulse" />
+              <div className="absolute -top-12 right-1/2 translate-x-1/2 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                العيادة الذكية AI
+              </div>
+            </div>
+          </button>
+        )}
       </main>
     </div>
   );

@@ -131,21 +131,47 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       {/* Employee Quick Stats */}
       {isEmployee && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          {[
-            { label: 'الرصيد السنوي المتبقي', value: `${(100000 - (user.annualCeilingUsed || 0)).toLocaleString()} د.ل`, icon: <CreditCard className="w-6 h-6" />, color: 'bg-litcBlue text-white' },
-            { label: 'المعاملات النشطة', value: '3 معاملات', icon: <Clock className="w-6 h-6" />, color: 'bg-white text-litcBlue border border-slate-100' },
-            { label: 'المعاملات المكتملة', value: '12 معاملة', icon: <CheckCircle2 className="w-6 h-6" />, color: 'bg-white text-emerald-600 border border-slate-100' },
-          ].map((stat, i) => (
-            <div key={i} className={`${stat.color} p-6 sm:p-8 rounded-2xl shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all`}>
+          <div className="sm:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{stat.label}</p>
-                <p className="text-xl sm:text-2xl font-black">{stat.value}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">مؤشر السقف السنوي (5,000 د.ل)</p>
+                <p className="text-2xl font-black text-litcBlue">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()} <span className="text-xs opacity-50">د.ل متبقي</span></p>
               </div>
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                {stat.icon}
+              <div className="w-12 h-12 bg-litcBlue/5 rounded-xl flex items-center justify-center text-litcBlue group-hover:scale-110 transition-transform">
+                <CreditCard className="w-6 h-6" />
               </div>
             </div>
-          ))}
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-black">
+                <span className="text-slate-400">المستهلك: {(user.annualCeilingUsed || 0).toLocaleString()} د.ل</span>
+                <span className="text-litcBlue">{Math.round(((user.annualCeilingUsed || 0) / 5000) * 100)}%</span>
+              </div>
+              <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-50 shadow-inner">
+                <div 
+                  className="h-full bg-gradient-to-r from-litcBlue to-litcOrange transition-all duration-1000 shadow-lg"
+                  style={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {[
+              { label: 'المعاملات النشطة', value: '3 معاملات', icon: <Clock className="w-5 h-5" />, color: 'bg-white text-amber-600 border border-slate-100' },
+              { label: 'المعاملات المكتملة', value: '12 معاملة', icon: <CheckCircle2 className="w-5 h-5" />, color: 'bg-white text-emerald-600 border border-slate-100' },
+            ].map((stat, i) => (
+              <div key={i} className={`${stat.color} p-5 rounded-2xl shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all`}>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{stat.label}</p>
+                  <p className="text-lg font-black">{stat.value}</p>
+                </div>
+                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  {stat.icon}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

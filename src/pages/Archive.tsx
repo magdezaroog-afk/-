@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Claim, ClaimStatus, User, UserRole } from '../types';
 import { STATUS_UI } from '../constants';
-import { Search, Filter, Calendar, Building2, ChevronLeft, History, FileText, LayoutGrid, List } from 'lucide-react';
+import { Search, Filter, Calendar, Building2, ChevronLeft, History, FileText, LayoutGrid, List, User as UserIcon } from 'lucide-react';
 
 interface ArchiveProps {
   user: User;
@@ -13,6 +13,8 @@ interface ArchiveProps {
 const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterMonth, setFilterMonth] = useState<string>('ALL');
+  const [filterFamily, setFilterFamily] = useState<string>('ALL');
 
   const filteredClaims = useMemo(() => {
     // Filter claims based on role if needed, or just show user's claims if they are an employee
@@ -31,9 +33,21 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
       
       const matchesStatus = filterStatus === 'ALL' || claim.status === filterStatus;
       
-      return matchesSearch && matchesStatus;
+      const claimDate = new Date(claim.submissionDate);
+      const matchesMonth = filterMonth === 'ALL' || (claimDate.getMonth() + 1).toString() === filterMonth;
+
+      const matchesFamily = filterFamily === 'ALL' || claim.invoices.some(inv => inv.beneficiaryName === filterFamily);
+      
+      return matchesSearch && matchesStatus && matchesMonth && matchesFamily;
     });
-  }, [claims, searchTerm, filterStatus]);
+  }, [claims, searchTerm, filterStatus, filterMonth, filterFamily, user.id, user.role]);
+
+  const months = [
+    { id: '1', label: 'يناير' }, { id: '2', label: 'فبراير' }, { id: '3', label: 'مارس' },
+    { id: '4', label: 'أبريل' }, { id: '5', label: 'مايو' }, { id: '6', label: 'يونيو' },
+    { id: '7', label: 'يوليو' }, { id: '8', label: 'أغسطس' }, { id: '9', label: 'سبتمبر' },
+    { id: '10', label: 'أكتوبر' }, { id: '11', label: 'نوفمبر' }, { id: '12', label: 'ديسمبر' }
+  ];
 
   return (
     <div className="max-w-[1000px] mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700 font-cairo" dir="rtl">
@@ -41,35 +55,69 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
       <div className="space-y-6 sm:space-y-8 px-4 sm:px-0">
         <div className="text-center sm:text-right">
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center justify-center sm:justify-start gap-3 sm:gap-4">
-             <History className="text-[#5351f1] w-8 h-8 sm:w-10 sm:h-10" /> أرشيف المعاملات
+             <History className="text-litcBlue w-8 h-8 sm:w-10 sm:h-10" /> أرشيف المعاملات
           </h1>
           <p className="text-[10px] sm:text-sm font-bold text-slate-500 mt-1 sm:mt-2">ابحث في سجلاتك الطبية، الفواتير، والمصحات السابقة بسهولة.</p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
-          <div className="flex-1 relative group">
-            <Search className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#5351f1] transition-colors w-5 h-5 sm:w-6 sm:h-6" />
-            <input 
-              type="text" 
-              placeholder="ابحث برقم المعاملة، اسم المصحة..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border-2 border-slate-100 rounded-2xl sm:rounded-[2.5rem] py-4 sm:py-6 pr-12 sm:pr-16 pl-6 sm:pl-8 font-black text-sm sm:text-lg focus:outline-none focus:border-[#5351f1] focus:ring-8 focus:ring-indigo-600/5 transition-all shadow-sm"
-            />
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
+            <div className="flex-1 relative group">
+              <Search className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-litcBlue transition-colors w-5 h-5 sm:w-6 sm:h-6" />
+              <input 
+                type="text" 
+                placeholder="ابحث برقم المعاملة، اسم المصحة..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white border-2 border-slate-100 rounded-2xl sm:rounded-[2.5rem] py-4 sm:py-6 pr-12 sm:pr-16 pl-6 sm:pl-8 font-black text-sm sm:text-lg focus:outline-none focus:border-litcBlue focus:ring-8 focus:ring-litcBlue/5 transition-all shadow-sm"
+              />
+            </div>
           </div>
-          
-          <div className="md:w-64 relative">
-             <Filter className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4.5 h-4.5 sm:w-5 sm:h-5" />
-             <select 
-               value={filterStatus}
-               onChange={(e) => setFilterStatus(e.target.value)}
-               className="w-full bg-white border-2 border-slate-100 rounded-2xl sm:rounded-[2.5rem] py-4 sm:py-6 pr-12 sm:pr-14 pl-6 sm:pl-8 font-black text-xs sm:text-sm focus:outline-none appearance-none cursor-pointer shadow-sm"
-             >
-                <option value="ALL">جميع الحالات</option>
-                {Object.keys(STATUS_UI).map(status => (
-                  <option key={status} value={status}>{STATUS_UI[status as ClaimStatus].label}</option>
-                ))}
-             </select>
+
+          {/* Quick Filter Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="relative">
+               <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
+               <select 
+                 value={filterStatus}
+                 onChange={(e) => setFilterStatus(e.target.value)}
+                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
+               >
+                  <option value="ALL">جميع الحالات</option>
+                  {Object.keys(STATUS_UI).map(status => (
+                    <option key={status} value={status}>{STATUS_UI[status as ClaimStatus].label}</option>
+                  ))}
+               </select>
+            </div>
+
+            <div className="relative">
+               <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
+               <select 
+                 value={filterMonth}
+                 onChange={(e) => setFilterMonth(e.target.value)}
+                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
+               >
+                  <option value="ALL">جميع الأشهر</option>
+                  {months.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+               </select>
+            </div>
+
+            <div className="relative">
+               <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4" />
+               <select 
+                 value={filterFamily}
+                 onChange={(e) => setFilterFamily(e.target.value)}
+                 className="w-full bg-white border border-slate-100 rounded-xl py-3 pr-10 pl-4 font-bold text-xs focus:outline-none appearance-none cursor-pointer shadow-sm hover:border-litcBlue transition-all"
+               >
+                  <option value="ALL">جميع المستفيدين</option>
+                  <option value={user.name}>الموظف نفسه</option>
+                  {user.familyMembers?.map(m => (
+                    <option key={m.id} value={m.name}>{m.name}</option>
+                  ))}
+               </select>
+            </div>
           </div>
         </div>
       </div>
