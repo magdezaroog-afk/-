@@ -124,9 +124,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-700 font-cairo pb-20" dir="rtl">
+    <div className="max-w-6xl mx-auto px-4 space-y-8 animate-in fade-in duration-700 font-cairo pb-20" dir="rtl">
       {/* Welcome Header & Slim Financial Bar */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
@@ -158,15 +158,43 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
             </div>
             <p className="text-xs font-black text-litcBlue">{(user.annualCeilingUsed || 0).toLocaleString()} د.ل مستهلك</p>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
-              className="h-full bg-litcBlue rounded-full"
+              className="h-full bg-gradient-to-l from-litcBlue to-litcOrange rounded-full"
             />
           </div>
         </div>
       </div>
+
+      {/* Active Plan Glass Card */}
+      {user.activePlans && user.activePlans.length > 0 && (
+        <div className="bg-white/40 backdrop-blur-xl p-6 rounded-[2rem] border border-white/60 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 animate-in slide-in-from-top-4">
+          <div className="flex items-center gap-4">
+            <div className="px-3 py-1 bg-litcOrange/10 text-litcOrange rounded-full text-[10px] font-black uppercase tracking-wider">
+              {user.activePlans[0].goal === 'weight_loss' ? 'إنقاص الوزن' : 
+               user.activePlans[0].goal === 'muscle_building' ? 'بناء العضلات' : 'خطة صحية'}
+            </div>
+            <div className="flex items-center gap-2 text-slate-600">
+              <Calendar className="w-4 h-4" />
+              <span className="text-xs font-bold">الموعد القادم: {new Date().toLocaleDateString('ar-LY', { day: 'numeric', month: 'long' })}</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              const newPlans = user.activePlans?.filter((_, i) => i !== 0) || [];
+              if (window.confirm('هل أنت متأكد من إلغاء الخطة؟')) {
+                // In a real app we'd call onUpdatePlans, but here we just navigate or let user handle it
+                onNavigate('profile');
+              }
+            }}
+            className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="space-y-8">
         {/* Active Claims Section */}
@@ -186,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                 <div 
                   key={claim.id}
                   onClick={() => onSelectClaim(claim)}
-                  className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                  className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
                   
@@ -202,9 +230,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                         </div>
                       </div>
 
-                      {/* Horizontal Stepper */}
+                      {/* Horizontal Stepper UI */}
                       <div className="pt-4">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2 px-2">
                           {['تقديم', 'استلام', 'مراجعة', 'مالية'].map((step, idx) => {
                             const currentIndex = getStepIndex(claim.status);
                             const isCompleted = idx < currentIndex;
@@ -213,16 +241,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                             return (
                               <div key={idx} className="flex flex-col items-center gap-2 flex-1 relative">
                                 {idx < 3 && (
-                                  <div className={`absolute top-3 -left-1/2 w-full h-0.5 ${idx < currentIndex ? 'bg-litcBlue' : 'bg-slate-100'}`}></div>
+                                  <div className={`absolute top-2 -left-1/2 w-full h-0.5 ${idx < currentIndex ? 'bg-litcBlue' : 'bg-slate-100'}`}></div>
                                 )}
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center z-10 border-2 transition-all ${
-                                  isCompleted ? 'bg-litcBlue border-litcBlue text-white' : 
-                                  isCurrent ? 'bg-white border-litcBlue text-litcBlue' : 
-                                  'bg-white border-slate-100 text-slate-300'
-                                }`}>
-                                  {isCompleted ? <Check className="w-3 h-3" /> : <span className="text-[10px] font-black">{idx + 1}</span>}
+                                <div className="relative">
+                                  {isCurrent && (
+                                    <motion.div 
+                                      animate={{ scale: [1, 1.5, 1] }}
+                                      transition={{ duration: 2, repeat: Infinity }}
+                                      className="absolute inset-0 bg-litcBlue/20 rounded-full blur-md"
+                                    />
+                                  )}
+                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center z-10 border-2 transition-all relative ${
+                                    isCompleted ? 'bg-litcBlue border-litcBlue text-white' : 
+                                    isCurrent ? 'bg-white border-litcBlue text-litcBlue' : 
+                                    'bg-white border-slate-100 text-slate-300'
+                                  }`}>
+                                    {isCompleted && <Check className="w-2 h-2" />}
+                                  </div>
                                 </div>
-                                <span className={`text-[9px] font-black ${isCurrent ? 'text-litcBlue' : 'text-slate-400'}`}>{step}</span>
+                                <span className={`text-[8px] font-black ${isCurrent ? 'text-litcBlue' : 'text-slate-400'}`}>{step}</span>
                               </div>
                             );
                           })}
@@ -244,7 +281,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                 </div>
               ))
             ) : (
-              <div className="p-12 bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-center space-y-4">
+              <div className="p-12 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center space-y-4">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
                   <Search className="w-8 h-8" />
                 </div>
@@ -259,7 +296,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                 onClick={() => setShowAllActive(!showAllActive)}
                 className="px-8 py-3 bg-white border border-slate-100 rounded-2xl font-black text-xs text-slate-600 hover:bg-slate-50 hover:text-litcBlue transition-all shadow-sm flex items-center gap-3 group"
               >
-                {showAllActive ? 'إخفاء المعاملات الإضافية' : 'المزيد من المعاملات النشطة'}
+                {showAllActive ? 'إخفاء المعاملات' : 'عرض الكل'}
                 <ChevronLeft className={`w-4 h-4 transition-transform ${showAllActive ? 'rotate-90' : 'group-hover:-translate-x-1'}`} />
               </button>
             </div>

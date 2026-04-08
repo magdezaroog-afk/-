@@ -1072,7 +1072,7 @@ const App: React.FC = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsSmartClinicOpen(true)}
-              className="fixed bottom-[30px] left-[30px] w-16 h-16 bg-litcBlue text-white rounded-2xl shadow-2xl shadow-litcBlue/40 flex items-center justify-center z-[9999] group"
+              className="fixed bottom-[30px] left-[30px] w-16 h-16 bg-litcBlue text-white rounded-[2rem] shadow-2xl shadow-litcBlue/40 flex items-center justify-center z-[9999] group"
             >
               <BrainCircuit className="w-8 h-8 group-hover:animate-pulse" />
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-litcOrange text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce">
