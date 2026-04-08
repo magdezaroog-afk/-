@@ -107,20 +107,8 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
 
   return (
     <div className="flex flex-col h-full font-cairo bg-slate-50/30" dir="rtl">
-      {/* Bot Header Avatar */}
-      <div className="p-4 flex flex-col items-center justify-center border-b border-slate-100 bg-white">
-        <div className="relative">
-          <div className="w-16 h-16 bg-litcBlue/10 rounded-2xl flex items-center justify-center text-litcBlue shadow-inner">
-            <Bot className="w-10 h-10" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
-        </div>
-        <h3 className="mt-2 text-sm font-black text-slate-800">المساعد الطبي الذكي</h3>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">LITC Health AI Bot</p>
-      </div>
-
       {/* Chat Messages Area (Top 70%) */}
-      <div className="flex-[7] overflow-y-auto p-4 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2`}>
             <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -128,7 +116,11 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
                 {msg.role === 'user' ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
               <div className={`space-y-2`}>
-                <div className={`p-4 rounded-2xl text-sm font-bold leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-litcBlue text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'}`}>
+                <div className={`p-5 rounded-[2rem] text-sm font-bold leading-relaxed shadow-[0_10px_30px_rgba(0,0,0,0.05)] ${
+                  msg.role === 'user' 
+                    ? 'bg-gradient-to-br from-litcBlue to-litcDark text-white rounded-tr-none' 
+                    : 'bg-gradient-to-br from-white to-slate-50 text-slate-700 border border-slate-100 rounded-tl-none'
+                }`}>
                   {msg.text}
                 </div>
                 
@@ -196,7 +188,25 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
       </div>
 
       {/* Bottom Actions & Input Area (Bottom 30%) */}
-      <div className="flex-[3] p-6 bg-white border-t border-slate-100 flex flex-col justify-between gap-6">
+      <div className="p-6 bg-white border-t border-slate-100 flex flex-col gap-6 relative">
+        {/* Floating Pills for Quick Tasks */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {[
+            { label: 'تحليل دواء', icon: <Pill className="w-3 h-3" />, action: () => medInputRef.current?.click() },
+            { label: 'تقرير مختبر', icon: <Microscope className="w-3 h-3" />, action: () => labInputRef.current?.click() },
+            { label: 'استفسار إداري', icon: <Info className="w-3 h-3" />, action: () => setInput('ما هي سياسة تغطية العمليات الجراحية؟') }
+          ].map((pill, i) => (
+            <button 
+              key={i}
+              onClick={pill.action}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-full text-[10px] font-black text-slate-600 hover:bg-litcBlue hover:text-white hover:border-litcBlue transition-all whitespace-nowrap shadow-[0_5px_15px_rgba(0,0,0,0.05)] hover:-translate-y-1"
+            >
+              {pill.icon}
+              {pill.label}
+            </button>
+          ))}
+        </div>
+
         {/* Chat Input */}
         <div className="relative flex items-center gap-2">
           <input 
@@ -205,45 +215,14 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="اسأل المساعد الذكي..."
-            className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pr-5 pl-14 font-bold text-xs outline-none focus:border-litcBlue transition-all"
+            className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-[2rem] py-4 pr-5 pl-14 font-bold text-xs outline-none focus:border-litcBlue transition-all"
           />
           <button 
             onClick={handleSendMessage}
             disabled={!input.trim() || isChatting}
-            className="absolute left-2 w-10 h-10 bg-litcBlue text-white rounded-xl flex items-center justify-center hover:bg-litcDark transition-all disabled:opacity-50"
+            className="absolute left-2 w-10 h-10 bg-gradient-to-br from-litcBlue to-litcDark text-white rounded-full flex items-center justify-center hover:scale-105 transition-all disabled:opacity-50 shadow-lg shadow-litcBlue/20"
           >
             <Send className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Action Buttons (Icons with Labels) */}
-        <div className="grid grid-cols-3 gap-4">
-          <button 
-            onClick={() => medInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100 transition-all group"
-          >
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              {loading === 'med' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Pill className="w-6 h-6" />}
-            </div>
-            <span className="text-[9px] font-black">فحص دواء</span>
-          </button>
-          <button 
-            onClick={() => labInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-all group"
-          >
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              {loading === 'lab' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Microscope className="w-6 h-6" />}
-            </div>
-            <span className="text-[9px] font-black">لائحة طبية</span>
-          </button>
-          <button 
-            onClick={() => foodInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-all group"
-          >
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              {loading === 'food' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Utensils className="w-6 h-6" />}
-            </div>
-            <span className="text-[9px] font-black">مساعد إداري</span>
           </button>
         </div>
 

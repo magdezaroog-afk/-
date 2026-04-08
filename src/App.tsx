@@ -1012,7 +1012,7 @@ const App: React.FC = () => {
     >
       {renderContent()}
       
-      {/* Floating AI Assistant Drawer */}
+      {/* Floating AI Assistant Bubble */}
       {user && user.role === UserRole.EMPLOYEE && (
         <>
           <AnimatePresence>
@@ -1024,30 +1024,31 @@ const App: React.FC = () => {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setIsSmartClinicOpen(false)}
-                  className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998]"
+                  className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[9998]"
                 />
                 
-                {/* Drawer */}
+                {/* Bubble Window */}
                 <motion.div 
-                  initial={{ x: '-100%' }}
-                  animate={{ x: 0 }}
-                  exit={{ x: '-100%' }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="fixed top-0 left-0 h-full w-full sm:w-[350px] bg-white shadow-[20px_0_60px_-15px_rgba(0,0,0,0.2)] z-[9999] flex flex-col border-r border-slate-100"
+                  initial={{ opacity: 0, scale: 0.8, y: 40, x: 40 }}
+                  animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, y: 40, x: 40 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  className="fixed bottom-[110px] right-[30px] w-[90vw] sm:w-[420px] h-[600px] max-h-[75vh] bg-white/90 backdrop-blur-md shadow-[0_30px_100px_rgba(0,0,0,0.2)] z-[9999] flex flex-col border border-white/40 rounded-[2.5rem] overflow-hidden"
                 >
-                  <div className="p-6 bg-litcBlue text-white flex justify-between items-center shrink-0">
+                  {/* Header */}
+                  <div className="p-6 bg-gradient-to-br from-litcBlue to-litcDark text-white flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
                         <BrainCircuit className="w-6 h-6" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-black">العيادة الذكية AI</h2>
-                        <p className="text-[10px] font-bold opacity-70">مساعدك الطبي الشخصي</p>
+                        <h2 className="text-lg font-black">العيادة الذكية</h2>
+                        <p className="text-[9px] font-bold opacity-70 uppercase tracking-widest">AI Conversation</p>
                       </div>
                     </div>
                     <button 
                       onClick={() => setIsSmartClinicOpen(false)}
-                      className="w-10 h-10 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center"
+                      className="w-10 h-10 rounded-xl hover:bg-white/10 transition-all duration-500 flex items-center justify-center"
                     >
                       <X className="w-6 h-6" />
                     </button>
@@ -1065,21 +1066,21 @@ const App: React.FC = () => {
           </AnimatePresence>
 
           {/* Floating Toggle Button */}
-          {!isSmartClinicOpen && (
-            <motion.button
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setIsSmartClinicOpen(true)}
-              className="fixed bottom-[30px] left-[30px] w-16 h-16 bg-litcBlue text-white rounded-[2rem] shadow-2xl shadow-litcBlue/40 flex items-center justify-center z-[9999] group"
-            >
-              <BrainCircuit className="w-8 h-8 group-hover:animate-pulse" />
+          <motion.button
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsSmartClinicOpen(!isSmartClinicOpen)}
+            className="fixed bottom-[30px] right-[30px] w-16 h-16 bg-gradient-to-br from-litcBlue to-litcDark text-white rounded-[2rem] shadow-2xl shadow-litcBlue/40 flex items-center justify-center z-[9999] group transition-all duration-500"
+          >
+            {isSmartClinicOpen ? <X className="w-8 h-8" /> : <BrainCircuit className="w-8 h-8 group-hover:animate-pulse" />}
+            {!isSmartClinicOpen && (
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-litcOrange text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce">
                 1
               </div>
-            </motion.button>
-          )}
+            )}
+          </motion.button>
         </>
       )}
     </Layout>

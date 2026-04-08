@@ -112,6 +112,7 @@ export interface Invoice {
   originalAmountInLYD: number; 
   netAmountLYD: number; 
   imageUrl: string;
+  attachmentUrls?: string[];
   hospitalName: string;
   invoiceNumber: string;
   lineItems: InvoiceLineItem[];

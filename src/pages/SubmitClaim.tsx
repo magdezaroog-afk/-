@@ -195,7 +195,15 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       employeeName: user.name,
       submissionDate: new Date().toLocaleString('ar-LY'),
       status: ClaimStatus.WAITING_FOR_PAPER,
-      invoices: invoices.map(inv => ({ ...inv, status: ClaimStatus.WAITING_FOR_PAPER, archiveBoxId: '' })),
+      invoices: invoices.map(inv => {
+        const { attachments, ...rest } = inv;
+        return { 
+          ...rest, 
+          status: ClaimStatus.WAITING_FOR_PAPER, 
+          archiveBoxId: '',
+          attachmentUrls: attachments ? attachments.map(f => URL.createObjectURL(f)) : []
+        };
+      }),
       totalAmount,
       currency,
       description,

@@ -124,183 +124,172 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 space-y-8 animate-in fade-in duration-700 font-cairo pb-20" dir="rtl">
-      {/* Welcome Header & Slim Financial Bar */}
-      <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
-            <p className="text-sm font-bold text-slate-400 mt-1">نظام رعاية LITC الذكي - لوحة التحكم</p>
-          </div>
-          <div className="flex items-center gap-3">
-             <button 
-               onClick={() => onNavigate('archive')} 
-               className="px-5 py-2.5 bg-slate-50 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-100 transition-all flex items-center gap-2 border border-slate-100"
-             >
-               <Archive className="w-4 h-4" />
-               الأرشيف
-             </button>
-             <button 
-               onClick={() => onNavigate('new-claim')} 
-               className="px-5 py-2.5 bg-litcBlue text-white rounded-xl font-bold text-xs shadow-lg shadow-litcBlue/20 hover:scale-105 transition-all flex items-center gap-2"
-             >
-               <PlusCircle className="w-4 h-4" />
-               طلب جديد
-             </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex justify-between items-end">
+    <div className="max-w-6xl mx-auto px-4 space-y-10 animate-in fade-in duration-1000 font-cairo pb-20" dir="rtl">
+      {/* Welcome & Financial Bar Header */}
+      <div className="space-y-6">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
+        
+        {/* Slim Modern Financial Bar */}
+        <div className="bg-white/50 backdrop-blur-md p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+          <div className="flex justify-between items-center px-2">
             <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-litcBlue" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">السقف المالي السنوي (5,000 د.ل)</p>
+              <Wallet className="w-3.5 h-3.5 text-litcBlue" />
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">السقف المالي السنوي (5,000 د.ل)</p>
             </div>
-            <p className="text-xs font-black text-litcBlue">{(user.annualCeilingUsed || 0).toLocaleString()} د.ل مستهلك</p>
+            <p className="text-[10px] font-black text-litcBlue">{(user.annualCeilingUsed || 0).toLocaleString()} د.ل مستهلك</p>
           </div>
-          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
-              className="h-full bg-gradient-to-l from-litcBlue to-litcOrange rounded-full"
+              className="h-full bg-gradient-to-l from-litcBlue via-cyan-400 to-litcOrange rounded-full shadow-[0_0_10px_rgba(0,180,216,0.3)]"
             />
           </div>
         </div>
       </div>
 
-      {/* Active Plan Glass Card */}
-      {user.activePlans && user.activePlans.length > 0 && (
-        <div className="bg-white/40 backdrop-blur-xl p-6 rounded-[2rem] border border-white/60 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 animate-in slide-in-from-top-4">
-          <div className="flex items-center gap-4">
-            <div className="px-3 py-1 bg-litcOrange/10 text-litcOrange rounded-full text-[10px] font-black uppercase tracking-wider">
-              {user.activePlans[0].goal === 'weight_loss' ? 'إنقاص الوزن' : 
-               user.activePlans[0].goal === 'muscle_building' ? 'بناء العضلات' : 'خطة صحية'}
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        {/* Tile 1: New Claim Trigger (Action Hub) */}
+        <button 
+          onClick={() => onNavigate('new-claim')}
+          className="md:col-span-8 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(8,112,184,0.1)] flex flex-col items-center justify-center group overflow-hidden relative hover:scale-[1.02] transition-all duration-500"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
+          
+          <div className="relative z-10 flex flex-col items-center gap-6">
+            <div className="w-24 h-24 bg-litcBlue text-white rounded-[2rem] flex items-center justify-center shadow-[0_20px_40px_rgba(0,92,132,0.3)] group-hover:rotate-90 transition-all duration-700">
+              <PlusCircle className="w-12 h-12" />
             </div>
-            <div className="flex items-center gap-2 text-slate-600">
-              <Calendar className="w-4 h-4" />
-              <span className="text-xs font-bold">الموعد القادم: {new Date().toLocaleDateString('ar-LY', { day: 'numeric', month: 'long' })}</span>
-            </div>
+            <h2 className="text-3xl font-black text-slate-900">تقديم معاملة طبية جديدة</h2>
           </div>
-          <button 
-            onClick={() => {
-              const newPlans = user.activePlans?.filter((_, i) => i !== 0) || [];
-              if (window.confirm('هل أنت متأكد من إلغاء الخطة؟')) {
-                // In a real app we'd call onUpdatePlans, but here we just navigate or let user handle it
-                onNavigate('profile');
-              }
-            }}
-            className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        </button>
+
+        {/* Tile 2: Active Plan (Medium) */}
+        <div className="md:col-span-4 bg-gradient-to-br from-litcBlue to-litcDark p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,92,132,0.2)] text-white flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16 blur-2xl group-hover:scale-125 transition-transform duration-1000"></div>
+          
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
+              <Target className="w-6 h-6 text-litcOrange" />
+            </div>
+            <h3 className="text-xl font-black mb-2">الخطة النشطة</h3>
+            <p className="text-xs font-medium text-white/60 leading-relaxed">
+              {user.activePlans && user.activePlans.length > 0 
+                ? (user.activePlans[0].goal === 'weight_loss' ? 'برنامج إنقاص الوزن الذكي' : 'برنامج الرعاية المتكاملة')
+                : 'لا توجد خطة نشطة حالياً'}
+            </p>
+          </div>
+
+          <div className="relative z-10 mt-8">
+            <div className="flex items-center gap-3 mb-6">
+              <Calendar className="w-4 h-4 text-litcOrange" />
+              <span className="text-[10px] font-black uppercase tracking-widest">الموعد القادم: 12 أبريل</span>
+            </div>
+            <button 
+              onClick={() => onNavigate('profile')}
+              className="w-full py-4 bg-white text-litcBlue rounded-2xl font-black text-xs hover:bg-litcOrange hover:text-white transition-all duration-500 shadow-lg"
+            >
+              عرض تفاصيل الخطة
+            </button>
+          </div>
         </div>
-      )}
 
-      <div className="space-y-8">
-        {/* Active Claims Section */}
-        <div className="space-y-6">
-          <div className="flex justify-between items-center px-2">
-            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
-              <Activity className="text-litcBlue w-6 h-6" /> المعاملات النشطة
+        {/* Tile 3: Active Claims (Wide) */}
+        <div className="md:col-span-12 space-y-6">
+          <div className="flex justify-between items-center px-4">
+            <h3 className="text-2xl font-black text-slate-900 flex items-center gap-4">
+              <Activity className="text-litcBlue w-8 h-8" /> المعاملات النشطة
             </h3>
-            <span className="px-3 py-1 bg-blue-50 text-litcBlue rounded-full text-[10px] font-black">
-              {activeClaims.length} طلب قيد المعالجة
-            </span>
+            <button 
+              onClick={() => onNavigate('archive')}
+              className="text-xs font-black text-litcBlue hover:text-litcOrange transition-all duration-500 flex items-center gap-2"
+            >
+              عرض الأرشيف الكامل <ChevronLeft className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            {visibleActiveClaims.length > 0 ? (
-              visibleActiveClaims.map((claim) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {activeClaims.slice(0, 2).length > 0 ? (
+              activeClaims.slice(0, 2).map((claim) => (
                 <div 
                   key={claim.id}
                   onClick={() => onSelectClaim(claim)}
-                  className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                  className="bg-white/40 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_50px_rgba(8,112,184,0.1)] hover:shadow-[0_30px_70px_rgba(8,112,184,0.2)] transition-all cursor-pointer group relative overflow-hidden"
                 >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-litcBlue/5 rounded-full -mr-20 -mt-20 blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
                   
-                  <div className="relative z-10 flex flex-col md:flex-row justify-between gap-6">
-                    <div className="space-y-4 flex-1">
+                  <div className="relative z-10 space-y-8">
+                    <div className="flex justify-between items-start">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-litcBlue group-hover:bg-litcBlue group-hover:text-white transition-all">
-                          <Stethoscope className="w-6 h-6" />
+                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-litcBlue shadow-sm group-hover:bg-litcBlue group-hover:text-white transition-all duration-500">
+                          <Stethoscope className="w-7 h-7" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">#{claim.id.slice(-6)}</p>
-                          <h4 className="text-lg font-black text-slate-900">{claim.invoices?.[0]?.hospitalName || 'خدمة طبية'}</h4>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">#{claim.id.slice(-6)}</p>
+                          <h4 className="text-xl font-black text-slate-900">{claim.invoices?.[0]?.hospitalName || 'خدمة طبية'}</h4>
                         </div>
                       </div>
-
-                      {/* Horizontal Stepper UI */}
-                      <div className="pt-4">
-                        <div className="flex items-center justify-between mb-2 px-2">
-                          {['تقديم', 'استلام', 'مراجعة', 'مالية'].map((step, idx) => {
-                            const currentIndex = getStepIndex(claim.status);
-                            const isCompleted = idx < currentIndex;
-                            const isCurrent = idx === currentIndex;
-                            
-                            return (
-                              <div key={idx} className="flex flex-col items-center gap-2 flex-1 relative">
-                                {idx < 3 && (
-                                  <div className={`absolute top-2 -left-1/2 w-full h-0.5 ${idx < currentIndex ? 'bg-litcBlue' : 'bg-slate-100'}`}></div>
-                                )}
-                                <div className="relative">
-                                  {isCurrent && (
-                                    <motion.div 
-                                      animate={{ scale: [1, 1.5, 1] }}
-                                      transition={{ duration: 2, repeat: Infinity }}
-                                      className="absolute inset-0 bg-litcBlue/20 rounded-full blur-md"
-                                    />
-                                  )}
-                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center z-10 border-2 transition-all relative ${
-                                    isCompleted ? 'bg-litcBlue border-litcBlue text-white' : 
-                                    isCurrent ? 'bg-white border-litcBlue text-litcBlue' : 
-                                    'bg-white border-slate-100 text-slate-300'
-                                  }`}>
-                                    {isCompleted && <Check className="w-2 h-2" />}
-                                  </div>
-                                </div>
-                                <span className={`text-[8px] font-black ${isCurrent ? 'text-litcBlue' : 'text-slate-400'}`}>{step}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                      <div className="text-left">
+                        <p className="text-[10px] font-medium text-slate-400 uppercase mb-1">القيمة</p>
+                        <p className="text-2xl font-black text-litcBlue">{claim.totalAmount.toLocaleString()} <span className="text-xs font-medium">د.ل</span></p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col justify-between items-end gap-4">
-                      <div className="text-left">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">القيمة الإجمالية</p>
-                        <p className="text-xl font-black text-litcBlue">{claim.totalAmount.toLocaleString()} <span className="text-xs">د.ل</span></p>
-                      </div>
-                      <div className={`px-4 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 ${getStatusColor(claim.status)}`}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
-                        {getStatusLabel(claim.status)}
+                    {/* Minimalist Neon Stepper */}
+                    <div className="relative pt-6">
+                      <div className="absolute top-8 left-0 w-full h-[2px] bg-slate-100 rounded-full"></div>
+                      <div className="flex justify-between items-center relative">
+                        {['Sent', 'Received', 'Review', 'Paid'].map((step, idx) => {
+                          const currentIndex = getStepIndex(claim.status);
+                          const isCompleted = idx < currentIndex;
+                          const isCurrent = idx === currentIndex;
+                          
+                          return (
+                            <div key={idx} className="flex flex-col items-center gap-3 flex-1 relative">
+                              {/* Neon Line Segment */}
+                              {idx < 3 && (
+                                <div className={`absolute top-2 -left-1/2 w-full h-[2px] transition-all duration-1000 ${
+                                  idx < currentIndex ? 'bg-litcBlue shadow-[0_0_10px_rgba(0,92,132,0.5)]' : 'bg-transparent'
+                                }`}></div>
+                              )}
+                              
+                              <div className="relative">
+                                {isCurrent && (
+                                  <motion.div 
+                                    animate={{ scale: [1, 2, 1], opacity: [0.5, 0.2, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute inset-0 bg-litcBlue rounded-full blur-md"
+                                  />
+                                )}
+                                <div className={`w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
+                                  isCompleted ? 'bg-litcBlue border-litcBlue shadow-[0_0_10px_rgba(0,92,132,0.5)]' : 
+                                  isCurrent ? 'bg-white border-litcBlue shadow-[0_0_15px_rgba(0,92,132,0.8)]' : 
+                                  'bg-white border-slate-200'
+                                }`}></div>
+                              </div>
+                              <span className={`text-[9px] font-black uppercase tracking-tighter ${isCurrent ? 'text-litcBlue' : 'text-slate-400'}`}>{step}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-12 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center space-y-4">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-                  <Search className="w-8 h-8" />
+              <div className="md:col-span-2 p-20 bg-white/40 backdrop-blur-xl rounded-[2.5rem] border border-white/60 text-center space-y-6">
+                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto text-slate-200">
+                  <Search className="w-10 h-10" />
                 </div>
-                <p className="text-sm font-bold text-slate-400">لا توجد معاملات نشطة حالياً</p>
+                <div>
+                  <p className="text-lg font-black text-slate-900">لا توجد معاملات نشطة</p>
+                  <p className="text-sm font-medium text-slate-400 mt-2">ابدأ بتقديم طلب جديد من خلال الزر أعلاه</p>
+                </div>
               </div>
             )}
           </div>
-
-          {activeClaims.length > 2 && (
-            <div className="flex justify-center pt-4">
-              <button 
-                onClick={() => setShowAllActive(!showAllActive)}
-                className="px-8 py-3 bg-white border border-slate-100 rounded-2xl font-black text-xs text-slate-600 hover:bg-slate-50 hover:text-litcBlue transition-all shadow-sm flex items-center gap-3 group"
-              >
-                {showAllActive ? 'إخفاء المعاملات' : 'عرض الكل'}
-                <ChevronLeft className={`w-4 h-4 transition-transform ${showAllActive ? 'rotate-90' : 'group-hover:-translate-x-1'}`} />
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
