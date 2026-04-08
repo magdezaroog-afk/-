@@ -114,7 +114,7 @@ const Layout: React.FC<LayoutProps> = ({
               <div className="hidden md:block text-right pl-3">
                 <p className="text-xs font-black text-slate-900 leading-none mb-1.5">{user.name}</p>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ROLE_LABELS[user.role]}</p>
                 </div>
               </div>

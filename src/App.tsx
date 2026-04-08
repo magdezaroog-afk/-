@@ -212,6 +212,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedClaim) {
+      setSelectedClaim(null);
+    }
+  }, [activePath]);
+
+  useEffect(() => {
     if (!user) return;
     
     const q = query(collection(db, 'claims'), orderBy('submissionDate', 'desc'));

@@ -1,7 +1,9 @@
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Claim, ClaimStatus, User, UserRole } from '../types';
 import { STATUS_UI } from '../constants';
+import { cn } from '../lib/utils';
 import { 
   ShieldCheck, 
   RotateCcw, 
@@ -43,7 +45,9 @@ import {
   UserPlus as UserPlusIcon,
   SearchCheck as SearchCheckIcon,
   Heart,
-  HelpCircle
+  HelpCircle,
+  Pill,
+  Activity
 } from 'lucide-react';
 
 interface ClaimDetailProps {
@@ -79,21 +83,42 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [archiveBoxId, setArchiveBoxId] = useState(claim.invoices[0]?.archiveBoxId || '');
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
-  const stages = [
-    { id: ClaimStatus.WAITING_FOR_PAPER, label: 'تقديم الطلب', icon: <Send className="w-4 h-4" /> },
-    { id: ClaimStatus.PAPER_RECEIVED, label: 'تم الاستلام', icon: <FileText className="w-4 h-4" /> },
-    { id: ClaimStatus.MEDICALLY_APPROVED, label: 'المراجعة الطبية', icon: <Stethoscope className="w-4 h-4" /> },
-    { id: ClaimStatus.PAID, label: 'الصرف النهائي', icon: <CreditCard className="w-4 h-4" /> },
+  const STAGES = [
+    { id: 'submitted', label: 'تم التقديم', icon: Send, statuses: [ClaimStatus.WAITING_FOR_PAPER] },
+    { id: 'received', label: 'استلام الأوراق', icon: Database, statuses: [ClaimStatus.PAPER_RECEIVED] },
+    { id: 'medical', label: 'المراجعة الطبية', icon: Stethoscope, statuses: [ClaimStatus.MEDICALLY_APPROVED, ClaimStatus.MEDICALLY_REJECTED, ClaimStatus.PENDING_CLARIFICATION] },
+    { id: 'financial', label: 'المعالجة المالية', icon: CreditCard, statuses: [ClaimStatus.FINANCIALLY_PROCESSED] },
+    { id: 'final', label: 'الاعتماد النهائي', icon: CheckCircle2, statuses: [ClaimStatus.CHIEF_APPROVED, ClaimStatus.PAID] }
   ];
 
-  const currentStageIndex = stages.findIndex(s => {
-    if (claim.status === ClaimStatus.PAID) return s.id === ClaimStatus.PAID;
-    if (claim.status === ClaimStatus.CHIEF_APPROVED) return s.id === ClaimStatus.FINANCIALLY_PROCESSED;
-    if (claim.status === ClaimStatus.FINANCIALLY_PROCESSED) return s.id === ClaimStatus.FINANCIALLY_PROCESSED;
-    if (claim.status === ClaimStatus.MEDICALLY_APPROVED) return s.id === ClaimStatus.MEDICALLY_APPROVED;
-    if (claim.status === ClaimStatus.PAPER_RECEIVED) return s.id === ClaimStatus.PAPER_RECEIVED;
-    return s.id === ClaimStatus.WAITING_FOR_PAPER;
-  });
+  const getCurrentStageIndex = () => {
+    const index = STAGES.findIndex(s => s.statuses.includes(claim.status));
+    if (index === -1) {
+      if (claim.status === ClaimStatus.PAID || claim.status === ClaimStatus.CHIEF_APPROVED) return 4;
+      if (claim.status === ClaimStatus.REJECTED) return 4;
+      return 0;
+    }
+    return index;
+  };
+
+  const currentStageIndex = getCurrentStageIndex();
+
+  const getStageStatus = (index: number) => {
+    if (index < currentStageIndex) return 'completed';
+    if (index === currentStageIndex) return 'active';
+    return 'pending';
+  };
+
+  // SVG Path and Node Coordinates (1000x200 viewbox) - RTL Flow
+  const nodes = [
+    { x: 900, y: 100 },
+    { x: 700, y: 150 },
+    { x: 500, y: 100 },
+    { x: 300, y: 50 },
+    { x: 100, y: 100 }
+  ];
+
+  const roadmapPath = "M 900,100 C 800,150 600,50 500,100 S 200,150 100,100";
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
   const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_APPROVED);
@@ -106,37 +131,6 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
   return (
     <div className="max-w-full mx-auto pb-12 animate-in fade-in duration-700 font-cairo px-4 sm:px-0" dir="rtl">
-      {/* Status Progress Bar */}
-      <div className="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[600px] relative">
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -translate-y-1/2 z-0"></div>
-          <div 
-            className="absolute top-1/2 right-0 h-0.5 bg-litcBlue -translate-y-1/2 z-0 transition-all duration-1000"
-            style={{ width: `${(currentStageIndex / (stages.length - 1)) * 100}%` }}
-          ></div>
-          
-          {stages.map((stage, idx) => {
-            const isCompleted = idx <= currentStageIndex;
-            const isActive = idx === currentStageIndex;
-            
-            return (
-              <div key={stage.id} className="relative z-10 flex flex-col items-center gap-2">
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border-4 border-white shadow-md
-                  ${isCompleted ? 'bg-litcBlue text-white' : 'bg-slate-200 text-slate-400'}
-                  ${isActive ? 'scale-125 ring-4 ring-litcBlue/20' : ''}
-                `}>
-                  {isCompleted ? <Check className="w-5 h-5" /> : stage.icon}
-                </div>
-                <span className={`text-[10px] font-black whitespace-nowrap ${isCompleted ? 'text-litcBlue' : 'text-slate-400'}`}>
-                  {stage.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Premium Header Container */}
       <div className="flex flex-col xl:flex-row items-center justify-between gap-3 sm:gap-6 bg-white p-4 sm:p-10 rounded-2xl shadow-sm border border-slate-100 mb-6 sm:mb-8 relative overflow-hidden text-center xl:text-right max-w-md mx-auto xl:max-w-none">
         <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full blur-3xl"></div>
@@ -154,41 +148,94 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
         {/* Invoice Items Section */}
-        <section className="bg-white p-4 sm:p-10 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 sm:mb-8 text-center sm:text-right">
-             <h3 className="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2 sm:gap-4"><FileSearch className="text-litcBlue shrink-0 w-5 h-5 sm:w-6 sm:h-6" /> تدقيق بنود الفاتورة</h3>
-             <span className="bg-slate-50 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black text-slate-400 border border-slate-100 shadow-inner shrink-0">الفاتورة <span className="font-black">{activeInvoiceIndex + 1}</span> من <span className="font-black">{claim.invoices.length}</span></span>
+        <section className="bg-white/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.02)] flex flex-col h-full relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-litcBlue/10 transition-colors"></div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 relative z-10">
+             <div className="text-right">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-litcBlue/10 rounded-xl flex items-center justify-center">
+                    <FileSearch className="text-litcBlue w-6 h-6" />
+                  </div>
+                  تدقيق بنود الفاتورة
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mr-13">Invoice Itemization & Audit</p>
+             </div>
+             <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 shadow-inner">
+                <span className="text-[10px] font-black text-slate-400">الفاتورة</span>
+                <span className="w-6 h-6 bg-litcBlue text-white rounded-lg flex items-center justify-center text-xs font-black shadow-lg shadow-litcBlue/20">{activeInvoiceIndex + 1}</span>
+                <span className="text-[10px] font-black text-slate-300">من</span>
+                <span className="text-xs font-black text-slate-600">{claim.invoices.length}</span>
+             </div>
           </div>
-          <div className="overflow-x-auto rounded-xl sm:rounded-[2rem] border border-slate-50 shadow-inner custom-scrollbar flex-1">
-             <table className="w-full text-right min-w-[350px] sm:min-w-[450px]">
-                <thead className="bg-slate-50 sticky top-0 z-10">
-                   <tr>
-                      <th className="px-4 py-3 sm:px-6 sm:py-4 text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">اسم البند / الخدمة</th>
-                      <th className="px-4 py-3 sm:px-6 sm:py-4 text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">القيمة (د.ل)</th>
-                      <th className="px-4 py-3 sm:px-6 sm:py-4 text-[8px] sm:text-[10px] font-black text-slate-400 uppercase">النوع الفني</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 bg-white">
-                   {activeInvoice?.lineItems?.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                         <td className="px-4 py-3 sm:px-6 sm:py-4 font-bold text-[10px] sm:text-sm text-slate-700">{item.itemName}</td>
-                         <td className="px-4 py-3 sm:px-6 sm:py-4 font-black text-litcBlue text-[10px] sm:text-sm"><span className="font-black">{item.price.toLocaleString()}</span></td>
-                         <td className="px-4 py-3 sm:px-6 sm:py-4">
-                            <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-slate-100 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black text-slate-500 border border-slate-200">{item.serviceType || 'خدمة عامة'}</span>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
+
+          <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2 relative z-10">
+             {/* Invoice Summary Card */}
+             <div className="mb-6 p-6 bg-litcBlue/5 rounded-3xl border border-litcBlue/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="text-right">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المرفق الصحي</p>
+                   <p className="text-lg font-black text-slate-900">{activeInvoice?.hospitalName || 'غير محدد'}</p>
+                </div>
+                <div className="h-10 w-px bg-slate-200 hidden sm:block"></div>
+                <div className="text-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">التاريخ</p>
+                   <p className="text-sm font-black text-slate-700">{activeInvoice?.date || '---'}</p>
+                </div>
+                <div className="h-10 w-px bg-slate-200 hidden sm:block"></div>
+                <div className="text-left">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إجمالي الفاتورة</p>
+                   <p className="text-xl font-black text-litcOrange">{activeInvoice?.amount.toLocaleString()} <span className="text-xs">د.ل</span></p>
+                </div>
+             </div>
+
+             {activeInvoice?.lineItems?.map((item, idx) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="p-5 bg-slate-50/50 hover:bg-white rounded-2xl border border-slate-100/50 hover:border-litcBlue/30 hover:shadow-xl hover:shadow-litcBlue/5 transition-all duration-500 group/item"
+                >
+                   <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-100 group-hover/item:scale-110 transition-transform">
+                            {item.serviceType?.includes('دواء') ? <Pill className="w-6 h-6 text-litcOrange" /> : 
+                             item.serviceType?.includes('تحليل') ? <Activity className="w-6 h-6 text-emerald-500" /> :
+                             <Stethoscope className="w-6 h-6 text-litcBlue" />}
+                         </div>
+                         <div>
+                            <p className="text-sm sm:text-base font-black text-slate-800 leading-tight">{item.itemName}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                               <span className="px-2 py-0.5 bg-white rounded-md text-[9px] font-black text-slate-400 border border-slate-100 uppercase tracking-tighter">
+                                  {item.serviceType || 'خدمة طبية عامة'}
+                               </span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="text-left">
+                         <p className="text-lg sm:text-xl font-black text-litcBlue tracking-tighter">
+                            {item.price.toLocaleString()} <span className="text-[10px] font-bold text-slate-400 mr-1">د.ل</span>
+                         </p>
+                      </div>
+                   </div>
+                </motion.div>
+             ))}
           </div>
 
           {activeInvoice?.ocrData?.auditorComment && (
-             <div className="mt-6 p-4 sm:p-6 bg-amber-50 rounded-[1.2rem] sm:rounded-2xl border border-amber-100 flex items-start gap-3 sm:gap-4 relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
-                <AlertCircle className="text-amber-500 shrink-0 mt-0.5 w-4.5 h-4.5 sm:w-6 sm:h-6" />
+             <div className="mt-8 p-6 bg-gradient-to-br from-amber-50 to-orange-50/30 rounded-[2rem] border border-amber-100/50 flex items-start gap-5 relative overflow-hidden group/comment shadow-sm">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-400/50"></div>
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-amber-100 shrink-0 group-hover/comment:rotate-12 transition-transform">
+                   <AlertCircle className="text-amber-500 w-6 h-6" />
+                </div>
                 <div>
-                   <p className="text-[8px] sm:text-[10px] font-black text-amber-600 mb-1 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">ملاحظة المدقق الفني <CheckCircle className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" /></p>
-                   <p className="text-xs sm:text-sm font-bold text-slate-700 leading-relaxed italic">"{activeInvoice.ocrData.auditorComment}"</p>
+                   <div className="flex items-center gap-2 mb-2">
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em]">ملاحظة التدقيق الفني</p>
+                      <div className="h-px flex-1 bg-amber-200/30"></div>
+                   </div>
+                   <p className="text-sm sm:text-base font-bold text-slate-700 leading-relaxed italic">
+                      "{activeInvoice.ocrData.auditorComment}"
+                   </p>
                 </div>
              </div>
           )}
@@ -217,7 +264,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                        setTimeout(() => setShowNoAttachmentsMsg(false), 3000);
                      }
                    }}
-                   className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 hover:bg-white text-white hover:text-slate-900 rounded-lg sm:rounded-xl backdrop-blur-xl border border-white/20 transition-all shadow-xl font-black text-[9px] sm:text-xs group ${activeInvoice?.attachmentUrls?.length ? 'ring-2 ring-litcOrange/50 animate-pulse hover:animate-none' : ''}`}
+                   className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 hover:bg-white text-white hover:text-slate-900 rounded-lg sm:rounded-xl backdrop-blur-xl border border-white/20 transition-all shadow-xl font-black text-[9px] sm:text-xs group ${activeInvoice?.attachmentUrls?.length ? 'ring-2 ring-litcOrange/50 hover:animate-none' : ''}`}
                  >
                    <ImageIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                    عرض المرفقات
@@ -343,52 +390,191 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         </div>
       )}
 
-      {/* Horizontal Roadmap Audit Trail Section */}
-      <section className="mt-12 bg-litcDark rounded-[2.5rem] p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/10 rounded-full blur-[120px]"></div>
-         <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
-            <h3 className="text-base sm:text-xl font-black flex items-center gap-3"><Clock className="text-litcOrange w-5 h-5 sm:w-6 sm:h-6" /> مسار المعاملة الزمني</h3>
-            <div className="flex gap-1.5">
-               <div className="w-2 h-2 rounded-full bg-litcOrange animate-pulse"></div>
-               <div className="w-2 h-2 rounded-full bg-litcBlue"></div>
-            </div>
-         </div>
-         
-         <div className="relative">
-            {/* Roadmap Line */}
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2 hidden sm:block"></div>
-            
-            <div className="flex gap-4 sm:gap-0 overflow-x-auto pb-4 custom-scrollbar-white snap-x relative z-10 sm:justify-between">
-               {claim.auditTrail.map((log, i) => (
-                  <div key={i} className="min-w-[220px] sm:min-w-0 sm:flex-1 flex flex-col items-center text-center snap-center group/node">
-                     {/* Node */}
-                     <div className="relative mb-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-800 border-2 border-white/20 flex items-center justify-center group-hover/node:border-litcOrange group-hover/node:scale-110 transition-all duration-500 z-20 relative shadow-xl">
-                           <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-litcBlue group-hover/node:text-litcOrange transition-colors" />
-                        </div>
-                        {/* Connecting line for mobile */}
-                        {i < claim.auditTrail.length - 1 && (
-                           <div className="absolute top-1/2 left-full w-4 h-0.5 bg-white/10 -translate-y-1/2 sm:hidden"></div>
-                        )}
-                     </div>
+      {/* CURVY & FUTURISTIC ROADMAP SECTION (Moved to Bottom) */}
+      <div className="mt-12 bg-white/40 backdrop-blur-xl p-6 sm:p-12 rounded-[2.5rem] border border-white/60 shadow-[0_20px_50px_rgba(8,112,184,0.05)] mb-8 relative overflow-hidden font-cairo">
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-10">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[radial-gradient(circle,rgba(0,180,216,0.1)_0%,transparent_70%)]"></div>
+        </div>
 
-                     {/* Info */}
-                     <div className="px-2">
-                        <p className="text-[8px] sm:text-[10px] text-white/40 font-black uppercase tracking-widest mb-1">{log.timestamp}</p>
-                        <p className="text-[10px] sm:text-xs font-black text-white mb-1 truncate max-w-[150px] mx-auto">{log.userName}</p>
-                        <p className="text-[9px] sm:text-[11px] font-bold text-blue-100 leading-tight mb-2">{log.action}</p>
-                        
-                        {log.comment && (
-                           <div className="bg-black/30 p-2 rounded-xl border border-white/5 opacity-0 group-hover/node:opacity-100 transition-opacity duration-300 absolute top-full left-1/2 -translate-x-1/2 w-48 mt-2 pointer-events-none z-30 shadow-2xl">
-                              <p className="text-[8px] sm:text-[10px] font-bold text-white/70 italic">"{log.comment}"</p>
-                           </div>
-                        )}
-                     </div>
-                  </div>
-               ))}
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-12">
+            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+              <SearchCheck className="text-litcBlue w-6 h-6" /> مسار تتبع المعاملة
+            </h3>
+            <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">مكتمل</span>
+               </div>
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-litcBlue animate-pulse shadow-[0_0_8px_rgba(0,180,216,0.8)]"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">جاري العمل</span>
+               </div>
             </div>
-         </div>
-      </section>
+          </div>
+
+          <div className="relative h-[200px] sm:h-[250px] w-full">
+            <svg viewBox="0 0 1000 200" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="roadmapGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+                <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#00B4D8" />
+                  <stop offset="100%" stopColor="#0077B6" />
+                </linearGradient>
+              </defs>
+
+              {/* Background Path (Pending) */}
+              <path 
+                d={roadmapPath} 
+                fill="none" 
+                stroke="#cbd5e1" 
+                strokeWidth="4" 
+                strokeDasharray="8,8"
+                className="opacity-30"
+              />
+              
+              {/* Completed Path (Green) */}
+              <motion.path 
+                d={roadmapPath} 
+                fill="none" 
+                stroke="url(#roadmapGradient)" 
+                strokeWidth="6" 
+                strokeLinecap="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: Math.max(0, currentStageIndex / (STAGES.length - 1)) }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+                className="drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+              />
+
+              {/* Active Segment Path (Pulsing Blue) */}
+              {currentStageIndex < STAGES.length - 1 && (
+                <motion.path 
+                  d={roadmapPath} 
+                  fill="none" 
+                  stroke="#00B4D8" 
+                  strokeWidth="6" 
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0, pathOffset: 0 }}
+                  animate={{ 
+                    pathLength: 1 / (STAGES.length - 1),
+                    pathOffset: currentStageIndex / (STAGES.length - 1),
+                    opacity: [0.4, 1, 0.4]
+                  }}
+                  transition={{ 
+                    pathLength: { duration: 1.5, ease: "easeInOut" },
+                    pathOffset: { duration: 1.5, ease: "easeInOut" },
+                    opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                  }}
+                  className="drop-shadow-[0_0_15px_rgba(0,180,216,0.6)]"
+                />
+              )}
+
+              {/* Nodes */}
+              {STAGES.map((stage, i) => {
+                const status = getStageStatus(i);
+                const pos = nodes[i];
+                const Icon = stage.icon;
+                
+                return (
+                  <g key={stage.id} className="cursor-pointer group">
+                    {/* Node Circle */}
+                    <motion.circle 
+                      cx={pos.x} 
+                      cy={pos.y} 
+                      r={status === 'active' ? 32 : 24}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: i * 0.2 }}
+                      className={cn(
+                        "transition-all duration-500",
+                        status === 'completed' ? "fill-emerald-500 shadow-lg" : 
+                        status === 'active' ? "fill-litcBlue shadow-[0_0_30px_rgba(0,180,216,0.6)]" : 
+                        "fill-slate-200"
+                      )}
+                    />
+
+                    {/* Active Pulse Glow */}
+                    {status === 'active' && (
+                      <motion.circle 
+                        cx={pos.x} 
+                        cy={pos.y} 
+                        r={45}
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.1, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="fill-litcBlue/20 pointer-events-none"
+                      />
+                    )}
+
+                    {/* Icon */}
+                    <foreignObject x={pos.x - 12} y={pos.y - 12} width="24" height="24" className="pointer-events-none">
+                      <div className={cn(
+                        "w-full h-full flex items-center justify-center",
+                        status === 'pending' ? "text-slate-400" : "text-white"
+                      )}>
+                        <Icon className={cn(status === 'active' ? "w-6 h-6" : "w-4 h-4")} />
+                      </div>
+                    </foreignObject>
+
+                    {/* Checkmark for completed */}
+                    {status === 'completed' && (
+                      <motion.g 
+                        initial={{ scale: 0 }} 
+                        animate={{ scale: 1 }} 
+                        className="translate-x-[18px] translate-y-[-18px]"
+                      >
+                        <circle cx={pos.x} cy={pos.y} r={10} className="fill-white shadow-md" />
+                        <motion.path
+                          d={`M ${pos.x - 4} ${pos.y} l 3 3 l 5 -5`}
+                          fill="none"
+                          stroke="#10b981"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ delay: 0.5, duration: 0.4 }}
+                        />
+                      </motion.g>
+                    )}
+
+                    {/* Floating Labels (Above) */}
+                    <foreignObject x={pos.x - 60} y={pos.y - 90} width="120" height="40">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className={cn(
+                          "px-3 py-1 rounded-full backdrop-blur-md border text-[10px] font-black whitespace-nowrap transition-all duration-500 shadow-sm",
+                          status === 'completed' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" :
+                          status === 'active' ? "bg-litcBlue/10 border-litcBlue/20 text-litcBlue scale-110 shadow-lg" :
+                          "bg-slate-100/50 border-slate-200 text-slate-400"
+                        )}>
+                          {stage.label}
+                        </div>
+                      </div>
+                    </foreignObject>
+
+                    {/* Floating Time (Below) */}
+                    <foreignObject x={pos.x - 60} y={pos.y + 60} width="120" height="40">
+                      <div className="flex flex-col items-center justify-center">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all duration-500 shadow-sm border",
+                          status === 'completed' ? "text-emerald-600 bg-emerald-50 border-emerald-100" :
+                          status === 'active' ? "text-litcBlue bg-litcBlue/5 border-litcBlue/10" :
+                          "text-slate-400 bg-slate-50 border-slate-100"
+                        )}>
+                          {status === 'completed' ? 'تم الإنجاز' : status === 'active' ? 'جاري العمل' : 'في الانتظار'}
+                        </span>
+                      </div>
+                    </foreignObject>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+      </div>
+
       {/* Attachments Modal */}
       {isAttachmentsModalOpen && (
         <div className="fixed inset-0 bg-slate-900/95 z-[110] flex flex-col items-center justify-center p-4 sm:p-10 animate-in fade-in duration-300" dir="rtl">

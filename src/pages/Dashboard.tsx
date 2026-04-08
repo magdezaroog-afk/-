@@ -125,25 +125,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-10 animate-in fade-in duration-1000 font-cairo pb-20" dir="rtl">
-      {/* Slim Modern Financial Bar at the very top */}
-      <div className="fixed top-0 left-0 w-full z-[100] px-4 pt-2 pointer-events-none">
-        <div className="max-w-6xl mx-auto bg-white/80 backdrop-blur-xl border border-slate-100/50 rounded-full shadow-lg p-1.5 flex items-center gap-4 pointer-events-auto">
-          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden relative">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
-              className="h-full bg-gradient-to-l from-litcBlue via-cyan-400 to-litcOrange rounded-full shadow-[0_0_15px_rgba(0,180,216,0.5)]"
-            />
-          </div>
-          <div className="flex items-center gap-3 px-4 py-1 bg-litcBlue/10 rounded-full border border-litcBlue/20 shadow-[0_0_20px_rgba(0,180,216,0.15)] animate-pulse">
-            <Wallet className="w-3 h-3 text-litcBlue" />
-            <p className="text-[10px] font-black text-litcBlue whitespace-nowrap">
-              المتبقي: <span className="font-black">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()}</span> د.ل
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Welcome Header */}
       <div className="pt-12">
         <h1 className="text-4xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
