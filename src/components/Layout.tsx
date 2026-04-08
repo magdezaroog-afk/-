@@ -222,7 +222,7 @@ const Layout: React.FC<LayoutProps> = ({
         </header>
 
         {/* Page Content */}
-        <div className="p-4 sm:p-10 max-w-7xl mx-auto w-full">
+        <div className="p-6 max-w-7xl mx-auto w-full">
           {children}
         </div>
       </main>

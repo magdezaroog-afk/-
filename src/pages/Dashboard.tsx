@@ -110,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">لوحة التحكم - رعاية LITC</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">رعاية LITC - لوحة التحكم</h1>
           <p className="text-xs font-bold text-slate-400 mt-1">مرحباً بك مجدداً، {user.name}</p>
         </div>
         {isEmployee && (
@@ -133,9 +133,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
               <div className="w-8 h-8 bg-litcBlue/10 rounded-lg flex items-center justify-center text-litcBlue">
                 <Wallet className="w-4 h-4" />
               </div>
-              <span className="text-xs font-black text-slate-500 uppercase">السقف السنوي</span>
+              <span className="text-xs font-black text-slate-500 uppercase">السقف المالي</span>
             </div>
-            <span className="text-[10px] font-bold text-slate-400">5,000 د.ل</span>
+            <span className="text-[10px] font-black text-slate-400">5,000 د.ل</span>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-black">
@@ -161,7 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase">المعاملات النشطة</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase">الطلبات النشطة</p>
             <p className="text-2xl font-black text-slate-900">{myAssignments.length + poolClaims.length}</p>
           </div>
         </div>
@@ -206,7 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
         </button>
       </div>
 
-      {/* Recent Activity List (Card Style) */}
+      {/* Recent Activity List (Minimalist Card Style) */}
       <div className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h2 className="text-lg font-black text-slate-800">النشاط الأخير</h2>
@@ -222,7 +222,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {filteredClaims.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 p-20 flex flex-col items-center justify-center text-slate-300">
               <SearchCheck className="w-16 h-16 mb-4 opacity-20" />
@@ -233,41 +233,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
               <div 
                 key={claim.id}
                 onClick={() => onSelectClaim(claim)}
-                className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col sm:flex-row items-center justify-between gap-4"
+                className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex items-center justify-between"
               >
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg ${getStatusColor(claim.status).split(' ')[0].replace('bg-', 'bg-')}`}>
-                    {claim.invoices?.[0]?.isGlasses ? <Glasses className="w-6 h-6" /> : <Stethoscope className="w-6 h-6" />}
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-md ${getStatusColor(claim.status).split(' ')[0].replace('bg-', 'bg-')}`}>
+                    {claim.invoices?.[0]?.isGlasses ? <Glasses className="w-5 h-5" /> : <Stethoscope className="w-5 h-5" />}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black text-slate-900">{claim.employeeName}</h3>
-                      <span className="text-[10px] font-bold text-slate-400 font-mono">#{claim.id.slice(-5)}</span>
-                    </div>
-                    <p className="text-xs font-bold text-slate-500">{claim.invoices?.[0]?.hospitalName || 'جهة طبية'}</p>
+                    <h3 className="font-black text-sm text-slate-900">{claim.invoices?.[0]?.hospitalName || 'خدمة طبية'}</h3>
+                    <p className="text-[10px] font-bold text-slate-400">{new Date(claim.submissionDate).toLocaleDateString('ar-LY')}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between w-full sm:w-auto gap-8">
-                  <div className="text-center sm:text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase">القيمة</p>
-                    <p className="text-sm font-black text-litcBlue">{claim.totalAmount?.toLocaleString()} د.ل</p>
-                  </div>
-                  
-                  <div className="text-center sm:text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase">الحالة</p>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${getStatusColor(claim.status)}`}>
-                      {getStatusLabel(claim.status)}
-                    </span>
-                  </div>
-
-                  <div className="text-center sm:text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase">التاريخ</p>
-                    <p className="text-xs font-bold text-slate-600">{new Date(claim.submissionDate).toLocaleDateString('ar-LY')}</p>
-                  </div>
-
-                  <button className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-litcBlue group-hover:text-white transition-all">
-                    <Eye className="w-5 h-5" />
+                <div className="flex items-center gap-6">
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${getStatusColor(claim.status)}`}>
+                    {getStatusLabel(claim.status)}
+                  </span>
+                  <button className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-litcBlue group-hover:text-white transition-all">
+                    <Eye className="w-4 h-4" />
                   </button>
                 </div>
               </div>
