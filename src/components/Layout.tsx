@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   Shield,
   Activity,
+  Droplet,
   HeartPulse,
   Share2,
   CreditCard,
@@ -112,7 +113,19 @@ const Layout: React.FC<LayoutProps> = ({
                 <UserIcon className="w-6 h-6" />
               </div>
               <div className="hidden md:block text-right pl-3">
-                <p className="text-xs font-black text-slate-900 leading-none mb-1.5">{user.name}</p>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <p className="text-xs font-black text-slate-900 leading-none">مرحباً، {user.name.split(' ')[0]}</p>
+                  <div className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black rounded-md border border-slate-200">
+                      <Activity className="w-2.5 h-2.5" />
+                      {user.healthProfile?.age || '--'} سنة
+                    </span>
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[8px] font-black rounded-md border border-rose-100">
+                      <Droplet className="w-2.5 h-2.5" />
+                      {user.healthProfile?.bloodType || '--'}
+                    </span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ROLE_LABELS[user.role]}</p>
