@@ -144,7 +144,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
           <button onClick={onClose} className="p-2.5 sm:p-5 bg-slate-50 hover:bg-litcBlue hover:text-white rounded-xl sm:rounded-[2rem] transition-all shadow-inner border border-slate-100"><ArrowRight className="w-4.5 h-4.5 sm:w-7 sm:h-7" /></button>
           <div>
             <h2 className="text-lg sm:text-3xl font-black text-slate-900 leading-tight">{claim.employeeName}</h2>
-            <p className="text-[8px] sm:text-[11px] font-black text-slate-400 mt-1 uppercase tracking-widest sm:tracking-[0.3em]">معاملة طبية رقم: #{claim.id} | الإجمالي: {claim.totalAmount.toLocaleString()} د.ل</p>
+            <p className="text-[8px] sm:text-[11px] font-black text-slate-400 mt-1 uppercase tracking-widest sm:tracking-[0.3em]">معاملة طبية رقم: #{claim.id} | الإجمالي: <span className="font-black">{claim.totalAmount.toLocaleString()}</span> د.ل</p>
           </div>
         </div>
         <div className={`px-4 py-2 sm:px-8 sm:py-4 rounded-lg sm:rounded-[2rem] text-[8px] sm:text-[11px] font-black flex items-center gap-2 sm:gap-4 ${STATUS_UI[claim.status]?.color || 'bg-slate-50 text-slate-600'} shadow-sm border border-current/10 relative z-10`}>
@@ -157,7 +157,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         <section className="bg-white p-4 sm:p-10 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 sm:mb-8 text-center sm:text-right">
              <h3 className="text-base sm:text-xl font-black text-slate-900 flex items-center gap-2 sm:gap-4"><FileSearch className="text-litcBlue shrink-0 w-5 h-5 sm:w-6 sm:h-6" /> تدقيق بنود الفاتورة</h3>
-             <span className="bg-slate-50 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black text-slate-400 border border-slate-100 shadow-inner shrink-0">الفاتورة {activeInvoiceIndex + 1} من {claim.invoices.length}</span>
+             <span className="bg-slate-50 px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black text-slate-400 border border-slate-100 shadow-inner shrink-0">الفاتورة <span className="font-black">{activeInvoiceIndex + 1}</span> من <span className="font-black">{claim.invoices.length}</span></span>
           </div>
           <div className="overflow-x-auto rounded-xl sm:rounded-[2rem] border border-slate-50 shadow-inner custom-scrollbar flex-1">
              <table className="w-full text-right min-w-[350px] sm:min-w-[450px]">
@@ -172,7 +172,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                    {activeInvoice?.lineItems?.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                          <td className="px-4 py-3 sm:px-6 sm:py-4 font-bold text-[10px] sm:text-sm text-slate-700">{item.itemName}</td>
-                         <td className="px-4 py-3 sm:px-6 sm:py-4 font-black text-litcBlue text-[10px] sm:text-sm">{item.price.toLocaleString()}</td>
+                         <td className="px-4 py-3 sm:px-6 sm:py-4 font-black text-litcBlue text-[10px] sm:text-sm"><span className="font-black">{item.price.toLocaleString()}</span></td>
                          <td className="px-4 py-3 sm:px-6 sm:py-4">
                             <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-slate-100 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black text-slate-500 border border-slate-200">{item.serviceType || 'خدمة عامة'}</span>
                          </td>
@@ -343,40 +343,50 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         </div>
       )}
 
-      {/* Horizontal Audit Trail Section */}
-      <section className="mt-12 bg-litcDark rounded-[2.5rem] p-6 sm:p-12 text-white shadow-2xl relative overflow-hidden group">
+      {/* Horizontal Roadmap Audit Trail Section */}
+      <section className="mt-12 bg-litcDark rounded-[2.5rem] p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden group">
          <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/10 rounded-full blur-[120px]"></div>
-         <div className="flex items-center justify-between mb-8 sm:mb-12">
-            <h3 className="text-lg sm:text-2xl font-black flex items-center gap-4"><Clock className="text-litcOrange w-6 h-6 sm:w-8 sm:h-8" /> سجل التحركات الزمني</h3>
-            <div className="flex gap-2">
-               <div className="w-3 h-3 rounded-full bg-litcOrange animate-pulse"></div>
-               <div className="w-3 h-3 rounded-full bg-litcBlue"></div>
+         <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+            <h3 className="text-base sm:text-xl font-black flex items-center gap-3"><Clock className="text-litcOrange w-5 h-5 sm:w-6 sm:h-6" /> مسار المعاملة الزمني</h3>
+            <div className="flex gap-1.5">
+               <div className="w-2 h-2 rounded-full bg-litcOrange animate-pulse"></div>
+               <div className="w-2 h-2 rounded-full bg-litcBlue"></div>
             </div>
          </div>
          
-         <div className="flex gap-6 sm:gap-10 overflow-x-auto pb-8 custom-scrollbar-white snap-x">
-            {claim.auditTrail.map((log, i) => (
-               <div key={i} className="min-w-[280px] sm:min-w-[350px] bg-white/5 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-white/10 relative snap-center group/card hover:bg-white/10 transition-all duration-500">
-                  <div className="absolute -top-3 right-8 px-4 py-1 bg-litcOrange rounded-full text-[8px] sm:text-[10px] font-black shadow-lg">خطوة رقم {i + 1}</div>
-                  <div className="flex items-start gap-4 mb-6">
-                     <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 group-hover/card:scale-110 transition-transform">
-                        <UserIcon className="w-5 h-5 sm:w-7 sm:h-7 text-litcBlue" />
-                     </div>
-                     <div>
-                        <p className="text-[10px] sm:text-xs text-white/40 font-bold mb-1">{log.timestamp}</p>
-                        <p className="text-xs sm:text-base font-black text-white">{log.userName}</p>
-                     </div>
-                  </div>
-                  <div className="space-y-4">
-                     <p className="text-xs sm:text-sm font-bold text-blue-100 leading-relaxed">{log.action}</p>
-                     {log.comment && (
-                        <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
-                           <p className="text-[10px] sm:text-xs font-bold text-white/60 italic leading-relaxed">"{log.comment}"</p>
+         <div className="relative">
+            {/* Roadmap Line */}
+            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2 hidden sm:block"></div>
+            
+            <div className="flex gap-4 sm:gap-0 overflow-x-auto pb-4 custom-scrollbar-white snap-x relative z-10 sm:justify-between">
+               {claim.auditTrail.map((log, i) => (
+                  <div key={i} className="min-w-[220px] sm:min-w-0 sm:flex-1 flex flex-col items-center text-center snap-center group/node">
+                     {/* Node */}
+                     <div className="relative mb-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-800 border-2 border-white/20 flex items-center justify-center group-hover/node:border-litcOrange group-hover/node:scale-110 transition-all duration-500 z-20 relative shadow-xl">
+                           <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-litcBlue group-hover/node:text-litcOrange transition-colors" />
                         </div>
-                     )}
+                        {/* Connecting line for mobile */}
+                        {i < claim.auditTrail.length - 1 && (
+                           <div className="absolute top-1/2 left-full w-4 h-0.5 bg-white/10 -translate-y-1/2 sm:hidden"></div>
+                        )}
+                     </div>
+
+                     {/* Info */}
+                     <div className="px-2">
+                        <p className="text-[8px] sm:text-[10px] text-white/40 font-black uppercase tracking-widest mb-1">{log.timestamp}</p>
+                        <p className="text-[10px] sm:text-xs font-black text-white mb-1 truncate max-w-[150px] mx-auto">{log.userName}</p>
+                        <p className="text-[9px] sm:text-[11px] font-bold text-blue-100 leading-tight mb-2">{log.action}</p>
+                        
+                        {log.comment && (
+                           <div className="bg-black/30 p-2 rounded-xl border border-white/5 opacity-0 group-hover/node:opacity-100 transition-opacity duration-300 absolute top-full left-1/2 -translate-x-1/2 w-48 mt-2 pointer-events-none z-30 shadow-2xl">
+                              <p className="text-[8px] sm:text-[10px] font-bold text-white/70 italic">"{log.comment}"</p>
+                           </div>
+                        )}
+                     </div>
                   </div>
-               </div>
-            ))}
+               ))}
+            </div>
          </div>
       </section>
       {/* Attachments Modal */}
@@ -395,7 +405,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                 <ImageIcon className="w-8 h-8 text-litcOrange" />
                 المرفقات الإضافية للفاتورة
               </h3>
-              <p className="text-white/50 font-bold">إجمالي المرفقات: {activeInvoice?.attachmentUrls?.length || 0}</p>
+              <p className="text-white/50 font-bold">إجمالي المرفقات: <span className="font-black">{activeInvoice?.attachmentUrls?.length || 0}</span></p>
             </div>
             
             <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 custom-scrollbar-white p-4">
@@ -441,7 +451,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
             </div>
             <div className="text-white text-center px-6">
               <p className="text-[10px] font-black text-white/50 uppercase">القيمة</p>
-              <p className="text-lg font-black">{activeInvoice?.amount.toLocaleString()} د.ل</p>
+              <p className="text-lg font-black"><span className="font-black">{activeInvoice?.amount.toLocaleString()}</span> د.ل</p>
             </div>
           </div>
         </div>

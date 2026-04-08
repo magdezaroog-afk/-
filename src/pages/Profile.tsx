@@ -383,7 +383,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
             <div className="flex-1 max-w-md w-full space-y-3">
               <div className="flex justify-between items-center text-xs font-black">
                 <span className="text-litcBlue">اكتمال الملف الطبي</span>
-                <span className="text-slate-400">{calculateCompletion()}%</span>
+                <span className="text-slate-400 font-black">{calculateCompletion()}%</span>
               </div>
               <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-50 shadow-inner">
                 <div 
@@ -438,7 +438,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
             {[
               { 
                 label: 'الطول', 
-                val: user.healthProfile?.height ? `${user.healthProfile.height} سم` : 'فارغ', 
+                val: user.healthProfile?.height ? <span className="font-black">{user.healthProfile.height} سم</span> : 'فارغ', 
                 icon: <ArrowUpRight className="text-emerald-500 w-5 h-5" />, 
                 color: 'bg-emerald-50',
                 field: 'height',
@@ -447,7 +447,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
               },
               { 
                 label: 'الوزن', 
-                val: user.healthProfile?.weight ? `${user.healthProfile.weight} كجم` : 'فارغ', 
+                val: user.healthProfile?.weight ? <span className="font-black">{user.healthProfile.weight} كجم</span> : 'فارغ', 
                 icon: <Scale className="text-amber-500 w-5 h-5" />, 
                 color: 'bg-amber-50',
                 field: 'weight',
@@ -456,7 +456,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
               },
               { 
                 label: 'العمر', 
-                val: user.healthProfile?.age ? `${user.healthProfile.age} سنة` : 'فارغ', 
+                val: user.healthProfile?.age ? <span className="font-black">{user.healthProfile.age} سنة</span> : 'فارغ', 
                 icon: <Activity className="text-blue-500 w-5 h-5" />, 
                 color: 'bg-blue-50',
                 field: 'age',
@@ -465,7 +465,7 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
               },
               { 
                 label: 'BMI', 
-                val: user.healthProfile?.height && user.healthProfile?.weight ? calculateBMI(user.healthProfile.weight, user.healthProfile.height) : '--', 
+                val: user.healthProfile?.height && user.healthProfile?.weight ? <span className="font-black">{calculateBMI(user.healthProfile.weight, user.healthProfile.height)}</span> : '--', 
                 icon: <Target className="text-litcBlue w-5 h-5" />, 
                 color: 'bg-indigo-50',
                 field: 'bmi',

@@ -81,7 +81,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
               <span className="text-[9px] sm:text-[11px] font-black px-2 py-0.5 sm:px-3 sm:py-1 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl border border-emerald-100">{s.trend}</span>
             </div>
             <p className="text-[10px] sm:text-sm font-bold text-slate-400 mb-1 sm:mb-2 relative z-10 uppercase tracking-widest">{s.label}</p>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 relative z-10">{s.value}</p>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 relative z-10"><span className="font-black">{s.value}</span></p>
           </div>
         ))}
       </div>
@@ -146,7 +146,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
                 {distributionData.map((d, i) => (
                   <div key={i} className="flex items-center gap-2 sm:gap-3">
                     <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0" style={{backgroundColor: COLORS[i]}}></div>
-                    <span className="text-[9px] sm:text-[11px] font-black text-slate-600 truncate">{d.name} ({d.value}%)</span>
+                    <span className="text-[9px] sm:text-[11px] font-black text-slate-600 truncate">{d.name} (<span className="font-black">{d.value}</span>%)</span>
                   </div>
                 ))}
               </div>
@@ -170,7 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
                   <div key={idx} className="space-y-1.5 sm:space-y-2">
                     <div className="flex justify-between items-center text-[10px] sm:text-sm font-black">
                       <span className="text-slate-600">{item.n}</span>
-                      <span className="text-slate-900">{item.v}%</span>
+                      <span className="text-slate-900 font-black">{item.v}%</span>
                     </div>
                     <div className="w-full bg-slate-100 h-2 sm:h-2.5 rounded-full overflow-hidden">
                       <div className={`${item.c} h-full transition-all duration-1000`} style={{width: `${item.v}%`}}></div>
@@ -196,7 +196,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
                     <p className="text-xs sm:text-sm font-black text-white truncate">{c.employeeName}</p>
                     <p className="text-[9px] sm:text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{c.submissionDate}</p>
                     <div className="mt-2 sm:mt-3 flex items-center gap-2 sm:gap-3">
-                      <span className="text-[10px] sm:text-xs font-black text-indigo-400">{c.totalAmount.toLocaleString()} ر.س</span>
+                      <span className="text-[10px] sm:text-xs font-black text-indigo-400"><span className="font-black">{c.totalAmount.toLocaleString()}</span> ر.س</span>
                       <span className="text-[8px] sm:text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg sm:rounded-xl font-black uppercase tracking-wider">High Risk</span>
                     </div>
                   </div>

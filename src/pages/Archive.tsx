@@ -110,7 +110,7 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
 
       {/* Results Stats */}
       <div className="flex items-center justify-between px-6">
-         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">تم العثور على {filteredClaims.length} معاملة</p>
+         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">تم العثور على <span className="font-black">{filteredClaims.length}</span> معاملة</p>
       </div>
 
       {/* Claims Grid View */}
@@ -148,7 +148,7 @@ const Archive: React.FC<ArchiveProps> = ({ user, claims, onSelectClaim }) => {
                     <span>{claim.submissionDate}</span>
                   </div>
                   <p className="text-lg font-black text-slate-900">
-                    {claim.totalAmount.toLocaleString()} <span className="text-[10px] font-medium opacity-50">د.ل</span>
+                    <span className="font-black">{claim.totalAmount.toLocaleString()}</span> <span className="text-[10px] font-medium opacity-50">د.ل</span>
                   </p>
                 </div>
               </div>

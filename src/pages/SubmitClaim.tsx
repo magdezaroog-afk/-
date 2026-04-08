@@ -589,7 +589,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                     "text-sm sm:text-lg font-black",
                     isScanComplete ? "text-emerald-500" : "text-litcBlue"
                   )}>
-                    {uploadProgress}%
+                    <span className="font-black">{uploadProgress}%</span>
                   </span>
                 </div>
               </div>
@@ -636,7 +636,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                     البيانات المستخرجة (قابلة للتعديل)
                   </h3>
                   <span className="text-[10px] font-black bg-litcBlue/10 text-litcBlue px-3 py-1 rounded-full uppercase tracking-wider">
-                    {invoices.length} فواتير
+                    <span className="font-black">{invoices.length}</span> فواتير
                   </span>
                 </div>
 
@@ -771,7 +771,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                                 </label>
                                 {inv.attachments && inv.attachments.length > 0 && (
                                   <span className="text-[9px] font-black bg-litcOrange/10 text-litcOrange px-2.5 py-1 rounded-full border border-litcOrange/20">
-                                    {inv.attachments.length} مرفقات
+                                    <span className="font-black">{inv.attachments.length}</span> مرفقات
                                   </span>
                                 )}
                               </div>

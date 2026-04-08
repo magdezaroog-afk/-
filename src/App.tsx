@@ -1033,7 +1033,7 @@ const App: React.FC = () => {
                   animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
                   exit={{ opacity: 0, scale: 0.8, y: 40, x: 40 }}
                   transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                  className="fixed bottom-[110px] right-[30px] w-[90vw] sm:w-[420px] h-[600px] max-h-[75vh] bg-white/90 backdrop-blur-md shadow-[0_30px_100px_rgba(0,0,0,0.2)] z-[9999] flex flex-col border border-white/40 rounded-[2.5rem] overflow-hidden"
+                  className="fixed bottom-[110px] right-[30px] w-[90vw] sm:w-[420px] h-[600px] max-h-[75vh] bg-white/90 backdrop-blur-xl shadow-[0_30px_100px_rgba(0,0,0,0.2)] z-[9999] flex flex-col border border-white/40 rounded-[2.5rem] overflow-hidden animate-in fade-in zoom-in duration-300"
                 >
                   {/* Header */}
                   <div className="p-6 bg-gradient-to-br from-litcBlue to-litcDark text-white flex justify-between items-center shrink-0">

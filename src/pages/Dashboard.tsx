@@ -125,27 +125,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-10 animate-in fade-in duration-1000 font-cairo pb-20" dir="rtl">
-      {/* Welcome & Financial Bar Header */}
-      <div className="space-y-6">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
-        
-        {/* Slim Modern Financial Bar */}
-        <div className="bg-white/50 backdrop-blur-md p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2">
-          <div className="flex justify-between items-center px-2">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-3.5 h-3.5 text-litcBlue" />
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">السقف المالي السنوي (5,000 د.ل)</p>
-            </div>
-            <p className="text-[10px] font-black text-litcBlue">{(user.annualCeilingUsed || 0).toLocaleString()} د.ل مستهلك</p>
-          </div>
-          <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+      {/* Slim Modern Financial Bar at the very top */}
+      <div className="fixed top-0 left-0 w-full z-[100] px-4 pt-2 pointer-events-none">
+        <div className="max-w-6xl mx-auto bg-white/80 backdrop-blur-xl border border-slate-100/50 rounded-full shadow-lg p-1.5 flex items-center gap-4 pointer-events-auto">
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden relative">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, Math.round(((user.annualCeilingUsed || 0) / 5000) * 100))}%` }}
-              className="h-full bg-gradient-to-l from-litcBlue via-cyan-400 to-litcOrange rounded-full shadow-[0_0_10px_rgba(0,180,216,0.3)]"
+              className="h-full bg-gradient-to-l from-litcBlue via-cyan-400 to-litcOrange rounded-full shadow-[0_0_15px_rgba(0,180,216,0.5)]"
             />
           </div>
+          <div className="flex items-center gap-3 px-4 py-1 bg-litcBlue/10 rounded-full border border-litcBlue/20 shadow-[0_0_20px_rgba(0,180,216,0.15)] animate-pulse">
+            <Wallet className="w-3 h-3 text-litcBlue" />
+            <p className="text-[10px] font-black text-litcBlue whitespace-nowrap">
+              المتبقي: <span className="font-black">{(5000 - (user.annualCeilingUsed || 0)).toLocaleString()}</span> د.ل
+            </p>
+          </div>
         </div>
+      </div>
+
+      {/* Welcome Header */}
+      <div className="pt-12">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
       </div>
 
       {/* Bento Grid Layout */}
@@ -154,12 +155,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
         {/* Tile 1: New Claim Trigger (Action Hub) */}
         <button 
           onClick={() => onNavigate('new-claim')}
-          className="md:col-span-8 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(8,112,184,0.1)] flex flex-col items-center justify-center group overflow-hidden relative hover:scale-[1.02] transition-all duration-500"
+          className="md:col-span-8 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(8,112,184,0.1)] flex flex-col items-center justify-center group overflow-hidden relative hover:scale-[1.02] hover:shadow-[0_30px_60px_rgba(0,92,132,0.2)] transition-all duration-500"
         >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-litcBlue/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-125 group-hover:translate-x-10 transition-all duration-1000"></div>
           
           <div className="relative z-10 flex flex-col items-center gap-6">
-            <div className="w-24 h-24 bg-litcBlue text-white rounded-[2rem] flex items-center justify-center shadow-[0_20px_40px_rgba(0,92,132,0.3)] group-hover:rotate-90 transition-all duration-700">
+            <div className="w-24 h-24 bg-litcBlue text-white rounded-[2rem] flex items-center justify-center shadow-[0_20px_40px_rgba(0,92,132,0.3)] group-hover:rotate-90 group-hover:scale-[1.2] transition-all duration-700">
               <PlusCircle className="w-12 h-12" />
             </div>
             <h2 className="text-3xl font-black text-slate-900">تقديم معاملة طبية جديدة</h2>
@@ -239,7 +240,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
 
                     {/* Minimalist Neon Stepper */}
                     <div className="relative pt-6">
-                      <div className="absolute top-8 left-0 w-full h-[2px] bg-slate-100 rounded-full"></div>
+                      {/* Background Dotted Line */}
+                      <div className="absolute top-8 left-0 w-full h-[2px] border-t-2 border-dotted border-slate-200"></div>
                       <div className="flex justify-between items-center relative">
                         {['Sent', 'Received', 'Review', 'Paid'].map((step, idx) => {
                           const currentIndex = getStepIndex(claim.status);
@@ -248,7 +250,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
                           
                           return (
                             <div key={idx} className="flex flex-col items-center gap-3 flex-1 relative">
-                              {/* Neon Line Segment */}
+                              {/* Solid Blue Line for Completed Stages */}
                               {idx < 3 && (
                                 <div className={`absolute top-2 -left-1/2 w-full h-[2px] transition-all duration-1000 ${
                                   idx < currentIndex ? 'bg-litcBlue shadow-[0_0_10px_rgba(0,92,132,0.5)]' : 'bg-transparent'
