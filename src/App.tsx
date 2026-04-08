@@ -9,6 +9,7 @@ import Profile from './pages/Profile';
 import SmartClinic from './pages/SmartClinic';
 import DataEntry from './pages/DataEntry';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminClaims from './pages/AdminClaims';
 import ChronicEnrollment from './pages/ChronicEnrollment';
 import Archive from './pages/Archive';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1001,6 +1002,8 @@ const App: React.FC = () => {
         return <Archive user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
       case 'admin-dashboard':
         return <AdminDashboard user={user} claims={claims} />;
+      case 'admin-claims':
+        return <AdminClaims user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
       case 'chronic-enrollment':
         return <ChronicEnrollment user={user} applications={chronicApplications} onUpdate={handleUpdateChronicApplication} />;
       default:
@@ -1019,7 +1022,7 @@ const App: React.FC = () => {
       {renderContent()}
       
       {/* Floating AI Assistant Bubble */}
-      {user && user.role === UserRole.EMPLOYEE && (
+      {user && (
         <>
           <AnimatePresence>
             {isSmartClinicOpen && (

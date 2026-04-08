@@ -20,7 +20,12 @@ import {
   Sparkles as SparklesIcon,
   Home,
   Archive,
-  Settings
+  Settings,
+  Users,
+  FileText,
+  BarChart3,
+  Stethoscope,
+  LayoutDashboard
 } from 'lucide-react';
 import { NAV_ITEMS, ROLE_LABELS } from '../constants';
 
@@ -49,6 +54,17 @@ const Layout: React.FC<LayoutProps> = ({
     { label: 'الأرشيف', path: 'archive', icon: <Archive className="w-4 h-4" /> },
     { label: 'الملف الصحي', path: 'profile', icon: <HeartPulse className="w-4 h-4" /> },
   ];
+
+  const adminNavItems = [
+    { label: 'لوحة التحكم', path: 'admin-dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { label: 'إدارة المطالبات', path: 'admin-claims', icon: <FileText className="w-4 h-4" /> },
+    { label: 'الأمراض المزمنة', path: 'chronic-enrollment', icon: <Stethoscope className="w-4 h-4" /> },
+    { label: 'إدارة الموظفين', path: 'admin-users', icon: <Users className="w-4 h-4" /> },
+    { label: 'التقارير المالية', path: 'admin-reports', icon: <BarChart3 className="w-4 h-4" /> },
+    { label: 'الإعدادات', path: 'settings', icon: <Settings className="w-4 h-4" /> },
+  ];
+
+  const isEmployee = user.role === UserRole.EMPLOYEE;
 
   const handleShare = () => {
     const url = window.location.href;
@@ -205,12 +221,62 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 py-8 w-full">
-          {children}
-        </div>
-      </main>
+      {/* Main Content Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Admin Sidebar - Only for non-employees */}
+        {!isEmployee && (
+          <aside className="hidden lg:flex w-72 bg-white border-l border-slate-100 flex-col shrink-0 z-20 shadow-[10px_0_40px_rgba(0,92,132,0.05)]">
+            <div className="p-6 border-b border-slate-50">
+              <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-3xl border border-slate-100">
+                <Shield className="w-5 h-5 text-litcOrange" />
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">صلاحية النظام</p>
+                  <p className="text-xs font-black text-slate-900">{ROLE_LABELS[user.role]}</p>
+                </div>
+              </div>
+            </div>
+            
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+              {adminNavItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActivePath(item.path)}
+                  className={`
+                    w-full flex items-center gap-4 px-5 py-4 rounded-3xl font-black text-xs transition-all duration-300
+                    ${activePath === item.path 
+                      ? 'bg-litcBlue text-white shadow-[0_10px_25px_rgba(0,92,132,0.2)]' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-litcBlue'}
+                  `}
+                >
+                  <div className={`p-2 rounded-2xl ${activePath === item.path ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-white'}`}>
+                    {item.icon}
+                  </div>
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="p-6 border-t border-slate-50">
+              <button 
+                onClick={onLogout}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-3xl font-black text-xs text-rose-500 hover:bg-rose-50 transition-all duration-300"
+              >
+                <div className="p-2 rounded-2xl bg-rose-100">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                تسجيل الخروج
+              </button>
+            </div>
+          </aside>
+        )}
+
+        {/* Main Scrollable Content */}
+        <main className="flex-1 overflow-y-auto bg-slate-50/50">
+          <div className={`${isEmployee ? 'max-w-6xl' : 'max-w-[1600px]'} mx-auto px-4 py-8 w-full`}>
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
