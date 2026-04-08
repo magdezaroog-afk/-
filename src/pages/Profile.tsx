@@ -889,56 +889,77 @@ const Profile: React.FC<ProfileProps> = ({ user, claims, onNavigate, onSelectCla
                       </div>
 
                       <div className="pt-6 border-t border-slate-50">
-                        <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase mb-4 tracking-widest">جدول المهام اليومي المخصص:</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {plan.dailyTasks?.map((task) => (
+                        <div className="flex items-center justify-between mb-6">
+                          <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest">الجدول الزمني اليومي:</p>
+                          <button 
+                            onClick={() => {
+                              if (onUpdatePlans) {
+                                onUpdatePlans(user.activePlans?.filter(p => p.id !== plan.id) || []);
+                              }
+                            }}
+                            className="px-4 py-2 border-2 border-rose-500 text-rose-500 rounded-xl text-[10px] font-black hover:bg-rose-50 transition-all flex items-center gap-2"
+                          >
+                            <X className="w-3 h-3" /> إلغاء الخطة
+                          </button>
+                        </div>
+                        
+                        <div className="relative space-y-8 before:absolute before:right-[19px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                          {plan.dailyTasks?.map((task, idx) => (
                             <div 
                               key={task.id} 
-                              className={`p-4 rounded-2xl border transition-all flex items-center justify-between group ${task.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100 hover:border-litcBlue shadow-sm hover:shadow-md'}`}
+                              className={`relative pr-12 transition-all group ${task.completed ? 'opacity-60' : ''}`}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${task.completed ? 'bg-slate-200 text-slate-400' : 'bg-blue-50 text-litcBlue'}`}>
-                                  {task.icon === 'camera' ? <Camera className="w-5 h-5" /> : 
-                                   task.icon === 'droplet' ? <Droplet className="w-5 h-5" /> : 
-                                   task.icon === 'pill' ? <Pill className="w-5 h-5" /> : 
-                                   task.icon === 'utensils' ? <Utensils className="w-5 h-5" /> :
-                                   task.icon === 'moon' ? <History className="w-5 h-5" /> :
-                                   <Activity className="w-5 h-5" />}
-                                </div>
-                                <div className="space-y-0.5">
-                                  <p className={`text-sm font-black leading-tight ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.label}</p>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-slate-400">{task.category === 'nutrition' ? 'تغذية' : task.category === 'sport' ? 'رياضة' : task.category === 'sleep' ? 'نوم' : 'صحة'}</span>
-                                    {task.calories && <span className="text-[10px] font-black text-litcOrange">| {task.calories} سعرة</span>}
+                              {/* Timeline Dot */}
+                              <div className={`absolute right-0 top-1 w-10 h-10 rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 transition-all ${
+                                task.completed ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border-slate-100 group-hover:border-litcBlue'
+                              }`}>
+                                {task.completed ? <CheckCircle2 className="w-5 h-5" /> : (
+                                  task.icon === 'camera' ? <Camera className="w-4 h-4" /> : 
+                                  task.icon === 'droplet' ? <Droplet className="w-4 h-4" /> : 
+                                  task.icon === 'pill' ? <Pill className="w-4 h-4" /> : 
+                                  task.icon === 'utensils' ? <Utensils className="w-4 h-4" /> :
+                                  task.icon === 'moon' ? <History className="w-4 h-4" /> :
+                                  <Activity className="w-4 h-4" />
+                                )}
+                              </div>
+
+                              <div className={`p-5 rounded-2xl border transition-all ${task.completed ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-100 hover:border-litcBlue shadow-sm hover:shadow-md'}`}>
+                                <div className="flex justify-between items-start gap-4">
+                                  <div className="space-y-1">
+                                    <p className={`text-sm font-black leading-tight ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>{task.label}</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-bold text-slate-400">{task.category === 'nutrition' ? 'تغذية' : task.category === 'sport' ? 'رياضة' : task.category === 'sleep' ? 'نوم' : 'صحة'}</span>
+                                      {task.calories && <span className="text-[10px] font-black text-litcOrange">| {task.calories} سعرة</span>}
+                                    </div>
+                                    
+                                    {task.category === 'nutrition' && !task.completed && (
+                                      <div className="mt-3 flex items-center gap-2">
+                                        <input 
+                                          type="text" 
+                                          placeholder="بديل؟" 
+                                          value={swapPreferences[task.id] || ''}
+                                          onChange={(e) => setSwapPreferences({...swapPreferences, [task.id]: e.target.value})}
+                                          className="text-[10px] px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-1 focus:ring-litcBlue outline-none w-28 font-bold"
+                                        />
+                                        <button 
+                                          onClick={() => handleSwapMeal(plan.id, task.id, task.label)}
+                                          disabled={swappingTaskId === task.id}
+                                          className="text-[10px] bg-slate-100 hover:bg-litcBlue hover:text-white text-slate-500 px-3 py-1.5 rounded-lg font-black transition-colors disabled:opacity-50"
+                                        >
+                                          {swappingTaskId === task.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'استبدال'}
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                   
-                                  {task.category === 'nutrition' && !task.completed && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <input 
-                                        type="text" 
-                                        placeholder="بديل؟" 
-                                        value={swapPreferences[task.id] || ''}
-                                        onChange={(e) => setSwapPreferences({...swapPreferences, [task.id]: e.target.value})}
-                                        className="text-[10px] px-2 py-1 rounded-lg border border-slate-200 focus:ring-1 focus:ring-litcBlue outline-none w-24"
-                                      />
-                                      <button 
-                                        onClick={() => handleSwapMeal(plan.id, task.id, task.label)}
-                                        disabled={swappingTaskId === task.id}
-                                        className="text-[10px] bg-slate-100 hover:bg-litcBlue hover:text-white text-slate-500 px-2 py-1 rounded-lg font-black transition-colors disabled:opacity-50"
-                                      >
-                                        {swappingTaskId === task.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'استبدال'}
-                                      </button>
-                                    </div>
-                                  )}
+                                  <button 
+                                    onClick={() => toggleTask(plan.id, task.id)}
+                                    className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-100 hover:border-litcBlue text-transparent hover:text-slate-200'}`}
+                                  >
+                                    <CheckCircle2 className="w-6 h-6" />
+                                  </button>
                                 </div>
                               </div>
-                              
-                              <button 
-                                onClick={() => toggleTask(plan.id, task.id)}
-                                className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-100 hover:border-litcBlue text-transparent hover:text-slate-200'}`}
-                              >
-                                <CheckCircle2 className="w-5 h-5" />
-                              </button>
                             </div>
                           ))}
                         </div>

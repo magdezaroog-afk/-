@@ -196,7 +196,7 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
       </div>
 
       {/* Bottom Actions & Input Area (Bottom 30%) */}
-      <div className="flex-[3] p-4 bg-white border-t border-slate-100 flex flex-col justify-between">
+      <div className="flex-[3] p-6 bg-white border-t border-slate-100 flex flex-col justify-between gap-6">
         {/* Chat Input */}
         <div className="relative flex items-center gap-2">
           <input 
@@ -205,7 +205,7 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="اسأل المساعد الذكي..."
-            className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl py-3 pr-5 pl-12 font-bold text-xs outline-none focus:border-litcBlue transition-all"
+            className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pr-5 pl-14 font-bold text-xs outline-none focus:border-litcBlue transition-all"
           />
           <button 
             onClick={handleSendMessage}
@@ -217,33 +217,33 @@ const SmartClinic: React.FC<SmartClinicProps> = ({ user, onUpdateHealthProfile }
         </div>
 
         {/* Action Buttons (Icons with Labels) */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-4">
           <button 
             onClick={() => medInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100 transition-all"
+            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100 transition-all group"
           >
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              {loading === 'med' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Pill className="w-5 h-5" />}
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+              {loading === 'med' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Pill className="w-6 h-6" />}
             </div>
-            <span className="text-[10px] font-black">فحص دواء</span>
+            <span className="text-[9px] font-black">فحص دواء</span>
           </button>
           <button 
             onClick={() => labInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-all"
+            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-all group"
           >
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              {loading === 'lab' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Microscope className="w-5 h-5" />}
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+              {loading === 'lab' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Microscope className="w-6 h-6" />}
             </div>
-            <span className="text-[10px] font-black">لائحة طبية</span>
+            <span className="text-[9px] font-black">لائحة طبية</span>
           </button>
           <button 
             onClick={() => foodInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-all"
+            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-all group"
           >
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              {loading === 'food' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Utensils className="w-5 h-5" />}
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+              {loading === 'food' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Utensils className="w-6 h-6" />}
             </div>
-            <span className="text-[10px] font-black">مساعد إداري</span>
+            <span className="text-[9px] font-black">مساعد إداري</span>
           </button>
         </div>
 
