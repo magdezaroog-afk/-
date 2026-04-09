@@ -1015,9 +1015,19 @@ const App: React.FC = () => {
           return <AdminDashboard user={user} claims={claims} />;
         }
         if (user.role === UserRole.RECEPTIONIST) {
-          return <ReceptionistDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
-            handleUpdateClaimStatus(ClaimStatus.WAITING_FOR_PAPER, 'تم سحب المعاملة للاستلام الورقي');
-          }} />;
+          return <ReceptionistDashboard 
+            user={user} 
+            claims={claims} 
+            onSelectClaim={setSelectedClaim} 
+            onGrab={(claimId) => {
+              const claim = claims.find(c => c.id === claimId);
+              if (claim) {
+                setSelectedClaim(claim);
+                handleUpdateClaimStatus(ClaimStatus.WAITING_FOR_PAPER, 'تم سحب المعاملة للاستلام الورقي', { assignedToId: user.id });
+              }
+            }}
+            onUpdateStatus={handleUpdateClaimStatus}
+          />;
         }
         if (user.role === UserRole.DATA_ENTRY) {
           return <DataEntryDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
