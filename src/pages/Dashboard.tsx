@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { Claim, User, UserRole, ClaimStatus } from '../types';
-import { STATUS_UI } from '../constants';
+import { STATUS_UI, ROLE_LABELS } from '../constants';
 import { motion } from 'motion/react';
 import { 
   Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase, CreditCard, CheckCircle2,
-  TrendingUp, Target, Wallet, Activity, Calendar, ChevronLeft, ArrowUpRight, History as HistoryIcon, Archive
+  TrendingUp, Target, Wallet, Activity, Calendar, ChevronLeft, ArrowUpRight, History as HistoryIcon, Archive, FileText
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -15,6 +15,7 @@ interface DashboardProps {
   onNavigate: (path: string) => void;
   onAssign?: (claimId: string, invoiceIds: string[], staffId: string) => void;
   onGrab?: (claimId: string) => void;
+  isProfessionalView?: boolean;
 }
 
 const DATA_ENTRY_STAFF = [
@@ -23,7 +24,15 @@ const DATA_ENTRY_STAFF = [
   { id: 'DE-3', name: 'عباس طنيش', team: 'وحدة العيادات والمختبرات', stats: '95% منجز' },
 ];
 
-const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNavigate, onAssign, onGrab }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  user, 
+  claims, 
+  onSelectClaim, 
+  onNavigate, 
+  onAssign, 
+  onGrab,
+  isProfessionalView = false
+}) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'my-tasks' | 'pool' | 'sent'>('my-tasks');
@@ -127,11 +136,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
     <div className="max-w-6xl mx-auto px-4 space-y-10 animate-in fade-in duration-1000 font-cairo pb-20" dir="rtl">
       {/* Welcome Header */}
       <div className="pt-12">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">مرحباً بك، {user.name.split(' ')[0]}</h1>
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+          {isProfessionalView ? `لوحة التحكم: ${ROLE_LABELS[user.role]}` : `مرحباً بك، ${user.name.split(' ')[0]}`}
+        </h1>
       </div>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      {/* Bento Grid Layout - Only for Personal View */}
+      {(!isProfessionalView && isEmployee) ? (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         
         {/* Tile 1: New Claim Trigger (Action Hub) */}
         <button 
@@ -275,6 +287,117 @@ const Dashboard: React.FC<DashboardProps> = ({ user, claims, onSelectClaim, onNa
           </div>
         </div>
       </div>
+    ) : (
+        /* Professional View / Task Pool Interface */
+        <div className="space-y-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl">
+              <button 
+                onClick={() => setActiveTab('my-tasks')}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'my-tasks' ? 'bg-white text-litcBlue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                مهامي الحالية ({myAssignments.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('pool')}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'pool' ? 'bg-white text-litcBlue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                حوض المهام ({poolClaims.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('sent')}
+                className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'sent' ? 'bg-white text-litcBlue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                المنجزة ({sentClaims.length})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="بحث برقم المعاملة أو اسم الموظف..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pr-11 pl-4 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-litcBlue outline-none shadow-sm"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,92,132,0.05)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">المعاملة</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">الموظف</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">الحالة</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">القيمة</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredClaims.map((claim) => (
+                    <tr key={claim.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-slate-900">#{claim.id.slice(-6)}</p>
+                            <p className="text-[9px] font-bold text-slate-400">{claim.submissionDate}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-xs font-black text-slate-900">{claim.employeeName}</p>
+                        <p className="text-[9px] font-bold text-slate-400">{claim.department}</p>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black border ${getStatusColor(claim.status)}`}>
+                          {getStatusLabel(claim.status)}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-xs font-black text-litcBlue">{claim.totalAmount.toLocaleString()} ر.س</p>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => onSelectClaim(claim)}
+                            className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-litcBlue hover:text-white transition-all"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {activeTab === 'pool' && onGrab && (
+                            <button 
+                              onClick={() => onGrab(claim.id)}
+                              className="px-4 py-2 bg-litcBlue text-white rounded-xl text-[10px] font-black hover:bg-litcDark transition-all shadow-lg shadow-litcBlue/20"
+                            >
+                              سحب المعاملة
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredClaims.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center gap-3 text-slate-400">
+                          <Search className="w-12 h-12 opacity-20" />
+                          <p className="text-sm font-bold">لا توجد نتائج تطابق بحثك.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

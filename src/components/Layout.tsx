@@ -35,6 +35,8 @@ interface LayoutProps {
   activePath: string;
   setActivePath: (path: string) => void;
   onRoleChange: (role: UserRole) => void;
+  isProfessionalView: boolean;
+  setIsProfessionalView: (v: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -44,6 +46,8 @@ const Layout: React.FC<LayoutProps> = ({
   activePath, 
   setActivePath, 
   onRoleChange,
+  isProfessionalView,
+  setIsProfessionalView,
   children 
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -65,6 +69,12 @@ const Layout: React.FC<LayoutProps> = ({
   ];
 
   const isEmployee = user.role === UserRole.EMPLOYEE;
+  const hasProfessionalRole = user.role !== UserRole.EMPLOYEE;
+
+  // Sidebar should be visible if:
+  // 1. User is in professional view (for dual roles)
+  // 2. User is NOT an employee (direct professional role)
+  const showSidebar = isProfessionalView || hasProfessionalRole;
 
   const handleShare = () => {
     const url = window.location.href;
@@ -107,6 +117,22 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
 
         <div className="flex items-center gap-4 sm:gap-8">
+          {/* Professional View Toggle (For Dual Roles) */}
+          {hasProfessionalRole && (
+            <button 
+              onClick={() => setIsProfessionalView(!isProfessionalView)}
+              className={`
+                hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all duration-500
+                ${isProfessionalView 
+                  ? 'bg-litcOrange text-white shadow-lg shadow-litcOrange/20' 
+                  : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50 shadow-sm'}
+              `}
+            >
+              <Shield className="w-4 h-4" />
+              {isProfessionalView ? 'الوضع المهني نشط' : 'التبديل للوضع المهني'}
+            </button>
+          )}
+
           <div className="hidden sm:flex items-center gap-3">
             <button 
               onClick={() => setActivePath('archive')}
@@ -223,9 +249,9 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Admin Sidebar - Only for non-employees */}
-        {!isEmployee && (
-          <aside className="hidden lg:flex w-72 bg-white border-l border-slate-100 flex-col shrink-0 z-20 shadow-[10px_0_40px_rgba(0,92,132,0.05)]">
+        {/* Professional Sidebar */}
+        {showSidebar && (
+          <aside className="hidden lg:flex w-72 bg-white border-l border-slate-100 flex-col shrink-0 z-20 shadow-[10px_0_40px_rgba(0,92,132,0.05)] animate-in slide-in-from-right duration-500">
             <div className="p-6 border-b border-slate-50">
               <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-3xl border border-slate-100">
                 <Shield className="w-5 h-5 text-litcOrange" />
@@ -257,22 +283,28 @@ const Layout: React.FC<LayoutProps> = ({
             </nav>
 
             <div className="p-6 border-t border-slate-50">
-              <button 
-                onClick={onLogout}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-3xl font-black text-xs text-rose-500 hover:bg-rose-50 transition-all duration-300"
-              >
-                <div className="p-2 rounded-2xl bg-rose-100">
-                  <LogOut className="w-4 h-4" />
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">حالة النظام</span>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 </div>
-                تسجيل الخروج
-              </button>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-bold">
+                    <span className="text-slate-500">الإنتاجية</span>
+                    <span className="text-litcBlue">84%</span>
+                  </div>
+                  <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="w-[84%] h-full bg-litcBlue"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </aside>
         )}
 
         {/* Main Scrollable Content */}
         <main className="flex-1 overflow-y-auto bg-slate-50/50">
-          <div className={`${isEmployee ? 'max-w-6xl' : 'max-w-[1600px]'} mx-auto px-4 py-8 w-full`}>
+          <div className={`${!showSidebar ? 'max-w-6xl' : 'max-w-[1600px]'} mx-auto px-4 py-8 w-full`}>
             {children}
           </div>
         </main>

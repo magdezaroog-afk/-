@@ -10,12 +10,16 @@ import SmartClinic from './pages/SmartClinic';
 import DataEntry from './pages/DataEntry';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminClaims from './pages/AdminClaims';
+import MedicalDashboard from './pages/MedicalDashboard';
+import ReceptionistDashboard from './pages/ReceptionistDashboard';
+import DataEntryDashboard from './pages/DataEntryDashboard';
 import ChronicEnrollment from './pages/ChronicEnrollment';
 import Archive from './pages/Archive';
+import Settings from './pages/Settings';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
-  Settings, 
+  Settings as SettingsIcon, 
   UserCircle, 
   ChevronRight, 
   Chrome, 
@@ -144,7 +148,8 @@ const App: React.FC = () => {
   const [location, setLocation] = useState('');
   const [building, setBuilding] = useState('');
   const [department, setDepartment] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
+  const [JobTitle, setJobTitle] = useState('');
+  const [isProfessionalView, setIsProfessionalView] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
@@ -940,74 +945,110 @@ const App: React.FC = () => {
       );
     }
 
+    // If not in professional view, always show employee pages
+    if (!isProfessionalView) {
+      switch (activePath) {
+        case 'profile':
+          return <Profile 
+            user={user} 
+            claims={claims.filter(c => c.employeeId === user.id)} 
+            onNavigate={setActivePath} 
+            onSelectClaim={setSelectedClaim} 
+            onUpdateHealthProfile={handleUpdateHealthProfile}
+            onUpdatePlans={handleUpdatePlans}
+          />;
+        case 'archive':
+          return <Archive 
+            user={user} 
+            claims={claims.filter(c => c.employeeId === user.id)} 
+            onSelectClaim={setSelectedClaim} 
+          />;
+        case 'submit-claim':
+          return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={async (data) => {
+            const newClaim: Claim = {
+              id: data.id || `MC-${Math.floor(1000 + Math.random() * 9000)}`,
+              employeeId: user.id,
+              employeeName: user.name,
+              submissionDate: new Date().toISOString().split('T')[0],
+              status: ClaimStatus.WAITING_FOR_PAPER,
+              totalAmount: data.totalAmount || 0,
+              referenceNumber: data.id || `REF-${Date.now().toString().slice(-6)}`,
+              invoiceCount: data.invoices.length,
+              description: data.description || '',
+              location: user.location || '',
+              department: user.department || '',
+              invoices: data.invoices.map((inv: any) => ({ 
+                ...inv, 
+                status: ClaimStatus.WAITING_FOR_PAPER,
+                id: inv.id || `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+              })),
+              auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
+            };
+            
+            try {
+              await setDoc(doc(db, 'claims', newClaim.id), sanitizeForFirestore(newClaim));
+            } catch (error) {
+              handleFirestoreError(error, OperationType.WRITE, `claims/${newClaim.id}`);
+            }
+          }} />;
+        case 'smart-clinic':
+          return <SmartClinic user={user} />;
+        default:
+          return <Dashboard 
+            user={user} 
+            claims={claims.filter(c => c.employeeId === user.id)} 
+            onSelectClaim={setSelectedClaim} 
+            onNavigate={setActivePath} 
+            isProfessionalView={false}
+          />;
+      }
+    }
+
+    // Professional View Logic
     switch (activePath) {
       case 'dashboard':
+        // Professional Dashboard based on role
+        if (user.role === UserRole.DOCTOR) {
+          return <MedicalDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
+        }
+        if (user.role === UserRole.ADMIN) {
+          return <AdminDashboard user={user} claims={claims} />;
+        }
+        if (user.role === UserRole.RECEPTIONIST) {
+          return <ReceptionistDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
+            handleUpdateClaimStatus(ClaimStatus.WAITING_FOR_PAPER, 'تم سحب المعاملة للاستلام الورقي');
+          }} />;
+        }
+        if (user.role === UserRole.DATA_ENTRY) {
+          return <DataEntryDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
+            handleUpdateClaimStatus(ClaimStatus.MEDICALLY_APPROVED, 'تم سحب المعاملة للفهرسة المالية');
+          }} />;
+        }
+        // Fallback for other professional roles
         return <Dashboard 
           user={user} 
-          claims={user.role === UserRole.EMPLOYEE ? claims.filter(c => c.employeeId === user.id) : claims} 
+          claims={claims} 
           onSelectClaim={setSelectedClaim} 
           onNavigate={setActivePath} 
           onAssign={handleInvoiceAssign} 
-          onGrab={(claimId) => {
-            const claim = claims.find(c => c.id === claimId);
-            if (claim) {
-              const status = user.role === UserRole.RECEPTIONIST ? ClaimStatus.WAITING_FOR_PAPER :
-                             user.role === UserRole.DOCTOR ? ClaimStatus.PAPER_RECEIVED :
-                             user.role === UserRole.DATA_ENTRY ? ClaimStatus.MEDICALLY_APPROVED : claim.status;
-              
-              handleUpdateClaimStatus(status, 'تم سحب المعاملة من حوض المهام');
-            }
-          }}
+          isProfessionalView={true}
         />;
-      case 'profile':
-        return <Profile 
-          user={user} 
-          claims={claims.filter(c => c.employeeId === user.id)} 
-          onNavigate={setActivePath} 
-          onSelectClaim={setSelectedClaim} 
-          onUpdateHealthProfile={handleUpdateHealthProfile}
-          onUpdatePlans={handleUpdatePlans}
-        />;
-      case 'submit-claim':
-        return <SubmitClaim user={user} onCancel={() => setActivePath('dashboard')} onSubmit={async (data) => {
-          const newClaim: Claim = {
-            id: data.id || `MC-${Math.floor(1000 + Math.random() * 9000)}`,
-            employeeId: user.id,
-            employeeName: user.name,
-            submissionDate: new Date().toISOString().split('T')[0],
-            status: ClaimStatus.WAITING_FOR_PAPER,
-            totalAmount: data.totalAmount || 0,
-            referenceNumber: data.id || `REF-${Date.now().toString().slice(-6)}`,
-            invoiceCount: data.invoices.length,
-            description: data.description || '',
-            location: user.location || '',
-            department: user.department || '',
-            invoices: data.invoices.map((inv: any) => ({ 
-              ...inv, 
-              status: ClaimStatus.WAITING_FOR_PAPER,
-              id: inv.id || `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-            })),
-            auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
-          };
-          
-          try {
-            await setDoc(doc(db, 'claims', newClaim.id), sanitizeForFirestore(newClaim));
-            // We don't call setActivePath('dashboard') here anymore 
-            // because SubmitClaim handles its own success state.
-          } catch (error) {
-            handleFirestoreError(error, OperationType.WRITE, `claims/${newClaim.id}`);
-          }
-        }} />;
-      case 'archive':
-        return <Archive user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
-      case 'admin-dashboard':
-        return <AdminDashboard user={user} claims={claims} />;
       case 'admin-claims':
         return <AdminClaims user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
       case 'chronic-enrollment':
         return <ChronicEnrollment user={user} applications={chronicApplications} onUpdate={handleUpdateChronicApplication} />;
+      case 'archive':
+        return <Archive user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
+      case 'settings':
+        return <Settings user={user} />;
       default:
-        return <Dashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onNavigate={setActivePath} />;
+        return <Dashboard 
+          user={user} 
+          claims={claims} 
+          onSelectClaim={setSelectedClaim} 
+          onNavigate={setActivePath} 
+          isProfessionalView={true}
+        />;
     }
   };
 
@@ -1018,6 +1059,8 @@ const App: React.FC = () => {
       activePath={activePath} 
       setActivePath={setActivePath}
       onRoleChange={handleRoleChange}
+      isProfessionalView={isProfessionalView}
+      setIsProfessionalView={setIsProfessionalView}
     >
       {renderContent()}
       
