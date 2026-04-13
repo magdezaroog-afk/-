@@ -36,6 +36,8 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [archiveLocation, setArchiveLocation] = useState('');
+  const [error, setError] = useState<string | null>(null);
   
   // Pool of claims waiting for paper receipt
   const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.PENDING_PHYSICAL);
@@ -55,16 +57,23 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
   );
 
   const handleReceive = async (claim: Claim) => {
+    if (!archiveLocation.trim()) {
+      setError('يرجى إدخال موقع الأرشفة الفيزيائي (رقم الصندوق / الرف)');
+      return;
+    }
+    
     onSelectClaim(claim);
     
     const timestamp = new Date().toISOString();
     await onUpdateStatus(
       ClaimStatus.PENDING_MEDICAL, 
-      'تم استلام الأصول الورقية ومطابقتها بنجاح',
-      { paperReceivedAt: timestamp }
+      `تم استلام الأصول الورقية ومطابقتها بنجاح - موقع الأرشفة: ${archiveLocation}`,
+      { paperReceivedAt: timestamp, physicalArchiveLocation: archiveLocation }
     );
 
     setShowSuccess(claim.id);
+    setArchiveLocation('');
+    setError(null);
     
     // Auto-select next claim
     const nextClaim = myTasks.find(c => c.id !== claim.id);
@@ -140,18 +149,32 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
                   <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></div>
                 </div>
 
-                <div className="flex items-center justify-between mt-6">
-                  <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400">
-                    <PackageCheck className="w-3 h-3" />
-                    <span>{claim.invoiceCount} فواتير</span>
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="flex flex-col gap-2 flex-1 ml-4">
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400">
+                        <PackageCheck className="w-3 h-3" />
+                        <span>{claim.invoiceCount} فواتير</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="موقع الأرشفة (مثلاً: Box #12)"
+                        value={archiveLocation}
+                        onChange={(e) => setArchiveLocation(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none focus:ring-1 focus:ring-litcBlue"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleReceive(claim)}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black hover:bg-litcBlue transition-all shrink-0"
+                    >
+                      تأكيد الاستلام
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => handleReceive(claim)}
-                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black hover:bg-litcBlue transition-all"
-                  >
-                    تأكيد الاستلام
-                  </button>
-                </div>
+                  {error && (
+                    <p className="text-[9px] font-bold text-rose-500 mt-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> {error}
+                    </p>
+                  )}
               </motion.div>
             ))}
             {myTasks.length === 0 && (

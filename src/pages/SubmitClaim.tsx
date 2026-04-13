@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { User, Invoice, ClaimStatus } from '../types';
 import { 
   Upload, Plus, Trash2, Camera, Loader2, 
@@ -81,6 +81,32 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [budgetWarning, setBudgetWarning] = useState<{show: boolean, amount: number, remaining: number} | null>(null);
   const [comparisonInvoice, setComparisonInvoice] = useState<Partial<Invoice & { attachments: File[] }> | null>(null);
+
+  const remainingCeiling = (user.healthCeiling || 100000) - (user.usedCeiling || 0);
+  const isCeilingExhausted = remainingCeiling <= 0;
+
+  // Offline Resilience: Load draft from LocalStorage
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(`claim_draft_${user.id}`);
+    if (savedDraft) {
+      try {
+        const { invoices: savedInvoices, description: savedDescription, currency: savedCurrency } = JSON.parse(savedDraft);
+        setInvoices(savedInvoices);
+        setDescription(savedDescription);
+        setCurrency(savedCurrency);
+      } catch (e) {
+        console.error("Error loading draft:", e);
+      }
+    }
+  }, [user.id]);
+
+  // Save draft on changes
+  useEffect(() => {
+    if (invoices.length > 0 || description) {
+      const draft = { invoices, description, currency };
+      localStorage.setItem(`claim_draft_${user.id}`, JSON.stringify(draft));
+    }
+  }, [invoices, description, currency, user.id]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -274,6 +300,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
     onSubmit(claimData);
     setIsSubmitting(false);
     setBudgetWarning(null);
+    localStorage.removeItem(`claim_draft_${user.id}`); // Clear draft on success
   };
 
   const generatePDF = () => {
@@ -382,6 +409,23 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4" dir="rtl">
+      {/* Ceiling Exhausted Warning */}
+      {isCeilingExhausted && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-rose-50 border-2 border-rose-200 p-6 rounded-[2rem] flex items-center gap-6 shadow-lg"
+        >
+          <div className="w-16 h-16 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-rose-900">تنبيه: السقف السنوي مستنفذ</h3>
+            <p className="text-sm font-bold text-rose-600">لقد استهلكت كامل رصيدك السنوي (100,000 د.ل). لا يمكنك تقديم مطالبات جديدة حالياً.</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Budget Warning Modal */}
       <AnimatePresence>
         {budgetWarning && budgetWarning.show && (
@@ -1138,13 +1182,18 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
 
               <button 
                 onClick={() => handleSubmit()}
-                disabled={invoices.length === 0 || isSubmitting}
-                className="relative z-10 w-full bg-white text-litcBlue py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3 mt-6"
+                disabled={invoices.length === 0 || isSubmitting || isCeilingExhausted}
+                className={cn(
+                  "relative z-10 w-full py-4 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3 mt-6",
+                  isCeilingExhausted 
+                    ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                    : "bg-white text-litcBlue hover:bg-litcOrange hover:text-white"
+                )}
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                   <>
                     <HeartPulse className="w-5 h-5" />
-                    تأكيد وإرسال
+                    {isCeilingExhausted ? 'السقف مستنفذ' : 'تأكيد وإرسال'}
                   </>
                 )}
               </button>

@@ -306,6 +306,33 @@ const App: React.FC = () => {
       setNotifications(notifs);
     });
 
+    // Simulated Scheduled Health Reminders
+    const checkHealthReminders = () => {
+      if (user.healthProfile?.chronicDiseases?.length) {
+        const lastReminder = localStorage.getItem(`last_health_reminder_${user.id}`);
+        const now = new Date().getTime();
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        if (!lastReminder || (now - parseInt(lastReminder)) > oneDay) {
+          const disease = user.healthProfile.chronicDiseases[0];
+          const reminder: Notification = {
+            id: `rem-${now}`,
+            userId: user.id,
+            title: 'تذكير صحي دوري',
+            message: `عزيزي الموظف، نذكرك بمتابعة فحوصاتك الدورية المتعلقة بـ (${disease}) لضمان سلامتك.`,
+            type: 'SYSTEM',
+            createdAt: new Date().toISOString(),
+            read: false
+          };
+          
+          setNotifications(prev => [reminder, ...prev]);
+          localStorage.setItem(`last_health_reminder_${user.id}`, now.toString());
+        }
+      }
+    };
+
+    checkHealthReminders();
+
     return () => unsubscribe();
   }, [user]);
 

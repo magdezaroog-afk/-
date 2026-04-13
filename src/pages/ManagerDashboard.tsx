@@ -7,8 +7,10 @@ import { Claim, User, ClaimStatus } from '../types';
 import { 
   TrendingUp, Activity, PieChart as PieChartIcon, 
   Target, AlertCircle, ShieldCheck, Zap,
-  Building2, DollarSign, ArrowUpRight
+  Building2, DollarSign, ArrowUpRight, Clock, AlertTriangle, ChevronRight
 } from 'lucide-react';
+import { motion } from 'motion/react';
+import { STATUS_UI } from '../constants';
 
 interface ManagerDashboardProps {
   user: User;
@@ -69,6 +71,17 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user, claims }) => 
     return Math.max(0, m * n + b);
   }, [spendData]);
 
+  // 4. Escalated Claims (> 48h)
+  const escalatedClaims = useMemo(() => {
+    const now = new Date().getTime();
+    return claims.filter(c => {
+      if (c.status === ClaimStatus.PAID || c.status === ClaimStatus.REJECTED) return false;
+      const submissionDate = new Date(c.submissionDate).getTime();
+      const diffHours = (now - submissionDate) / (1000 * 3600);
+      return diffHours > 48;
+    });
+  }, [claims]);
+
   return (
     <div className="space-y-10 animate-in fade-in duration-1000" dir="rtl">
       {/* Header */}
@@ -89,6 +102,61 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user, claims }) => 
 
       {/* Bento Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Escalation Alert - New Section */}
+        {escalatedClaims.length > 0 && (
+          <section className="lg:col-span-3">
+            <div className="bg-rose-50 border border-rose-100 rounded-[2.5rem] p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-rose-500/5 via-transparent to-transparent animate-pulse"></div>
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-200 animate-bounce">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-rose-900">تنبيه التصعيد الزمني</h3>
+                    <p className="text-xs font-bold text-rose-600">مطالبات تجاوزت 48 ساعة دون معالجة</p>
+                  </div>
+                </div>
+                <span className="px-4 py-2 bg-rose-600 text-white rounded-full text-xs font-black">
+                  {escalatedClaims.length} مطالبات متأخرة
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+                {escalatedClaims.map(claim => (
+                  <motion.div 
+                    key={claim.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white/80 backdrop-blur-sm p-5 rounded-3xl border border-rose-200 shadow-sm flex items-center justify-between group hover:bg-white transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 font-black text-xs">
+                        {claim.employeeName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-900">{claim.employeeName}</p>
+                        <p className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> 
+                          {Math.floor((new Date().getTime() - new Date(claim.submissionDate).getTime()) / (1000 * 3600))} ساعة متأخرة
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`px-2 py-1 rounded-lg text-[8px] font-black ${STATUS_UI[claim.status].color}`}>
+                        {STATUS_UI[claim.status].label}
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md animate-pulse">
+                        <Zap className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
         
         {/* Spend Tracker - Large Card */}
         <section className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">

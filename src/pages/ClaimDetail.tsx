@@ -27,6 +27,7 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
+  AlertTriangle,
   Calculator,
   Check,
   X,
@@ -88,10 +89,6 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
       const rect = imgRef.current.getBoundingClientRect();
       const parentRect = imgRef.current.parentElement?.getBoundingClientRect();
       if (parentRect) {
-        // We want the rect relative to the parent, but without the zoom scale applied to the coordinates
-        // because the bounding box div is INSIDE the zoomed container.
-        // Actually, if the bounding box is inside the zoomed container, it will scale with it.
-        // So we just need the image's rendered size relative to its parent.
         setImageRect({
           width: rect.width / zoomLevel,
           height: rect.height / zoomLevel,
@@ -105,7 +102,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
   useEffect(() => {
     window.addEventListener('resize', updateImageRect);
     return () => window.removeEventListener('resize', updateImageRect);
-  }, []);
+  }, [zoomLevel]);
 
   useEffect(() => {
     // Reset image rect when invoice changes
@@ -159,6 +156,23 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
 
     return flags;
   }, [claim, activeInvoice, allClaims]);
+
+  // Medical Conflict Alert
+  const conflictAlerts = useMemo(() => {
+    const alerts: string[] = [];
+    if (!isDoctor || !activeInvoice) return alerts;
+
+    const diagnosis = (activeInvoice.medicalNotes || '').toLowerCase();
+    const chronicDiseases = user.healthProfile?.chronicDiseases || [];
+
+    chronicDiseases.forEach(disease => {
+      if (diagnosis.includes(disease.toLowerCase())) {
+        alerts.push(`تنبيه تعارض: التشخيص يطابق حالة مزمنة مسجلة مسبقاً (${disease})`);
+      }
+    });
+
+    return alerts;
+  }, [isDoctor, activeInvoice, user.healthProfile]);
 
   const downloadSummaryPDF = () => {
     const doc = new jsPDF({
@@ -539,10 +553,28 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
                    onClick={() => setIsLightboxOpen(true)}
                  />
                  {isAuditor && renderBoundingBox()}
+
+                 {/* Digital Tamper-proof Seal */}
+                 {claim.status === ClaimStatus.PAID && (
+                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 overflow-hidden">
+                     <motion.div 
+                       initial={{ scale: 2, opacity: 0, rotate: -45 }}
+                       animate={{ scale: 1, opacity: 0.15, rotate: -25 }}
+                       className="border-[20px] border-emerald-600 px-20 py-10 rounded-full flex flex-col items-center justify-center"
+                     >
+                       <span className="text-8xl font-black text-emerald-600 whitespace-nowrap">LITC - FINALIZED</span>
+                       <span className="text-4xl font-black text-emerald-600 mt-4">تم الصرف والاعتماد</span>
+                       <div className="mt-6 flex items-center gap-4">
+                         <ShieldCheck className="w-16 h-16 text-emerald-600" />
+                         <span className="text-2xl font-black text-emerald-600">SECURE AI v2.0</span>
+                       </div>
+                     </motion.div>
+                   </div>
+                 )}
               </div>
               
               {/* AI Fraud Alert Badge */}
-              {isAuditor && fraudFlags.length > 0 && (
+              {isAuditor && (fraudFlags.length > 0 || conflictAlerts.length > 0) && (
                 <motion.div 
                   initial={{ x: 100, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
@@ -552,12 +584,17 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
                     <ShieldAlert className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">AI Fraud Detection</p>
-                    <p className="text-sm font-black">تحذير: مخاطر عالية مكتشفة</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">AI Risk Analysis</p>
+                    <p className="text-sm font-black">تحذير: مخاطر مكتشفة</p>
                     <div className="mt-2 space-y-1">
                       {fraudFlags.map((flag, i) => (
-                        <p key={i} className="text-[9px] font-bold text-rose-100 flex items-center gap-1">
+                        <p key={`fraud-${i}`} className="text-[9px] font-bold text-rose-100 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" /> {flag}
+                        </p>
+                      ))}
+                      {conflictAlerts.map((alert, i) => (
+                        <p key={`conflict-${i}`} className="text-[9px] font-bold text-amber-100 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> {alert}
                         </p>
                       ))}
                     </div>
