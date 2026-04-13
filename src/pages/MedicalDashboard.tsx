@@ -26,7 +26,7 @@ const MedicalDashboard: React.FC<MedicalDashboardProps> = ({ user, claims, onSel
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter for claims pending medical review
-  const pendingClaims = claims.filter(c => c.status === ClaimStatus.PAPER_RECEIVED);
+  const pendingClaims = claims.filter(c => c.status === ClaimStatus.PENDING_MEDICAL);
   const urgentClaims = pendingClaims.filter(c => c.totalAmount > 5000);
   
   const filteredClaims = pendingClaims.filter(c => 

@@ -38,14 +38,14 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   
   // Pool of claims waiting for paper receipt
-  const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.WAITING_FOR_PAPER);
+  const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.PENDING_PHYSICAL);
   // Claims assigned to this receptionist
-  const myTasks = claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.WAITING_FOR_PAPER);
+  const myTasks = claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.PENDING_PHYSICAL);
   // Completed today
   const completedToday = claims.filter(c => 
     c.assignedToId === user.id && 
-    c.status !== ClaimStatus.WAITING_FOR_PAPER &&
-    c.auditTrail.some(a => a.action.includes(ClaimStatus.PAPER_RECEIVED) && a.timestamp.includes(new Date().toLocaleDateString('ar-LY')))
+    c.status !== ClaimStatus.PENDING_PHYSICAL &&
+    c.auditTrail.some(a => a.action.includes(ClaimStatus.PENDING_MEDICAL) && a.timestamp.includes(new Date().toLocaleDateString('ar-LY')))
   ).length;
 
   const filteredPool = poolClaims.filter(c => 
@@ -59,7 +59,7 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
     
     const timestamp = new Date().toISOString();
     await onUpdateStatus(
-      ClaimStatus.PAPER_RECEIVED, 
+      ClaimStatus.PENDING_MEDICAL, 
       'تم استلام الأصول الورقية ومطابقتها بنجاح',
       { paperReceivedAt: timestamp }
     );

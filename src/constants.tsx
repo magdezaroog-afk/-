@@ -11,23 +11,24 @@ import { UserRole, ClaimStatus } from './types';
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.EMPLOYEE]: 'موظف',
-  [UserRole.RECEPTIONIST]: 'مستقبل بيانات',
+  [UserRole.RECEPTIONIST]: 'موظف استقبال',
   [UserRole.DOCTOR]: 'طبيب مراجع',
   [UserRole.DATA_ENTRY]: 'مدخل بيانات مالي',
   [UserRole.HEAD_OF_UNIT]: 'رئيس الوحدة',
-  [UserRole.ADMIN]: 'مسؤول النظام',
+  [UserRole.INTERNAL_AUDITOR]: 'مدقق داخلي',
+  [UserRole.ADMIN]: 'مدير النظام',
+  [UserRole.SYSTEM_ADMIN]: 'مسؤول النظام (⚙️)',
 };
 
 export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  [ClaimStatus.WAITING_FOR_PAPER]: { label: 'بانتظار استلام الأوراق', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
-  [ClaimStatus.PAPER_RECEIVED]: { label: 'تم استلام الأوراق', color: 'text-blue-600 bg-blue-50', icon: <FileText className="w-4 h-4" /> },
-  [ClaimStatus.MEDICALLY_APPROVED]: { label: 'معتمد طبياً', color: 'text-emerald-600 bg-emerald-50', icon: <Stethoscope className="w-4 h-4" /> },
-  [ClaimStatus.MEDICALLY_REJECTED]: { label: 'مرفوض طبياً', color: 'text-rose-600 bg-rose-50', icon: <XCircle className="w-4 h-4" /> },
-  [ClaimStatus.FINANCIALLY_PROCESSED]: { label: 'تمت المعالجة المالية', color: 'text-indigo-600 bg-indigo-50', icon: <Database className="w-4 h-4" /> },
-  [ClaimStatus.CHIEF_APPROVED]: { label: 'معتمد نهائياً', color: 'text-litcBlue bg-blue-50', icon: <ShieldCheck className="w-4 h-4" /> },
-  [ClaimStatus.PENDING_CLARIFICATION]: { label: 'بانتظار توضيح', color: 'text-amber-600 bg-amber-50', icon: <AlertCircle className="w-4 h-4" /> },
+  [ClaimStatus.DRAFT]: { label: 'مسودة', color: 'text-slate-600 bg-slate-50', icon: <FileText className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_PHYSICAL]: { label: 'بانتظار استلام الأوراق', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_MEDICAL]: { label: 'بانتظار المراجعة الطبية', color: 'text-blue-600 bg-blue-50', icon: <Stethoscope className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_FINANCIAL]: { label: 'بانتظار المعالجة المالية', color: 'text-indigo-600 bg-indigo-50', icon: <Database className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_APPROVAL]: { label: 'بانتظار اعتماد رئيس الوحدة', color: 'text-litcBlue bg-blue-50', icon: <ShieldCheck className="w-4 h-4" /> },
+  [ClaimStatus.PENDING_AUDIT]: { label: 'بانتظار التدقيق الداخلي', color: 'text-purple-600 bg-purple-50', icon: <SearchCheck className="w-4 h-4" /> },
+  [ClaimStatus.PAID]: { label: 'تم الصرف', color: 'text-emerald-600 bg-emerald-50', icon: <CreditCard className="w-4 h-4" /> },
   [ClaimStatus.REJECTED]: { label: 'مرفوض', color: 'text-red-600 bg-red-50', icon: <XCircle className="w-4 h-4" /> },
-  [ClaimStatus.PAID]: { label: 'تم الصرف', color: 'text-blue-600 bg-blue-50', icon: <CreditCard className="w-4 h-4" /> },
 };
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {
@@ -54,5 +55,12 @@ export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode;
   [UserRole.ADMIN]: [
     { label: 'المستخدمين', icon: <Users className="w-5 h-5" />, path: 'admin-dashboard' },
     { label: 'التقارير', icon: <BarChart3 className="w-5 h-5" />, path: 'admin-dashboard' },
+  ],
+  [UserRole.SYSTEM_ADMIN]: [
+    { label: 'إدارة النظام', icon: <Settings className="w-5 h-5" />, path: 'dashboard' },
+    { label: 'سجل العمليات', icon: <History className="w-5 h-5" />, path: 'dashboard' },
+  ],
+  [UserRole.INTERNAL_AUDITOR]: [
+    { label: 'التدقيق الداخلي', icon: <SearchCheck className="w-5 h-5" />, path: 'dashboard' },
   ],
 };

@@ -12,7 +12,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { jsPDF } from 'jspdf';
 import { performOCR } from '../services/geminiService';
-import { optimizeImage } from '../utils/imageUtils';
+import { optimizeImage, generateImageHash } from '../utils/imageUtils';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -76,21 +78,46 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
   const [submittedClaim, setSubmittedClaim] = useState<any | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isScanComplete, setIsScanComplete] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [comparisonInvoice, setComparisonInvoice] = useState<Partial<Invoice & { attachments: File[] }> | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
     setUploadProgress(5);
     setIsScanComplete(false);
+    setDuplicateError(null);
     
-    const processFile = (file: File): Promise<Partial<Invoice & { attachments: File[] }>> => {
+    const processFile = (file: File): Promise<Partial<Invoice & { attachments: File[] }> | null> => {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = async () => {
           try {
             setUploadProgress(15);
-            let base64 = (reader.result as string).split(',')[1];
-            base64 = await optimizeImage(base64, 1024, 0.7);
+            const rawBase64 = (reader.result as string).split(',')[1];
+            
+            // 1. Generate SHA-256 Hash
+            const hash = await generateImageHash(rawBase64);
+            
+            // 2. Check for Duplicates in Firestore (excluding rejected claims)
+            const claimsRef = collection(db, 'claims');
+            const q = query(claimsRef, where('status', '!=', ClaimStatus.REJECTED));
+            const querySnapshot = await getDocs(q);
+            
+            let isDuplicate = false;
+            querySnapshot.forEach(doc => {
+              const claim = doc.data() as any;
+              if (claim.invoices && claim.invoices.some((inv: any) => inv.imageHash === hash)) {
+                isDuplicate = true;
+              }
+            });
+
+            if (isDuplicate) {
+              setDuplicateError("هذه الفاتورة تم رفعها مسبقاً في النظام");
+              resolve(null);
+              return;
+            }
+
+            let base64 = await optimizeImage(rawBase64, 1024, 0.7);
             
             setUploadProgress(30);
             // Simulate some progress while calling OCR
@@ -108,11 +135,13 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
             const newInvoice: Partial<Invoice & { attachments: File[] }> = {
               id: `INV-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
               imageUrl: `data:image/jpeg;base64,${base64}`,
+              imageHash: hash,
               hospitalName: ocr.hospitalName || '',
               invoiceNumber: ocr.invoiceNumber || '',
               amount: ocr.totalAmount || 0,
               date: ocr.date || new Date().toISOString().split('T')[0],
               currency: (ocr.currency || currency) as any,
+              boundingBoxes: ocr.boundingBoxes,
               beneficiaryName: user.name,
               relationship: 'الموظف نفسه',
               attachments: [],
@@ -129,27 +158,34 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
 
     try {
       const results = await Promise.all(acceptedFiles.map(processFile));
-      setInvoices(prev => [...prev, ...results]);
-      setUploadProgress(100);
-      setIsScanComplete(true);
+      const validResults = results.filter(r => r !== null) as Partial<Invoice & { attachments: File[] }>[];
       
-      // Keep the success state visible for a moment
-      setTimeout(() => {
-        setIsProcessing(false);
-        setIsScanComplete(false);
-        setUploadProgress(0);
+      if (validResults.length > 0) {
+        setInvoices(prev => [...prev, ...validResults]);
+        setUploadProgress(100);
+        setIsScanComplete(true);
         
-        // Automatically open the first uploaded invoice in comparison mode
-        if (results.length > 0) {
-          setComparisonInvoice(results[0]);
-        }
-      }, 1500);
+        // Keep the success state visible for a moment
+        setTimeout(() => {
+          setIsProcessing(false);
+          setIsScanComplete(false);
+          setUploadProgress(0);
+          
+          // Automatically open the first uploaded invoice in comparison mode
+          if (validResults.length > 0) {
+            setComparisonInvoice(validResults[0]);
+          }
+        }, 1500);
+      } else {
+        setIsProcessing(false);
+        setUploadProgress(0);
+      }
     } catch (err) {
       console.error("Error processing files:", err);
       setIsProcessing(false);
       setUploadProgress(0);
     }
-  }, [currency]);
+  }, [currency, user.name]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -194,12 +230,12 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       employeeId: user.id,
       employeeName: user.name,
       submissionDate: new Date().toLocaleString('ar-LY'),
-      status: ClaimStatus.WAITING_FOR_PAPER,
+      status: ClaimStatus.PENDING_PHYSICAL,
       invoices: invoices.map(inv => {
         const { attachments, ...rest } = inv;
         return { 
           ...rest, 
-          status: ClaimStatus.WAITING_FOR_PAPER, 
+          status: ClaimStatus.PENDING_PHYSICAL, 
           archiveBoxId: '',
           attachmentUrls: attachments ? attachments.map(f => URL.createObjectURL(f)) : []
         };
@@ -508,6 +544,17 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
             <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-2">اسحب وأفلت الفواتير هنا</h3>
             <p className="text-xs sm:text-sm font-bold text-slate-400 max-w-xs px-4">سيقوم الذكاء الاصطناعي باستخراج البيانات آلياً من صور الفواتير.</p>
             
+            {duplicateError && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-500 text-xs font-black"
+              >
+                <AlertCircle className="w-4 h-4" />
+                {duplicateError}
+              </motion.div>
+            )}
+            
           {isProcessing && (
             <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xl rounded-[2.5rem] sm:rounded-[3rem] flex flex-col items-center justify-center p-6 sm:p-12 overflow-hidden">
               <div className="relative w-24 h-24 sm:w-40 sm:h-40 mb-6 sm:mb-10">
@@ -556,7 +603,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
                   className="text-xl sm:text-3xl font-black text-litcBlue"
                   animate={isScanComplete ? { scale: [1, 1.05, 1] } : {}}
                 >
-                  {isScanComplete ? 'تم التحليل بنجاح!' : 'معالجة ذكية فائقة'}
+                  {isScanComplete ? 'تم التحليل بنجاح!' : 'جاري استخراج البيانات ذكياً...'}
                 </motion.h3>
                 <p className="text-xs sm:text-base font-bold text-slate-500 leading-relaxed">
                   {isScanComplete 

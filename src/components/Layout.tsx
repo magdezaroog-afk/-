@@ -37,6 +37,7 @@ interface LayoutProps {
   onRoleChange: (role: UserRole) => void;
   isProfessionalView: boolean;
   setIsProfessionalView: (v: boolean) => void;
+  onSwitchView?: (role: UserRole) => void;
   children: React.ReactNode;
 }
 
@@ -48,10 +49,12 @@ const Layout: React.FC<LayoutProps> = ({
   onRoleChange,
   isProfessionalView,
   setIsProfessionalView,
+  onSwitchView,
   children 
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
+  const [showViewSwitcher, setShowViewSwitcher] = useState(false);
 
   const navItems = [
     { label: 'الرئيسية', path: 'dashboard', icon: <Home className="w-4 h-4" /> },
@@ -70,6 +73,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   const isEmployee = user.role === UserRole.EMPLOYEE;
   const hasProfessionalRole = user.role !== UserRole.EMPLOYEE;
+  const isSystemAdmin = user.role === UserRole.SYSTEM_ADMIN;
 
   // Sidebar should be visible if:
   // 1. User is in professional view (for dual roles)
@@ -83,9 +87,11 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-cairo flex flex-col" dir="rtl">
+    <div className={`min-h-screen font-cairo flex flex-col ${isSystemAdmin ? 'bg-slate-950' : 'bg-slate-50'}`} dir="rtl">
       {/* Top Header */}
-      <header className="h-24 bg-white/70 backdrop-blur-xl border-b border-white/20 flex items-center justify-between px-6 sm:px-12 sticky top-0 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.02)]">
+      <header className={`h-24 backdrop-blur-xl border-b flex items-center justify-between px-6 sm:px-12 sticky top-0 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.02)] ${
+        isSystemAdmin ? 'bg-slate-900/70 border-slate-800' : 'bg-white/70 border-white/20'
+      }`}>
         <div className="flex items-center gap-12">
           <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setActivePath('dashboard')}>
             <div className="w-12 h-12 bg-gradient-to-br from-litcBlue to-litcDark rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-[0_10px_25px_rgba(0,92,132,0.3)] group-hover:scale-110 transition-transform">
@@ -117,20 +123,61 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
 
         <div className="flex items-center gap-4 sm:gap-8">
-          {/* Professional View Toggle (For Dual Roles) */}
-          {hasProfessionalRole && (
-            <button 
-              onClick={() => setIsProfessionalView(!isProfessionalView)}
-              className={`
-                hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all duration-500
-                ${isProfessionalView 
-                  ? 'bg-litcOrange text-white shadow-lg shadow-litcOrange/20' 
-                  : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50 shadow-sm'}
-              `}
-            >
-              <Shield className="w-4 h-4" />
-              {isProfessionalView ? 'الوضع المهني نشط' : 'التبديل للوضع المهني'}
-            </button>
+          {/* Work Mode Toggle (For Multiple Roles) */}
+          {user.roles && user.roles.length > 1 && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200">
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isProfessionalView ? 'text-slate-400' : 'text-litcBlue'}`}>شخصي</span>
+                <button 
+                  onClick={() => setIsProfessionalView(!isProfessionalView)}
+                  className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isProfessionalView ? 'bg-litcBlue' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 ${isProfessionalView ? 'right-1' : 'right-6'}`}></div>
+                </button>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isProfessionalView ? 'text-litcOrange' : 'text-slate-400'}`}>عمل</span>
+              </div>
+
+              {/* Workspace Dropdown (Only when Work Mode is ON) */}
+              {isProfessionalView && (
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowViewSwitcher(!showViewSwitcher)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all duration-500
+                      ${isSystemAdmin ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-white border border-slate-100 text-slate-500 shadow-sm'}
+                      hover:scale-105
+                    `}
+                  >
+                    <LayoutDashboard className="w-4 h-4 text-litcBlue" />
+                    {ROLE_LABELS[user.role]}
+                  </button>
+
+                  {showViewSwitcher && (
+                    <div className={`absolute top-full right-0 mt-3 w-56 rounded-2xl shadow-xl border p-2 z-50 animate-in fade-in slide-in-from-top-2 ${
+                      isSystemAdmin ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+                    }`}>
+                      {user.roles.filter(r => r !== UserRole.EMPLOYEE).map((role) => (
+                        <button
+                          key={role}
+                          onClick={() => {
+                            onSwitchView?.(role);
+                            setShowViewSwitcher(false);
+                          }}
+                          className={`
+                            w-full text-right px-4 py-3 rounded-xl text-[10px] font-black transition-all
+                            ${user.role === role 
+                              ? 'bg-litcBlue/10 text-litcBlue' 
+                              : isSystemAdmin ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}
+                          `}
+                        >
+                          {ROLE_LABELS[role]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="hidden sm:flex items-center gap-3">
@@ -303,7 +350,7 @@ const Layout: React.FC<LayoutProps> = ({
         )}
 
         {/* Main Scrollable Content */}
-        <main className="flex-1 overflow-y-auto bg-slate-50/50">
+        <main className={`flex-1 overflow-y-auto ${isSystemAdmin ? 'bg-slate-950' : 'bg-slate-50/50'}`}>
           <div className={`${!showSidebar ? 'max-w-6xl' : 'max-w-[1600px]'} mx-auto px-4 py-8 w-full`}>
             {children}
           </div>

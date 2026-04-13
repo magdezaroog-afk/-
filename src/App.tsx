@@ -16,6 +16,7 @@ import DataEntryDashboard from './pages/DataEntryDashboard';
 import ChronicEnrollment from './pages/ChronicEnrollment';
 import Archive from './pages/Archive';
 import Settings from './pages/Settings';
+import SystemAdminDashboard from './pages/SystemAdminDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
@@ -52,7 +53,7 @@ import {
   updateProfile,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy, getDocFromServer } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy, getDocFromServer, where, getDocs } from 'firebase/firestore';
 
 const INITIAL_CLAIMS: Claim[] = [];
 
@@ -150,7 +151,9 @@ const App: React.FC = () => {
   const [department, setDepartment] = useState('');
   const [JobTitle, setJobTitle] = useState('');
   const [isProfessionalView, setIsProfessionalView] = useState(false);
+  const [isWorkModeActive, setIsWorkModeActive] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
   const [generatedCode, setGeneratedCode] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +195,8 @@ const App: React.FC = () => {
               email: firebaseUser.email || '',
               name: firebaseUser.displayName || 'مستخدم جديد',
               role: UserRole.EMPLOYEE, // Default role
+              roles: [UserRole.EMPLOYEE],
+              isActive: true,
               healthProfile: {
                 bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
               },
@@ -213,6 +218,37 @@ const App: React.FC = () => {
       
       setIsLoggingIn(false);
     });
+
+    // Setup test users
+    const setupTestUsers = async () => {
+      const testUsers = [
+        { id: 'T-ADMIN', email: 'admin@litc.ly', name: 'أحمد المسؤول', role: UserRole.SYSTEM_ADMIN, roles: [UserRole.EMPLOYEE, UserRole.SYSTEM_ADMIN] },
+        { id: 'T-1', email: 'mohamed@litc.ly', name: 'محمد الورفلي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-2', email: 'fatima@litc.ly', name: 'فاطمة المجبري', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-3', email: 'ali@litc.ly', name: 'علي الترهوني', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-4', email: 'maryam@litc.ly', name: 'مريم القماطي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-5', email: 'khaled@litc.ly', name: 'خالد الزوي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-6', email: 'layla@litc.ly', name: 'ليلى الفيتوري', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-7', email: 'omar@litc.ly', name: 'عمر المصراتي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-8', email: 'nour@litc.ly', name: 'نور الهدى بن علي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-9', email: 'yassin@litc.ly', name: 'ياسين القذافي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-10', email: 'sara@litc.ly', name: 'سارة العبيدي', role: UserRole.EMPLOYEE, roles: [UserRole.EMPLOYEE] },
+        { id: 'T-MULTI', email: 'multi@litc.ly', name: 'خالد متعدد المهام', role: UserRole.RECEPTIONIST, roles: [UserRole.EMPLOYEE, UserRole.RECEPTIONIST, UserRole.DATA_ENTRY, UserRole.DOCTOR] },
+      ];
+
+      for (const u of testUsers) {
+        const userRef = doc(db, 'users', u.id);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, sanitizeForFirestore({
+            ...u,
+            isActive: true,
+            healthProfile: { bloodType: 'O+', height: 175, weight: 70, age: 30, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 2, systolicBP: 120, diastolicBP: 80, hba1c: 5.4 }
+          }));
+        }
+      }
+    };
+    setupTestUsers();
 
     return () => unsubscribe();
   }, []);
@@ -247,9 +283,25 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    if (!user || user.role !== UserRole.SYSTEM_ADMIN) return;
+    
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => doc.data() as User);
+      setUsers(usersData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const handleRoleChange = async (newRole: UserRole) => {
     if (!user) return;
-    const updatedUser = { ...user, role: newRole };
+    const updatedUser = { 
+      ...user, 
+      role: newRole,
+      roles: user.roles?.includes(newRole) ? user.roles : [...(user.roles || []), newRole]
+    };
     try {
       await setDoc(doc(db, 'users', user.id), sanitizeForFirestore(updatedUser));
       setUser(updatedUser);
@@ -284,10 +336,73 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      await setDoc(doc(db, 'users', updatedUser.id), sanitizeForFirestore(updatedUser));
+      // If updating current user, update state
+      if (user && updatedUser.id === user.id) {
+        setUser(updatedUser);
+      }
+    } catch (err: any) {
+      setError("فشل تحديث بيانات المستخدم: " + err.message);
+    }
+  };
+
+  const handleLogAction = async (action: string, details: string) => {
+    if (!user) return;
+    const log = {
+      id: `LOG-${Date.now()}`,
+      userId: user.id,
+      userName: user.name,
+      action,
+      details,
+      timestamp: new Date().toLocaleString('ar-LY')
+    };
+    try {
+      await setDoc(doc(db, 'system_logs', log.id), sanitizeForFirestore(log));
+    } catch (err) {
+      console.error("Error logging action:", err);
+    }
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoggingIn(true);
+
+    // Test accounts bypass logic
+    const testEmails = [
+      'admin@litc.ly', 'receiver@litc.ly', 'doctor@litc.ly', 
+      'entry@litc.ly', 'head@litc.ly', 'multi@litc.ly', 
+      'mohamed@litc.ly', 'fatima@litc.ly', 'ali@litc.ly', 'maryam@litc.ly',
+      'khaled@litc.ly', 'layla@litc.ly', 'omar@litc.ly', 'nour@litc.ly',
+      'yassin@litc.ly', 'sara@litc.ly'
+    ];
+
+    if (testEmails.includes(email) && password === '123456') {
+      try {
+        // Sign in anonymously to get a valid session
+        const cred = await signInAnonymously(auth);
+        
+        // Find the test user profile by email
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const testUserData = querySnapshot.docs[0].data() as User;
+          // Map the test profile to the current anonymous UID
+          const updatedUser = { ...testUserData, id: cred.user.uid };
+          await setDoc(doc(db, 'users', cred.user.uid), sanitizeForFirestore(updatedUser));
+          setUser(updatedUser);
+          setActivePath('dashboard');
+          setIsLoggingIn(false);
+          return;
+        }
+      } catch (err: any) {
+        console.error("Test bypass error:", err);
+      }
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setActivePath('dashboard');
@@ -353,6 +468,8 @@ const App: React.FC = () => {
         email: email,
         name: name,
         role: UserRole.EMPLOYEE,
+        roles: [UserRole.EMPLOYEE],
+        isActive: true,
         healthProfile: {
           bloodType: '',
           height: 0,
@@ -447,10 +564,13 @@ const App: React.FC = () => {
         id: specificUser?.id || firebaseUser.uid,
         email: specificUser?.email || firebaseUser.email || `${role.toLowerCase()}@litc.ly`,
         role: role,
+        roles: [role],
+        isActive: true,
         name: specificUser?.name || firebaseUser.displayName || 
               (role === UserRole.DOCTOR ? 'د. أحمد علي' : 
                role === UserRole.RECEPTIONIST ? 'سارة علي' :
-               role === UserRole.HEAD_OF_UNIT ? 'أ. عمر' : 'مسؤول النظام'),
+               role === UserRole.HEAD_OF_UNIT ? 'أ. عمر' : 
+               role === UserRole.SYSTEM_ADMIN ? 'مسؤول النظام (⚙️)' : 'مسؤول النظام'),
         healthProfile: user?.healthProfile || {
           bloodType: '', height: 0, weight: 0, age: 0, chronicDiseases: [], pathway: 'healthy', dailyWaterIntake: 0, systolicBP: 0, diastolicBP: 0, hba1c: 0
         }
@@ -504,6 +624,14 @@ const App: React.FC = () => {
       ...claimToUpdate,
       ...extraData,
       status: newStatus,
+      history: [
+        ...(claimToUpdate.history || []),
+        {
+          status: newStatus,
+          timestamp: new Date().toISOString(),
+          performedByRole: user.role
+        }
+      ],
       auditTrail: [
         ...claimToUpdate.auditTrail,
         {
@@ -537,7 +665,7 @@ const App: React.FC = () => {
           ...inv, 
           assignedToId: staffId, 
           assignedToName: staffMember?.name || 'موظف غير معروف',
-          status: ClaimStatus.MEDICALLY_APPROVED
+          status: ClaimStatus.PENDING_FINANCIAL
         };
       }
       return inv;
@@ -548,7 +676,7 @@ const App: React.FC = () => {
     const updatedClaim = {
       ...claim,
       invoices: updatedInvoices,
-      status: allAssigned ? ClaimStatus.MEDICALLY_APPROVED : claim.status,
+      status: allAssigned ? ClaimStatus.PENDING_FINANCIAL : claim.status,
       auditTrail: [
         ...claim.auditTrail,
         {
@@ -569,13 +697,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleInvoiceStatusUpdate = async (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => {
+  const handleInvoiceStatusUpdate = async (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string, extraData?: any) => {
     const claim = claims.find(c => c.id === claimId);
     if (!claim || !user) return;
 
     const updatedClaim = {
       ...claim,
-      invoices: claim.invoices.map(inv => inv.id === invoiceId ? { ...inv, status: newStatus } : inv),
+      invoices: claim.invoices.map(inv => inv.id === invoiceId ? { ...inv, ...extraData, status: newStatus } : inv),
       auditTrail: [...claim.auditTrail, {
          id: Math.random().toString(),
          userId: user.id,
@@ -600,15 +728,15 @@ const App: React.FC = () => {
     
     const mergedInvoices = claimToUpdate.invoices.map(inv => {
       const updated = updatedInvoices.find(u => u.id === inv.id);
-      return updated ? { ...updated, status: ClaimStatus.FINANCIALLY_PROCESSED } : inv;
+      return updated ? { ...updated, status: ClaimStatus.PENDING_APPROVAL } : inv;
     });
     
-    const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.FINANCIALLY_PROCESSED);
+    const allBackToHead = mergedInvoices.every(i => i.status === ClaimStatus.PENDING_APPROVAL);
     
     const updatedClaim = {
       ...claimToUpdate,
       invoices: mergedInvoices,
-      status: allBackToHead ? ClaimStatus.FINANCIALLY_PROCESSED : claimToUpdate.status,
+      status: allBackToHead ? ClaimStatus.PENDING_APPROVAL : claimToUpdate.status,
       auditTrail: [...claimToUpdate.auditTrail, {
         id: Math.random().toString(),
         userId: user.id,
@@ -672,52 +800,57 @@ const App: React.FC = () => {
             <div className="space-y-6">
               {loginStep === 'initial' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <button onClick={() => setLoginStep('email-login')} className="w-full group p-6 bg-slate-50 hover:bg-litcBlue rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
-                      <div className="flex items-center gap-4 relative z-10">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-litcBlue transition-all group-hover:scale-110">
-                           <Mail className="w-6 h-6" />
-                        </div>
-                        <div className="text-right">
-                           <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">تسجيل الدخول</p>
-                           <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Email Login</p>
-                        </div>
+                  <form onSubmit={handleEmailLogin} className="space-y-5">
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                        <input 
+                          type="email" 
+                          placeholder="البريد الإلكتروني" 
+                          className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                        />
                       </div>
-                      <ChevronRight className="text-litcOrange group-hover:text-white transition-colors group-hover:translate-x-2 w-5 h-5" />
-                    </button>
-
-                    <button onClick={() => setLoginStep('email-signup')} className="w-full group p-6 bg-white hover:bg-litcOrange rounded-[2rem] transition-all duration-500 flex items-center justify-between border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1">
-                      <div className="flex items-center gap-4 relative z-10">
-                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-litcOrange transition-all group-hover:scale-110 group-hover:bg-white/20 group-hover:text-white">
-                           <UserCircle className="w-6 h-6" />
-                        </div>
-                        <div className="text-right">
-                           <p className="font-black text-lg text-slate-900 group-hover:text-white transition-colors">إنشاء حساب جديد</p>
-                           <p className="text-[9px] font-bold text-slate-400 group-hover:text-white/60 uppercase tracking-widest">Create New Account</p>
-                        </div>
+                      <div className="relative">
+                        <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                        <input 
+                          type="password" 
+                          placeholder="كلمة المرور" 
+                          className="w-full p-4 pr-12 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-litcBlue outline-none font-bold text-sm"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
                       </div>
-                      <ChevronRight className="text-litcBlue group-hover:text-white transition-colors group-hover:translate-x-2 w-5 h-5" />
-                    </button>
-                  </div>
+                    </div>
+                    {error && <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5"/> {error}</div>}
+                    <button type="submit" className="w-full py-4 bg-litcBlue text-white font-black rounded-2xl shadow-lg shadow-litcBlue/20 hover:-translate-y-1 transition-all">دخول</button>
+                  </form>
 
                   <div className="relative py-4">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-                    <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black text-slate-400"><span className="bg-white px-4">أو عبر</span></div>
+                    <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black text-slate-400"><span className="bg-white px-4">أو</span></div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <button onClick={handleGoogleLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Chrome className="text-red-500 group-hover:scale-110 transition-transform w-6 h-6" />
+                  <div className="grid grid-cols-1 gap-4">
+                    <button onClick={() => setLoginStep('email-signup')} className="w-full group p-4 bg-white hover:bg-slate-50 rounded-2xl transition-all duration-500 flex items-center justify-center border border-slate-100 shadow-sm">
+                      <p className="font-black text-xs text-slate-600">إنشاء حساب جديد</p>
                     </button>
-                    <button onClick={handleMicrosoftLogin} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Database className="text-litcBlue group-hover:scale-110 transition-transform w-6 h-6" />
-                    </button>
-                    <button onClick={() => setLoginStep('phone-login')} className="p-5 bg-white border border-slate-100 rounded-3xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm hover:shadow-md">
-                      <Phone className="text-green-500 group-hover:scale-110 transition-transform w-6 h-6" />
-                    </button>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <button onClick={handleGoogleLogin} className="p-4 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm">
+                        <Chrome className="text-red-500 w-5 h-5" />
+                      </button>
+                      <button onClick={handleMicrosoftLogin} className="p-4 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm">
+                        <Database className="text-litcBlue w-5 h-5" />
+                      </button>
+                      <button onClick={() => setLoginStep('phone-login')} className="p-4 bg-white border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all flex items-center justify-center group shadow-sm">
+                        <Phone className="text-green-500 w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-
-                  <button onClick={() => setLoginStep('official')} className="w-full mt-6 py-4 text-slate-400 font-black text-xs hover:text-litcBlue transition-colors uppercase tracking-[0.4em] border-t border-slate-50">الدخول كمسؤول نظام</button>
                 </div>
               )}
 
@@ -870,7 +1003,8 @@ const App: React.FC = () => {
                       { role: UserRole.RECEPTIONIST, label: 'مستقبل بيانات', icon: <FileText className="w-6 h-6"/>, color: 'hover:bg-amber-50 hover:text-amber-600 hover:border-amber-600' },
                       { role: UserRole.DOCTOR, label: 'طبيب مراجع', icon: <Stethoscope className="w-6 h-6"/>, color: 'hover:bg-blue-50 hover:text-blue-600 hover:border-blue-600' },
                       { role: UserRole.DATA_ENTRY, label: 'إدخال فني', icon: <Database className="w-6 h-6"/>, color: 'hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-600', action: () => setLoginStep('data-entry-select') },
-                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' }
+                      { role: UserRole.HEAD_OF_UNIT, label: 'رئيس الوحدة', icon: <ShieldCheck className="w-6 h-6"/>, color: 'hover:bg-litcBlue/5 hover:text-litcBlue hover:border-litcBlue' },
+                      { role: UserRole.SYSTEM_ADMIN, label: 'مسؤول النظام', icon: <SettingsIcon className="w-6 h-6"/>, color: 'hover:bg-slate-900 hover:text-white hover:border-slate-800' }
                     ].map(o => (
                         <button 
                           key={o.role} 
@@ -970,7 +1104,7 @@ const App: React.FC = () => {
               employeeId: user.id,
               employeeName: user.name,
               submissionDate: new Date().toISOString().split('T')[0],
-              status: ClaimStatus.WAITING_FOR_PAPER,
+              status: ClaimStatus.PENDING_PHYSICAL,
               totalAmount: data.totalAmount || 0,
               referenceNumber: data.id || `REF-${Date.now().toString().slice(-6)}`,
               invoiceCount: data.invoices.length,
@@ -979,10 +1113,15 @@ const App: React.FC = () => {
               department: user.department || '',
               invoices: data.invoices.map((inv: any) => ({ 
                 ...inv, 
-                status: ClaimStatus.WAITING_FOR_PAPER,
+                status: ClaimStatus.PENDING_PHYSICAL,
                 id: inv.id || `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
               })),
-              auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة الطبية', timestamp: new Date().toLocaleString() }]
+              auditTrail: data.auditTrail || [{ id: 'L-0', userId: user.id, userName: user.name, action: 'تم إنشاء المطالبة وإرسالها للمراجعة', timestamp: new Date().toLocaleString() }],
+              history: [{
+                status: ClaimStatus.PENDING_PHYSICAL,
+                timestamp: new Date().toISOString(),
+                performedByRole: user.role
+              }]
             };
             
             try {
@@ -999,7 +1138,8 @@ const App: React.FC = () => {
             claims={claims.filter(c => c.employeeId === user.id)} 
             onSelectClaim={setSelectedClaim} 
             onNavigate={setActivePath} 
-            isProfessionalView={false}
+            onUpdateStatus={handleUpdateClaimStatus}
+            isProfessionalView={isWorkModeActive}
           />;
       }
     }
@@ -1023,7 +1163,7 @@ const App: React.FC = () => {
               const claim = claims.find(c => c.id === claimId);
               if (claim) {
                 setSelectedClaim(claim);
-                handleUpdateClaimStatus(ClaimStatus.WAITING_FOR_PAPER, 'تم سحب المعاملة للاستلام الورقي', { assignedToId: user.id });
+                handleUpdateClaimStatus(ClaimStatus.PENDING_PHYSICAL, 'تم سحب المعاملة للاستلام الورقي', { assignedToId: user.id });
               }
             }}
             onUpdateStatus={handleUpdateClaimStatus}
@@ -1031,8 +1171,16 @@ const App: React.FC = () => {
         }
         if (user.role === UserRole.DATA_ENTRY) {
           return <DataEntryDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
-            handleUpdateClaimStatus(ClaimStatus.MEDICALLY_APPROVED, 'تم سحب المعاملة للفهرسة المالية');
+            handleUpdateClaimStatus(ClaimStatus.PENDING_FINANCIAL, 'تم سحب المعاملة للفهرسة المالية');
           }} />;
+        }
+        if (user.role === UserRole.SYSTEM_ADMIN) {
+          return <SystemAdminDashboard 
+            user={user} 
+            users={users} 
+            onUpdateUser={handleUpdateUser} 
+            onLogAction={handleLogAction} 
+          />;
         }
         // Fallback for other professional roles
         return <Dashboard 
@@ -1041,6 +1189,7 @@ const App: React.FC = () => {
           onSelectClaim={setSelectedClaim} 
           onNavigate={setActivePath} 
           onAssign={handleInvoiceAssign} 
+          onUpdateStatus={handleUpdateClaimStatus}
           isProfessionalView={true}
         />;
       case 'admin-claims':
@@ -1057,7 +1206,7 @@ const App: React.FC = () => {
           claims={claims} 
           onSelectClaim={setSelectedClaim} 
           onNavigate={setActivePath} 
-          isProfessionalView={true}
+          isProfessionalView={isWorkModeActive}
         />;
     }
   };
@@ -1069,10 +1218,26 @@ const App: React.FC = () => {
       activePath={activePath} 
       setActivePath={setActivePath}
       onRoleChange={handleRoleChange}
-      isProfessionalView={isProfessionalView}
-      setIsProfessionalView={setIsProfessionalView}
+      isProfessionalView={isWorkModeActive}
+      setIsProfessionalView={setIsWorkModeActive}
+      onSwitchView={(role) => {
+        if (user) {
+          setUser({ ...user, role });
+          setActivePath('dashboard');
+        }
+      }}
     >
-      {renderContent()}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={isWorkModeActive ? 'work' : 'personal'}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {renderContent()}
+        </motion.div>
+      </AnimatePresence>
       
       {/* Floating AI Assistant Bubble */}
       {user && (

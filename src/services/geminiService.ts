@@ -183,7 +183,7 @@ export const performOCR = async (base64Image: string) => {
     contents: [
       {
         parts: [
-          { text: "استخرج البيانات التالية من الفاتورة الطبية: اسم المستشفى/العيادة، رقم الفاتورة، المبلغ الإجمالي، التاريخ، والعملة." },
+          { text: "استخرج البيانات التالية من الفاتورة الطبية: اسم المستشفى/العيادة، رقم الفاتورة، المبلغ الإجمالي، التاريخ، والعملة. لكل حقل، قم أيضاً بتوفير إحداثيات صندوق الإحاطة (Bounding Box) بتنسيق [ymin, xmin, ymax, xmax] بقيم تتراوح من 0 إلى 1000." },
           { inlineData: { mimeType: "image/jpeg", data: base64Image } }
         ]
       }
@@ -197,9 +197,19 @@ export const performOCR = async (base64Image: string) => {
           invoiceNumber: { type: Type.STRING },
           totalAmount: { type: Type.NUMBER },
           date: { type: Type.STRING },
-          currency: { type: Type.STRING }
+          currency: { type: Type.STRING },
+          boundingBoxes: {
+            type: Type.OBJECT,
+            properties: {
+              hospitalName: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+              invoiceNumber: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+              totalAmount: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+              date: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+              currency: { type: Type.ARRAY, items: { type: Type.NUMBER } }
+            }
+          }
         },
-        required: ["hospitalName", "totalAmount"]
+        required: ["hospitalName", "totalAmount", "boundingBoxes"]
       }
     }
   });

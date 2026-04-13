@@ -19,7 +19,7 @@ interface DataEntryProps {
 }
 
 const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBack }) => {
-  const isReadOnly = claim.status === ClaimStatus.FINANCIALLY_PROCESSED || claim.status === ClaimStatus.CHIEF_APPROVED || claim.status === ClaimStatus.PAID;
+  const isReadOnly = claim.status === ClaimStatus.PENDING_APPROVAL || claim.status === ClaimStatus.PENDING_AUDIT || claim.status === ClaimStatus.PAID;
   const isUnitHead = user.role === UserRole.HEAD_OF_UNIT;
 
   const assignedInvoices = useMemo(() => 
@@ -105,7 +105,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
         inv.id !== currentInv.id && 
         inv.isGlasses && 
         inv.date.startsWith(currentYear) &&
-        (inv.status === ClaimStatus.PAID || inv.status === ClaimStatus.CHIEF_APPROVED)
+        (inv.status === ClaimStatus.PAID || inv.status === ClaimStatus.PENDING_AUDIT)
       )
     );
   }, [currentInv, claims, claim.employeeId]);
@@ -158,7 +158,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
   const handleFinalSubmit = () => {
     const finalInvoices = editingInvoices.map(inv => ({
       ...inv,
-      status: ClaimStatus.FINANCIALLY_PROCESSED,
+      status: ClaimStatus.PENDING_APPROVAL,
       ocrData: { ...inv.ocrData, auditorComment: invoiceDecisions[inv.id]?.comment || '', dataEntryDecision: invoiceDecisions[inv.id]?.status }
     }));
     onSave(finalInvoices);
@@ -167,7 +167,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
   const handleUnitHeadApprove = () => {
     const finalInvoices = editingInvoices.map(inv => ({
       ...inv,
-      status: ClaimStatus.CHIEF_APPROVED
+      status: ClaimStatus.PENDING_AUDIT
     }));
     onSave(finalInvoices);
   };
@@ -175,7 +175,7 @@ const DataEntry: React.FC<DataEntryProps> = ({ claim, claims, user, onSave, onBa
   const handleUnitHeadReturn = () => {
     const finalInvoices = editingInvoices.map(inv => ({
       ...inv,
-      status: ClaimStatus.MEDICALLY_APPROVED // Return to Data Entry status
+      status: ClaimStatus.PENDING_FINANCIAL // Return to Data Entry status
     }));
     onSave(finalInvoices);
   };

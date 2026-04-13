@@ -24,9 +24,9 @@ const DataEntryDashboard: React.FC<DataEntryDashboardProps> = ({ user, claims, o
   const [searchTerm, setSearchTerm] = useState('');
   
   // Pool of claims approved medically, waiting for financial indexing
-  const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.MEDICALLY_APPROVED);
+  const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.PENDING_FINANCIAL);
   // Claims assigned to this data entry clerk
-  const myTasks = claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.MEDICALLY_APPROVED);
+  const myTasks = claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.PENDING_FINANCIAL);
 
   const filteredPool = poolClaims.filter(c => 
     c.employeeName.includes(searchTerm) || 

@@ -18,20 +18,19 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId) || isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     match /claims/{claimId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated(); // For now, allow all authenticated users to update for easier testing
+      allow read, write: if isAuthenticated();
     }
 
     match /chronic_applications/{appId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAuthenticated();
+    }
+
+    match /system_logs/{logId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

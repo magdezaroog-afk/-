@@ -5,19 +5,20 @@ export enum UserRole {
   DOCTOR = 'DOCTOR',
   DATA_ENTRY = 'DATA_ENTRY',
   HEAD_OF_UNIT = 'HEAD_OF_UNIT',
-  ADMIN = 'ADMIN'
+  INTERNAL_AUDITOR = 'INTERNAL_AUDITOR',
+  ADMIN = 'ADMIN',
+  SYSTEM_ADMIN = 'SYSTEM_ADMIN'
 }
 
 export enum ClaimStatus {
-  WAITING_FOR_PAPER = 'WAITING_FOR_PAPER',
-  PAPER_RECEIVED = 'PAPER_RECEIVED',
-  MEDICALLY_APPROVED = 'MEDICALLY_APPROVED',
-  MEDICALLY_REJECTED = 'MEDICALLY_REJECTED',
-  FINANCIALLY_PROCESSED = 'FINANCIALLY_PROCESSED',
-  CHIEF_APPROVED = 'CHIEF_APPROVED',
-  PENDING_CLARIFICATION = 'PENDING_CLARIFICATION',
-  REJECTED = 'REJECTED',
-  PAID = 'PAID'
+  DRAFT = 'DRAFT',
+  PENDING_PHYSICAL = 'PENDING_PHYSICAL',
+  PENDING_MEDICAL = 'PENDING_MEDICAL',
+  PENDING_FINANCIAL = 'PENDING_FINANCIAL',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  PENDING_AUDIT = 'PENDING_AUDIT',
+  PAID = 'PAID',
+  REJECTED = 'REJECTED'
 }
 
 export interface HealthProfile {
@@ -75,6 +76,9 @@ export interface FamilyMember {
   name: string;
   relationship: 'Spouse' | 'Son' | 'Daughter' | 'Father' | 'Mother';
   isChronic?: boolean;
+  height?: number;
+  weight?: number;
+  chronicDiseases?: string[];
 }
 
 export interface User {
@@ -90,6 +94,9 @@ export interface User {
   jobTitle?: string;
   annualCeilingUsed?: number; // Total 90% portion used from 100,000 LYD
   familyMembers?: FamilyMember[];
+  dependents?: FamilyMember[];
+  roles?: UserRole[];
+  isActive?: boolean;
 }
 
 export interface InvoiceLineItem {
@@ -133,8 +140,17 @@ export interface Invoice {
   companyPortion?: number;
   employeePortion?: number;
   isDuplicate?: boolean;
+  imageHash?: string;
   medicalNotes?: string;
   archiveBoxId?: string;
+  verifiedFields?: string[];
+  boundingBoxes?: {
+    hospitalName?: number[];
+    invoiceNumber?: number[];
+    totalAmount?: number[];
+    date?: number[];
+    currency?: number[];
+  };
 }
 
 export interface AuditLog {
@@ -144,6 +160,12 @@ export interface AuditLog {
   action: string;
   timestamp: string;
   comment?: string;
+}
+
+export interface ClaimHistory {
+  status: ClaimStatus;
+  timestamp: string;
+  performedByRole: UserRole;
 }
 
 export interface Claim {
@@ -156,6 +178,7 @@ export interface Claim {
   totalAmount: number; 
   finalApprovedAmount?: number; 
   auditTrail: AuditLog[];
+  history: ClaimHistory[];
   description?: string;
   referenceNumber: string;
   invoiceCount: number;

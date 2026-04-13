@@ -32,3 +32,14 @@ export const optimizeImage = async (base64: string, maxWidth = 800, quality = 0.
     };
   });
 };
+
+export const generateImageHash = async (base64: string): Promise<string> => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};

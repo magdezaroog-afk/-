@@ -14,10 +14,10 @@
               cairo: ['Cairo', 'sans-serif'],
             },
             colors: {
-              litcBlue: '#005c84',
-              litcOrange: '#f58220',
-              litcDark: '#002a3d',
-              litcLight: '#e6f0f5',
+              litcBlue: '#003366',
+              litcOrange: '#FF6B00',
+              litcDark: '#001A33',
+              litcLight: '#F4F7F6',
             },
             boxShadow: {
               'sm': '0 10px 25px -5px rgba(0, 0, 0, 0.03), 0 8px 10px -6px rgba(0, 0, 0, 0.03)',
@@ -35,10 +35,10 @@
     <style>
       body {
         font-family: 'Cairo', sans-serif;
-        background-color: #f8fafc;
+        background-color: #F4F7F6;
         background-image: 
-          radial-gradient(at 0% 0%, rgba(0, 92, 132, 0.02) 0px, transparent 50%),
-          radial-gradient(at 100% 100%, rgba(245, 130, 32, 0.02) 0px, transparent 50%);
+          radial-gradient(at 0% 0%, rgba(0, 51, 102, 0.02) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(255, 107, 0, 0.02) 0px, transparent 50%);
         background-attachment: fixed;
         color: #1e293b;
       }
@@ -59,12 +59,12 @@
       /* Modern Scrollbar */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #005c84; border-radius: 20px; }
-      ::-webkit-scrollbar-thumb:hover { background: #f58220; }
+      ::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; }
+      ::-webkit-scrollbar-thumb:hover { background: #FF6B00; }
 
       /* Advanced Gradients */
       .litc-gradient { 
-        background: linear-gradient(165deg, #005c84 0%, #002a3d 100%); 
+        background: linear-gradient(165deg, #003366 0%, #001A33 100%); 
       }
       .litc-glass {
         background: rgba(255, 255, 255, 0.7);
@@ -72,7 +72,15 @@
         border: 1px solid rgba(255, 255, 255, 0.3);
       }
       .orange-glow {
-        box-shadow: 0 0 30px rgba(245, 130, 32, 0.2);
+        box-shadow: 0 0 30px rgba(255, 107, 0, 0.2);
+      }
+      
+      @keyframes gradient-x {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      .animate-gradient-x {
+        animation: gradient-x 15s ease infinite;
       }
       
       /* Animation for Logo */

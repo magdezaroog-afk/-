@@ -28,6 +28,7 @@ import {
   Calculator,
   Check,
   X,
+  PlusCircle,
   ImageIcon,
   Maximize2,
   ChevronLeft as ChevronLeftIcon,
@@ -56,7 +57,7 @@ interface ClaimDetailProps {
   onClose: () => void;
   onUpdateStatus: (newStatus: ClaimStatus, comment?: string, extraData?: any) => void;
   onInvoiceAssign: (claimId: string, invoiceIds: string[], staffId: string) => void;
-  onInvoiceStatusUpdate: (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string) => void;
+  onInvoiceStatusUpdate: (claimId: string, invoiceId: string, newStatus: ClaimStatus, comment?: string, extraData?: any) => void;
 }
 
 const DATA_ENTRY_STAFF = [
@@ -72,11 +73,14 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isAttachmentsModalOpen, setIsAttachmentsModalOpen] = useState(false);
   const [showNoAttachmentsMsg, setShowNoAttachmentsMsg] = useState(false);
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
+  const [verifiedFields, setVerifiedFields] = useState<string[]>(claim.invoices[activeInvoiceIndex]?.verifiedFields || []);
 
   const isReceptionist = user.role === UserRole.RECEPTIONIST;
   const isDoctor = user.role === UserRole.DOCTOR;
   const isDataEntry = user.role === UserRole.DATA_ENTRY;
   const isHead = user.role === UserRole.HEAD_OF_UNIT;
+  const isAuditor = user.role === UserRole.INTERNAL_AUDITOR;
   const isEmployee = user.role === UserRole.EMPLOYEE;
   const isAdmin = user.role === UserRole.ADMIN;
   
@@ -84,18 +88,20 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
   const STAGES = [
-    { id: 'submitted', label: 'تم التقديم', icon: Send, statuses: [ClaimStatus.WAITING_FOR_PAPER] },
-    { id: 'received', label: 'استلام الأوراق', icon: Database, statuses: [ClaimStatus.PAPER_RECEIVED] },
-    { id: 'medical', label: 'المراجعة الطبية', icon: Stethoscope, statuses: [ClaimStatus.MEDICALLY_APPROVED, ClaimStatus.MEDICALLY_REJECTED, ClaimStatus.PENDING_CLARIFICATION] },
-    { id: 'financial', label: 'المعالجة المالية', icon: CreditCard, statuses: [ClaimStatus.FINANCIALLY_PROCESSED] },
-    { id: 'final', label: 'الاعتماد النهائي', icon: CheckCircle2, statuses: [ClaimStatus.CHIEF_APPROVED, ClaimStatus.PAID] }
+    { id: 'draft', label: 'مسودة', icon: Send, statuses: [ClaimStatus.DRAFT] },
+    { id: 'physical', label: 'الاستلام', icon: Database, statuses: [ClaimStatus.PENDING_PHYSICAL] },
+    { id: 'medical', label: 'المراجعة', icon: Stethoscope, statuses: [ClaimStatus.PENDING_MEDICAL] },
+    { id: 'financial', label: 'المعالجة', icon: CreditCard, statuses: [ClaimStatus.PENDING_FINANCIAL] },
+    { id: 'approval', label: 'الاعتماد', icon: ShieldCheck, statuses: [ClaimStatus.PENDING_APPROVAL] },
+    { id: 'audit', label: 'التدقيق', icon: SearchCheck, statuses: [ClaimStatus.PENDING_AUDIT] },
+    { id: 'paid', label: 'الصرف', icon: CheckCircle2, statuses: [ClaimStatus.PAID] }
   ];
 
   const getCurrentStageIndex = () => {
     const index = STAGES.findIndex(s => s.statuses.includes(claim.status));
     if (index === -1) {
-      if (claim.status === ClaimStatus.PAID || claim.status === ClaimStatus.CHIEF_APPROVED) return 4;
-      if (claim.status === ClaimStatus.REJECTED) return 4;
+      if (claim.status === ClaimStatus.PAID) return 6;
+      if (claim.status === ClaimStatus.REJECTED) return 6;
       return 0;
     }
     return index;
@@ -111,22 +117,61 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
 
   // SVG Path and Node Coordinates (1000x200 viewbox) - RTL Flow
   const nodes = [
-    { x: 900, y: 100 },
-    { x: 700, y: 150 },
-    { x: 500, y: 100 },
-    { x: 300, y: 50 },
-    { x: 100, y: 100 }
+    { x: 950, y: 100 },
+    { x: 800, y: 150 },
+    { x: 650, y: 100 },
+    { x: 500, y: 50 },
+    { x: 350, y: 100 },
+    { x: 200, y: 150 },
+    { x: 50, y: 100 }
   ];
 
-  const roadmapPath = "M 900,100 C 800,150 600,50 500,100 S 200,150 100,100";
+  const roadmapPath = "M 950,100 C 850,150 750,50 650,100 S 450,150 350,100 S 150,50 50,100";
 
   // فرز الفواتير لاتخاذ القرار الجماعي النهائي
-  const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_APPROVED);
-  const rejectedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.MEDICALLY_REJECTED);
+  const approvedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.PENDING_FINANCIAL);
+  const rejectedInvoices = claim.invoices.filter(i => i.status === ClaimStatus.REJECTED);
 
   const handleInvoiceDecision = (invoiceId: string, decision: 'APPROVE' | 'REJECT') => {
-    const status = decision === 'APPROVE' ? ClaimStatus.MEDICALLY_APPROVED : ClaimStatus.MEDICALLY_REJECTED;
+    const status = decision === 'APPROVE' ? ClaimStatus.PENDING_FINANCIAL : ClaimStatus.REJECTED;
     onInvoiceStatusUpdate(claim.id, invoiceId, status, globalComment || 'تمت المراجعة والفرز');
+  };
+
+  const handleVerifyField = (field: string) => {
+    const newVerified = verifiedFields.includes(field) 
+      ? verifiedFields.filter(f => f !== field)
+      : [...verifiedFields, field];
+    
+    setVerifiedFields(newVerified);
+    
+    // Update in Firestore via parent
+    onInvoiceStatusUpdate(claim.id, activeInvoice.id, activeInvoice.status as any, undefined, { verifiedFields: newVerified });
+  };
+
+  const renderBoundingBox = () => {
+    if (!hoveredField || !activeInvoice.boundingBoxes) return null;
+    const box = (activeInvoice.boundingBoxes as any)[hoveredField];
+    if (!box) return null;
+
+    // box is [ymin, xmin, ymax, xmax] in 0-1000
+    const [ymin, xmin, ymax, xmax] = box;
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="absolute border-4 border-[#FF6B00] bg-[#FF6B00]/10 rounded-lg shadow-[0_0_20px_rgba(255,107,0,0.5)] z-30 pointer-events-none"
+        style={{
+          top: `${ymin / 10}%`,
+          left: `${xmin / 10}%`,
+          width: `${(xmax - xmin) / 10}%`,
+          height: `${(ymax - ymin) / 10}%`,
+        }}
+      >
+        <div className="absolute -top-8 right-0 bg-[#FF6B00] text-white text-[10px] font-black px-2 py-1 rounded-md whitespace-nowrap shadow-lg">
+          AI Verified Area
+        </div>
+      </motion.div>
+    );
   };
 
   return (
@@ -146,9 +191,15 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+      <div className={cn(
+        "grid gap-6 sm:gap-8",
+        isAuditor ? "grid-cols-1 xl:grid-cols-12" : "grid-cols-1 lg:grid-cols-2"
+      )}>
         {/* Invoice Items Section */}
-        <section className="bg-white/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.02)] flex flex-col h-full relative overflow-hidden group">
+        <section className={cn(
+          "bg-white/80 backdrop-blur-xl p-6 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.02)] flex flex-col h-full relative overflow-hidden group",
+          isAuditor ? "xl:col-span-5 order-2 xl:order-2" : ""
+        )}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-litcBlue/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-litcBlue/10 transition-colors"></div>
           
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 relative z-10">
@@ -157,9 +208,11 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                   <div className="w-10 h-10 bg-litcBlue/10 rounded-xl flex items-center justify-center">
                     <FileSearch className="text-litcBlue w-6 h-6" />
                   </div>
-                  تدقيق بنود الفاتورة
+                  {isAuditor ? 'التدقيق المتزامن (Sync Flash)' : 'تدقيق بنود الفاتورة'}
                 </h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mr-13">Invoice Itemization & Audit</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mr-13">
+                  {isAuditor ? 'Visual AI Synchronization' : 'Invoice Itemization & Audit'}
+                </p>
              </div>
              <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100 shadow-inner">
                 <span className="text-[10px] font-black text-slate-400">الفاتورة</span>
@@ -170,23 +223,52 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2 relative z-10">
-             {/* Invoice Summary Card */}
-             <div className="mb-6 p-6 bg-litcBlue/5 rounded-3xl border border-litcBlue/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="text-right">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المرفق الصحي</p>
-                   <p className="text-lg font-black text-slate-900">{activeInvoice?.hospitalName || 'غير محدد'}</p>
-                </div>
-                <div className="h-10 w-px bg-slate-200 hidden sm:block"></div>
-                <div className="text-center">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">التاريخ</p>
-                   <p className="text-sm font-black text-slate-700">{activeInvoice?.date || '---'}</p>
-                </div>
-                <div className="h-10 w-px bg-slate-200 hidden sm:block"></div>
-                <div className="text-left">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إجمالي الفاتورة</p>
-                   <p className="text-xl font-black text-litcOrange">{activeInvoice?.amount.toLocaleString()} <span className="text-xs">د.ل</span></p>
-                </div>
+             {/* Sync Flash Data Fields */}
+             <div className="space-y-3">
+                {[
+                  { id: 'hospitalName', label: 'المرفق الصحي', value: activeInvoice?.hospitalName },
+                  { id: 'invoiceNumber', label: 'رقم الفاتورة', value: activeInvoice?.invoiceNumber },
+                  { id: 'date', label: 'التاريخ', value: activeInvoice?.date },
+                  { id: 'totalAmount', label: 'المبلغ الإجمالي', value: activeInvoice?.amount, isAmount: true },
+                  { id: 'currency', label: 'العملة', value: activeInvoice?.currency }
+                ].map((field) => (
+                  <div 
+                    key={field.id}
+                    onMouseEnter={() => setHoveredField(field.id)}
+                    onMouseLeave={() => setHoveredField(null)}
+                    className={cn(
+                      "p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group/field",
+                      hoveredField === field.id ? "bg-[#FF6B00]/5 border-[#FF6B00]/30 shadow-lg shadow-[#FF6B00]/5" : "bg-slate-50 border-slate-100"
+                    )}
+                  >
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{field.label}</p>
+                      <p className={cn(
+                        "font-black transition-colors",
+                        field.isAmount ? "text-xl text-litcOrange" : "text-slate-900",
+                        hoveredField === field.id ? "text-[#FF6B00]" : ""
+                      )}>
+                        {field.isAmount ? field.value?.toLocaleString() : field.value || '---'}
+                        {field.isAmount && <span className="text-xs mr-1">د.ل</span>}
+                      </p>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleVerifyField(field.id)}
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                        verifiedFields.includes(field.id) 
+                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" 
+                          : "bg-white text-slate-300 border border-slate-100 hover:border-emerald-500 hover:text-emerald-500"
+                      )}
+                    >
+                      {verifiedFields.includes(field.id) ? <Check className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+                    </button>
+                  </div>
+                ))}
              </div>
+
+             <div className="h-px bg-slate-100 my-6"></div>
 
              {activeInvoice?.lineItems?.map((item, idx) => (
                 <motion.div 
@@ -242,15 +324,19 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         </section>
 
         {/* Invoice Image Section */}
-        <div className="relative group h-full">
-           <section className="bg-slate-900 rounded-2xl h-[400px] lg:h-full min-h-[500px] relative flex items-center justify-center overflow-hidden border-4 sm:border-8 border-white shadow-xl">
-              <div className="w-full h-full flex items-center justify-center transition-transform duration-500" style={{ transform: `scale(${zoomLevel})` }}>
+        <div className={cn(
+          "relative group h-full",
+          isAuditor ? "xl:col-span-7 order-1 xl:order-1" : ""
+        )}>
+           <section className="bg-slate-900 rounded-2xl h-[400px] lg:h-full min-h-[600px] relative flex items-center justify-center overflow-hidden border-4 sm:border-8 border-white shadow-xl">
+              <div className="w-full h-full flex items-center justify-center transition-transform duration-500 relative" style={{ transform: `scale(${zoomLevel})` }}>
                  <img 
                    src={activeInvoice?.imageUrl} 
                    className="max-w-full max-h-full object-contain rounded-xl cursor-zoom-in" 
                    alt="Medical Document" 
                    onClick={() => setIsLightboxOpen(true)}
                  />
+                 {isAuditor && renderBoundingBox()}
               </div>
               
               {/* Navigation Controls */}
@@ -303,10 +389,11 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
       </div>
 
       {/* ACTION SECTION - ONLY SHOWN IF ACTIONS ARE AVAILABLE */}
-      {((isReceptionist && claim.status === ClaimStatus.WAITING_FOR_PAPER) ||
-        (isDoctor && claim.status === ClaimStatus.PAPER_RECEIVED) ||
-        (isDataEntry && claim.status === ClaimStatus.MEDICALLY_APPROVED) ||
-        (isHead && claim.status === ClaimStatus.FINANCIALLY_PROCESSED)) && (
+      {((isReceptionist && claim.status === ClaimStatus.PENDING_PHYSICAL) ||
+        (isDoctor && claim.status === ClaimStatus.PENDING_MEDICAL) ||
+        (isDataEntry && claim.status === ClaimStatus.PENDING_FINANCIAL) ||
+        (isHead && claim.status === ClaimStatus.PENDING_APPROVAL) ||
+        (isAuditor && claim.status === ClaimStatus.PENDING_AUDIT)) && (
         <div className="mt-12 bg-white p-6 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-6 sm:gap-10">
            <div className="w-full max-w-4xl relative">
               <MessageSquare className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5 sm:w-6 sm:h-6" />
@@ -319,7 +406,7 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
            </div>
 
            <div className="flex flex-wrap justify-center gap-2 sm:gap-8 w-full">
-              {isReceptionist && claim.status === ClaimStatus.WAITING_FOR_PAPER && (
+              {isReceptionist && claim.status === ClaimStatus.PENDING_PHYSICAL && (
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-4xl">
                   <div className="flex-1 relative w-full">
                     <Database className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -331,19 +418,31 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                     />
                   </div>
                   <button 
-                    onClick={() => onUpdateStatus(ClaimStatus.PAPER_RECEIVED, `تم استلام الأوراق الورقية ووضعها في الصندوق رقم: ${archiveBoxId}`, { archiveBoxId })} 
+                    onClick={() => onUpdateStatus(ClaimStatus.PENDING_MEDICAL, `تم استلام الأوراق الورقية ووضعها في الصندوق رقم: ${archiveBoxId}`, { archiveBoxId })} 
                     disabled={!archiveBoxId}
                     className="bg-litcBlue text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcDark transition-all flex items-center gap-3 disabled:opacity-50"
                   >
                     <CheckCircle className="w-5 h-5" /> تأكيد استلام الملف الورقي
                   </button>
+                  <button 
+                    onClick={() => {
+                      if (!globalComment.trim()) {
+                        alert('يرجى إدخال سبب الرفض في حقل الملاحظات');
+                        return;
+                      }
+                      onUpdateStatus(ClaimStatus.REJECTED, globalComment);
+                    }} 
+                    className="bg-rose-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-rose-600 transition-all flex items-center gap-3"
+                  >
+                    <XCircle className="w-5 h-5" /> رفض الاستلام
+                  </button>
                 </div>
               )}
 
-              {isDoctor && claim.status === ClaimStatus.PAPER_RECEIVED && (
+              {isDoctor && claim.status === ClaimStatus.PENDING_MEDICAL && (
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-5xl">
                    <button 
-                     onClick={() => onUpdateStatus(ClaimStatus.MEDICALLY_APPROVED, globalComment || 'تم الاعتماد طبياً')} 
+                     onClick={() => onUpdateStatus(ClaimStatus.PENDING_FINANCIAL, globalComment || 'تم الاعتماد طبياً')} 
                      className="flex-1 bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-3"
                    >
                       <CheckCircle className="w-5 h-5" /> اعتماد طبي
@@ -354,36 +453,39 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                          alert('يرجى إدخال سبب الرفض في حقل الملاحظات');
                          return;
                        }
-                       onUpdateStatus(ClaimStatus.MEDICALLY_REJECTED, globalComment);
+                       onUpdateStatus(ClaimStatus.REJECTED, globalComment);
                      }} 
                      className="flex-1 bg-rose-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-rose-600 transition-all flex items-center justify-center gap-3"
                    >
                       <XCircle className="w-5 h-5" /> رفض طبي
                    </button>
-                   <button 
-                     onClick={() => onUpdateStatus(ClaimStatus.PENDING_CLARIFICATION, globalComment || 'مطلوب توضيح إضافي')} 
-                     className="flex-1 bg-amber-500 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-amber-600 transition-all flex items-center justify-center gap-3"
-                   >
-                      <HelpCircle className="w-5 h-5" /> طلب توضيح
-                   </button>
                 </div>
               )}
 
-              {isDataEntry && claim.status === ClaimStatus.MEDICALLY_APPROVED && (
+              {isDataEntry && claim.status === ClaimStatus.PENDING_FINANCIAL && (
                 <button 
-                  onClick={() => onUpdateStatus(ClaimStatus.FINANCIALLY_PROCESSED, globalComment || 'تمت المعالجة المالية')} 
+                  onClick={() => onUpdateStatus(ClaimStatus.PENDING_APPROVAL, globalComment || 'تمت المعالجة المالية')} 
                   className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-3"
                 >
                   <Database className="w-5 h-5" /> إتمام المعالجة المالية
                 </button>
               )}
 
-              {isHead && claim.status === ClaimStatus.FINANCIALLY_PROCESSED && (
+              {isHead && claim.status === ClaimStatus.PENDING_APPROVAL && (
                 <button 
-                  onClick={() => onUpdateStatus(ClaimStatus.CHIEF_APPROVED, globalComment || 'تم الاعتماد النهائي من رئيس الوحدة')} 
+                  onClick={() => onUpdateStatus(ClaimStatus.PENDING_AUDIT, globalComment || 'تم الاعتماد النهائي من رئيس الوحدة')} 
                   className="bg-litcBlue text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcDark transition-all flex items-center gap-3"
                 >
                   <ShieldCheck className="w-5 h-5" /> اعتماد نهائي (رئيس الوحدة)
+                </button>
+              )}
+
+              {isAuditor && claim.status === ClaimStatus.PENDING_AUDIT && (
+                <button 
+                  onClick={() => onUpdateStatus(ClaimStatus.PAID, globalComment || 'تم التدقيق الداخلي وتأكيد الصرف')} 
+                  className="bg-emerald-600 text-white px-12 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-emerald-700 transition-all flex items-center gap-3"
+                >
+                  <SearchCheck className="w-5 h-5" /> تأكيد الصرف (التدقيق الداخلي)
                 </button>
               )}
            </div>
