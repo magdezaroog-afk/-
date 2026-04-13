@@ -34,6 +34,7 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
   onUpdateStatus
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [archiveSearchTerm, setArchiveSearchTerm] = useState('');
   const [showSuccess, setShowSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [archiveLocation, setArchiveLocation] = useState('');
@@ -43,6 +44,9 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
   const poolClaims = claims.filter(c => !c.assignedToId && c.status === ClaimStatus.PENDING_PHYSICAL);
   // Claims assigned to this receptionist
   const myTasks = claims.filter(c => c.assignedToId === user.id && c.status === ClaimStatus.PENDING_PHYSICAL);
+  // Archived claims
+  const archivedClaims = claims.filter(c => c.physicalArchiveLocation && c.physicalArchiveLocation.toLowerCase().includes(archiveSearchTerm.toLowerCase()));
+  
   // Completed today
   const completedToday = claims.filter(c => 
     c.assignedToId === user.id && 
@@ -192,17 +196,59 @@ const ReceptionistDashboard: React.FC<ReceptionistDashboardProps> = ({
               <ClipboardCheck className="text-litcBlue w-6 h-6" /> الطابور العام
             </h2>
             
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="بحث سريع..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pr-11 pl-4 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-litcBlue outline-none shadow-sm"
-              />
+            <div className="flex gap-4 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="بحث سريع..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pr-11 pl-4 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-litcBlue outline-none shadow-sm"
+                />
+              </div>
+              <div className="relative w-full sm:w-64">
+                <PackageCheck className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="بحث بموقع الأرشفة..."
+                  value={archiveSearchTerm}
+                  onChange={(e) => setArchiveSearchTerm(e.target.value)}
+                  className="w-full pr-11 pl-4 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-litcBlue outline-none shadow-sm"
+                />
+              </div>
             </div>
           </div>
+
+          {/* Archived Claims Section */}
+          {archiveSearchTerm && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,92,132,0.05)] overflow-hidden mb-8">
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-sm font-black text-slate-900">نتائج الأرشفة</h3>
+                <span className="text-[10px] font-black text-slate-400">{archivedClaims.length} نتيجة</span>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">المعاملة</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">الموقع</th>
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">التاريخ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {archivedClaims.map((claim) => (
+                      <tr key={claim.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6 text-xs font-black text-slate-900">#{claim.referenceNumber}</td>
+                        <td className="px-8 py-6 text-xs font-bold text-litcBlue">{claim.physicalArchiveLocation}</td>
+                        <td className="px-8 py-6 text-[10px] font-bold text-slate-400">{claim.submissionDate}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,92,132,0.05)] overflow-hidden">
             <div className="overflow-x-auto scrollbar-hide">

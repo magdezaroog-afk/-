@@ -82,6 +82,30 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user, claims }) => 
     });
   }, [claims]);
 
+  const downloadMonthlySummary = () => {
+    const headers = ['رقم المعاملة', 'الموظف', 'التاريخ', 'المبلغ', 'الحالة', 'الإدارة'];
+    const csvContent = [
+      headers.join(','),
+      ...claims.map(c => [
+        c.referenceNumber,
+        c.employeeName,
+        c.submissionDate,
+        c.totalAmount,
+        c.status,
+        c.department || 'Other'
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Monthly_Summary_${new Date().getMonth() + 1}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in duration-1000" dir="rtl">
       {/* Header */}
@@ -90,18 +114,26 @@ const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ user, claims }) => 
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">لوحة القيادة التنفيذية</h1>
           <p className="text-sm text-slate-500 font-medium mt-1">تحليل استراتيجي وتوقعات الميزانية الصحية للمؤسسة.</p>
         </div>
-        <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-          <div className="px-4 py-2 bg-litcBlue/10 text-litcBlue rounded-xl text-xs font-black">
-            الوضع التنفيذي نشط
-          </div>
-          <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
-            <ShieldCheck className="w-5 h-5" />
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={downloadMonthlySummary}
+            className="px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black border border-slate-100 shadow-sm hover:bg-slate-50 transition-all"
+          >
+            تصدير التقرير الشهري (CSV)
+          </button>
+          <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="px-4 py-2 bg-litcBlue/10 text-litcBlue rounded-xl text-xs font-black">
+              الوضع التنفيذي نشط
+            </div>
+            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         
         {/* Escalation Alert - New Section */}
         {escalatedClaims.length > 0 && (

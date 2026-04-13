@@ -556,20 +556,30 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClo
 
                  {/* Digital Tamper-proof Seal */}
                  {claim.status === ClaimStatus.PAID && (
-                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 overflow-hidden">
-                     <motion.div 
-                       initial={{ scale: 2, opacity: 0, rotate: -45 }}
-                       animate={{ scale: 1, opacity: 0.15, rotate: -25 }}
-                       className="border-[20px] border-emerald-600 px-20 py-10 rounded-full flex flex-col items-center justify-center"
-                     >
-                       <span className="text-8xl font-black text-emerald-600 whitespace-nowrap">LITC - FINALIZED</span>
-                       <span className="text-4xl font-black text-emerald-600 mt-4">تم الصرف والاعتماد</span>
-                       <div className="mt-6 flex items-center gap-4">
-                         <ShieldCheck className="w-16 h-16 text-emerald-600" />
-                         <span className="text-2xl font-black text-emerald-600">SECURE AI v2.0</span>
+                   (() => {
+                     const auditorEntry = claim.auditTrail.find(a => a.performedByRole === 'INTERNAL_AUDITOR');
+                     const auditorId = auditorEntry ? auditorEntry.performedBy : 'N/A';
+                     const sealDate = new Date().toLocaleDateString('ar-LY');
+                     return (
+                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 overflow-hidden">
+                         <motion.div 
+                           initial={{ scale: 2, opacity: 0, rotate: -45 }}
+                           animate={{ scale: 1, opacity: 0.15, rotate: -25 }}
+                           className="border-[20px] border-emerald-600 px-20 py-10 rounded-full flex flex-col items-center justify-center"
+                         >
+                           <span className="text-8xl font-black text-emerald-600 whitespace-nowrap">LITC - FINALIZED</span>
+                           <span className="text-4xl font-black text-emerald-600 mt-4">تم الصرف والاعتماد</span>
+                           <div className="mt-6 flex items-center gap-4">
+                             <ShieldCheck className="w-16 h-16 text-emerald-600" />
+                             <span className="text-2xl font-black text-emerald-600">SECURE AI v2.0</span>
+                           </div>
+                           <div className="mt-4 text-xl font-black text-emerald-600">
+                             {sealDate} | Auditor: {auditorId}
+                           </div>
+                         </motion.div>
                        </div>
-                     </motion.div>
-                   </div>
+                     );
+                   })()
                  )}
               </div>
               
