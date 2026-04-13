@@ -6,6 +6,7 @@ export enum UserRole {
   DATA_ENTRY = 'DATA_ENTRY',
   HEAD_OF_UNIT = 'HEAD_OF_UNIT',
   INTERNAL_AUDITOR = 'INTERNAL_AUDITOR',
+  MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
   SYSTEM_ADMIN = 'SYSTEM_ADMIN'
 }
@@ -94,6 +95,8 @@ export interface User {
   department?: string;
   jobTitle?: string;
   annualCeilingUsed?: number; // Total 90% portion used from 100,000 LYD
+  healthCeiling?: number;
+  usedCeiling?: number;
   familyMembers?: FamilyMember[];
   dependents?: FamilyMember[];
   roles?: UserRole[];
@@ -208,6 +211,7 @@ export interface Claim {
   assignedToId?: string;
   submittedAt?: string; // ISO string for 24h rule
   isPool?: boolean;
+  isChronic?: boolean;
   lastActionAt?: string; // ISO string for 48h escalation
 }
 

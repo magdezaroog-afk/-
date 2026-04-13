@@ -79,6 +79,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isScanComplete, setIsScanComplete] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [budgetWarning, setBudgetWarning] = useState<{show: boolean, amount: number, remaining: number} | null>(null);
   const [comparisonInvoice, setComparisonInvoice] = useState<Partial<Invoice & { attachments: File[] }> | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -218,24 +219,31 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
     ));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (bypass: boolean = false) => {
     if (invoices.length === 0) return;
     
+    const totalAmount = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+    const remainingCeiling = (user.healthCeiling || 100000) - (user.usedCeiling || 0);
+
+    if (totalAmount > remainingCeiling && !bypass) {
+      setBudgetWarning({ show: true, amount: totalAmount, remaining: remainingCeiling });
+      return;
+    }
+
     setIsSubmitting(true);
     const claimId = `CLM-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
-    const totalAmount = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
     
     const claimData = {
       id: claimId,
       employeeId: user.id,
       employeeName: user.name,
       submissionDate: new Date().toLocaleString('ar-LY'),
-      status: ClaimStatus.PENDING_PHYSICAL,
+      status: bypass ? ClaimStatus.PENDING_APPROVAL : ClaimStatus.PENDING_PHYSICAL, // Require Unit Head bypass if over budget
       invoices: invoices.map(inv => {
         const { attachments, ...rest } = inv;
         return { 
           ...rest, 
-          status: ClaimStatus.PENDING_PHYSICAL, 
+          status: bypass ? ClaimStatus.PENDING_APPROVAL : ClaimStatus.PENDING_PHYSICAL, 
           archiveBoxId: '',
           attachmentUrls: attachments ? attachments.map(f => URL.createObjectURL(f)) : []
         };
@@ -249,11 +257,12 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
       invoiceCount: invoices.length,
       location: user.location,
       department: user.department,
+      requiresBypass: bypass,
       auditTrail: [{
         id: Math.random().toString(),
         userId: user.id,
         userName: user.name,
-        action: 'تقديم مطالبة جديدة عبر النظام الذكي',
+        action: bypass ? 'تقديم مطالبة تتجاوز السقف السنوي (طلب استثناء)' : 'تقديم مطالبة جديدة عبر النظام الذكي',
         timestamp: new Date().toLocaleString('ar-LY')
       }]
     };
@@ -264,6 +273,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
     setSubmittedClaim(claimData);
     onSubmit(claimData);
     setIsSubmitting(false);
+    setBudgetWarning(null);
   };
 
   const generatePDF = () => {
@@ -372,6 +382,54 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 font-cairo pb-20 px-4" dir="rtl">
+      {/* Budget Warning Modal */}
+      <AnimatePresence>
+        {budgetWarning && budgetWarning.show && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[3rem] p-10 text-center space-y-8 shadow-2xl border border-rose-100"
+            >
+              <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto animate-bounce">
+                <AlertCircle className="w-10 h-10" />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-black text-slate-900">تجاوز السقف السنوي!</h3>
+                <p className="text-slate-500 font-bold leading-relaxed">
+                  قيمة المطالبة الحالية (<span className="text-rose-600">{budgetWarning.amount}</span>) تتجاوز الرصيد المتبقي في سقفك السنوي (<span className="text-emerald-600">{budgetWarning.remaining}</span>).
+                </p>
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                  <p className="text-rose-800 text-xs font-black">
+                    يتطلب هذا الإجراء موافقة استثنائية من "رئيس الوحدة" للمتابعة.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => handleSubmit(true)}
+                  className="w-full py-4 bg-litcBlue text-white rounded-2xl font-black shadow-lg shadow-litcBlue/20 hover:-translate-y-1 transition-all"
+                >
+                  طلب استثناء والمتابعة
+                </button>
+                <button 
+                  onClick={() => setBudgetWarning(null)}
+                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all"
+                >
+                  إلغاء وتعديل المطالبة
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Comparison Modal */}
       <AnimatePresence>
         {comparisonInvoice && (
@@ -1079,7 +1137,7 @@ const SubmitClaim: React.FC<SubmitClaimProps> = ({ user, onSubmit, onCancel }) =
               </div>
 
               <button 
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
                 disabled={invoices.length === 0 || isSubmitting}
                 className="relative z-10 w-full bg-white text-litcBlue py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-litcOrange hover:text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3 mt-6"
               >

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, UserRole, Claim, ClaimStatus } from '../types';
 import { STATUS_UI } from '../constants';
@@ -57,6 +57,7 @@ import {
 interface ClaimDetailProps {
   claim: Claim;
   user: User;
+  allClaims: Claim[];
   onClose: () => void;
   onUpdateStatus: (newStatus: ClaimStatus, comment?: string, extraData?: any) => void;
   onInvoiceAssign: (claimId: string, invoiceIds: string[], staffId: string) => void;
@@ -69,7 +70,7 @@ const DATA_ENTRY_STAFF = [
   { id: 'DE-3', name: 'عباس طنيش', team: 'وحدة العيادات والمختبرات' },
 ];
 
-const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdateStatus, onInvoiceAssign, onInvoiceStatusUpdate }) => {
+const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, allClaims, onClose, onUpdateStatus, onInvoiceAssign, onInvoiceStatusUpdate }) => {
   const [globalComment, setGlobalComment] = useState('');
   const [activeInvoiceIndex, setActiveInvoiceIndex] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -78,6 +79,39 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [showNoAttachmentsMsg, setShowNoAttachmentsMsg] = useState(false);
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [verifiedFields, setVerifiedFields] = useState<string[]>(claim.invoices[activeInvoiceIndex]?.verifiedFields || []);
+
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imageRect, setImageRect] = useState<{width: number, height: number, left: number, top: number} | null>(null);
+
+  const updateImageRect = () => {
+    if (imgRef.current) {
+      const rect = imgRef.current.getBoundingClientRect();
+      const parentRect = imgRef.current.parentElement?.getBoundingClientRect();
+      if (parentRect) {
+        // We want the rect relative to the parent, but without the zoom scale applied to the coordinates
+        // because the bounding box div is INSIDE the zoomed container.
+        // Actually, if the bounding box is inside the zoomed container, it will scale with it.
+        // So we just need the image's rendered size relative to its parent.
+        setImageRect({
+          width: rect.width / zoomLevel,
+          height: rect.height / zoomLevel,
+          left: (rect.left - parentRect.left) / zoomLevel,
+          top: (rect.top - parentRect.top) / zoomLevel
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('resize', updateImageRect);
+    return () => window.removeEventListener('resize', updateImageRect);
+  }, []);
+
+  useEffect(() => {
+    // Reset image rect when invoice changes
+    setImageRect(null);
+    setTimeout(updateImageRect, 100);
+  }, [activeInvoiceIndex, claim.id]);
 
   const isReceptionist = user.role === UserRole.RECEPTIONIST;
   const isDoctor = user.role === UserRole.DOCTOR;
@@ -89,6 +123,42 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   
   const [archiveBoxId, setArchiveBoxId] = useState(claim.invoices[0]?.archiveBoxId || '');
   const activeInvoice = claim.invoices[activeInvoiceIndex];
+
+  // AI Fraud Detection Gate
+  const fraudFlags = useMemo(() => {
+    const flags: string[] = [];
+    if (!activeInvoice) return flags;
+
+    // Flag 1: Same Provider > 3 times in 7 days
+    const providerName = activeInvoice.hospitalName?.toLowerCase().trim();
+    if (providerName && allClaims) {
+      const userClaims = allClaims.filter(c => c.employeeId === claim.employeeId);
+      const recentClaimsFromSameProvider = userClaims.filter(c => {
+        const date = new Date(c.submissionDate);
+        const diff = (new Date().getTime() - date.getTime()) / (1000 * 3600 * 24);
+        return diff <= 7 && c.invoices.some(inv => inv.hospitalName?.toLowerCase().trim() === providerName);
+      });
+      if (recentClaimsFromSameProvider.length > 3) {
+        flags.push('تكرار غير طبيعي من نفس المزود (> 3 مطالبات في أسبوع)');
+      }
+    }
+
+    // Flag 2: Receipt Date older than 90 days
+    const receiptDate = new Date(activeInvoice.date || claim.submissionDate);
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    if (receiptDate < ninetyDaysAgo) {
+      flags.push('تاريخ الفاتورة قديم (> 90 يوم)');
+    }
+
+    // Flag 3: Amount exceeds historical average for this service
+    // (Simplified: if amount > 5000 and not chronic)
+    if (activeInvoice.amount > 5000 && !claim.isChronic) {
+      flags.push('مبلغ المطالبة مرتفع بشكل غير معتاد');
+    }
+
+    return flags;
+  }, [claim, activeInvoice, allClaims]);
 
   const downloadSummaryPDF = () => {
     const doc = new jsPDF({
@@ -219,28 +289,40 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   };
 
   const renderBoundingBox = () => {
-    if (!hoveredField || !activeInvoice.boundingBoxes) return null;
+    if (!hoveredField || !activeInvoice.boundingBoxes || !imageRect) return null;
     const box = (activeInvoice.boundingBoxes as any)[hoveredField];
     if (!box) return null;
 
     // box is [ymin, xmin, ymax, xmax] in 0-1000
     const [ymin, xmin, ymax, xmax] = box;
     return (
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="absolute border-4 border-[#FF6B00] bg-[#FF6B00]/10 rounded-lg shadow-[0_0_20px_rgba(255,107,0,0.5)] z-30 pointer-events-none"
+      <div 
         style={{
-          top: `${ymin / 10}%`,
-          left: `${xmin / 10}%`,
-          width: `${(xmax - xmin) / 10}%`,
-          height: `${(ymax - ymin) / 10}%`,
+          position: 'absolute',
+          top: imageRect.top,
+          left: imageRect.left,
+          width: imageRect.width,
+          height: imageRect.height,
+          pointerEvents: 'none',
+          zIndex: 30
         }}
       >
-        <div className="absolute -top-8 right-0 bg-[#FF6B00] text-white text-[10px] font-black px-2 py-1 rounded-md whitespace-nowrap shadow-lg">
-          AI Verified Area
-        </div>
-      </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute border-4 border-[#FF6B00] bg-[#FF6B00]/10 rounded-lg shadow-[0_0_20px_rgba(255,107,0,0.5)]"
+          style={{
+            top: `${ymin / 10}%`,
+            left: `${xmin / 10}%`,
+            width: `${(xmax - xmin) / 10}%`,
+            height: `${(ymax - ymin) / 10}%`,
+          }}
+        >
+          <div className="absolute -top-8 right-0 bg-[#FF6B00] text-white text-[10px] font-black px-2 py-1 rounded-md whitespace-nowrap shadow-lg">
+            AI Verified Area
+          </div>
+        </motion.div>
+      </div>
     );
   };
 
@@ -449,13 +531,39 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
            <section className="bg-slate-900 rounded-2xl h-[400px] lg:h-full min-h-[600px] relative flex items-center justify-center overflow-hidden border-4 sm:border-8 border-white shadow-xl">
               <div className="w-full h-full flex items-center justify-center transition-transform duration-500 relative" style={{ transform: `scale(${zoomLevel})` }}>
                  <img 
+                   ref={imgRef}
                    src={activeInvoice?.imageUrl} 
+                   onLoad={updateImageRect}
                    className="max-w-full max-h-full object-contain rounded-xl cursor-zoom-in" 
                    alt="Medical Document" 
                    onClick={() => setIsLightboxOpen(true)}
                  />
                  {isAuditor && renderBoundingBox()}
               </div>
+              
+              {/* AI Fraud Alert Badge */}
+              {isAuditor && fraudFlags.length > 0 && (
+                <motion.div 
+                  initial={{ x: 100, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  className="absolute top-6 left-6 z-40 bg-rose-600 text-white p-4 rounded-2xl shadow-2xl border border-white/20 backdrop-blur-md flex items-center gap-4"
+                >
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center animate-pulse">
+                    <ShieldAlert className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70">AI Fraud Detection</p>
+                    <p className="text-sm font-black">تحذير: مخاطر عالية مكتشفة</p>
+                    <div className="mt-2 space-y-1">
+                      {fraudFlags.map((flag, i) => (
+                        <p key={i} className="text-[9px] font-bold text-rose-100 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> {flag}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
               
               {/* Navigation Controls */}
               <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20">

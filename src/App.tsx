@@ -14,6 +14,7 @@ import MedicalDashboard from './pages/MedicalDashboard';
 import ReceptionistDashboard from './pages/ReceptionistDashboard';
 import DataEntryDashboard from './pages/DataEntryDashboard';
 import ChronicEnrollment from './pages/ChronicEnrollment';
+import ManagerDashboard from './pages/ManagerDashboard';
 import Archive from './pages/Archive';
 import Settings from './pages/Settings';
 import SystemAdminDashboard from './pages/SystemAdminDashboard';
@@ -152,6 +153,7 @@ const App: React.FC = () => {
   const [JobTitle, setJobTitle] = useState('');
   const [isProfessionalView, setIsProfessionalView] = useState(false);
   const [isWorkModeActive, setIsWorkModeActive] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [verificationCode, setVerificationCode] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [generatedCode, setGeneratedCode] = useState('');
@@ -290,6 +292,18 @@ const App: React.FC = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData = snapshot.docs.map(doc => doc.data() as User);
       setUsers(usersData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const q = query(collection(db, 'notifications'), where('userId', '==', user.id), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+      setNotifications(notifs);
     });
 
     return () => unsubscribe();
@@ -1114,6 +1128,7 @@ const App: React.FC = () => {
         <ClaimDetail 
           claim={currentClaim} 
           user={user} 
+          allClaims={claims}
           onClose={() => setSelectedClaim(null)}
           onUpdateStatus={handleUpdateClaimStatus}
           onInvoiceAssign={handleInvoiceAssign}
@@ -1190,51 +1205,20 @@ const App: React.FC = () => {
     // Professional View Logic
     switch (activePath) {
       case 'dashboard':
-        // Professional Dashboard based on role
-        if (user.role === UserRole.DOCTOR) {
-          return <MedicalDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
-        }
-        if (user.role === UserRole.ADMIN) {
-          return <AdminDashboard user={user} claims={claims} />;
-        }
-        if (user.role === UserRole.RECEPTIONIST) {
-          return <ReceptionistDashboard 
-            user={user} 
-            claims={claims} 
-            onSelectClaim={setSelectedClaim} 
-            onGrab={(claimId) => {
-              const claim = claims.find(c => c.id === claimId);
-              if (claim) {
-                setSelectedClaim(claim);
-                handleUpdateClaimStatus(ClaimStatus.PENDING_PHYSICAL, 'تم سحب المعاملة للاستلام الورقي', { assignedToId: user.id });
-              }
-            }}
-            onUpdateStatus={handleUpdateClaimStatus}
-          />;
-        }
-        if (user.role === UserRole.DATA_ENTRY) {
-          return <DataEntryDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
-            handleUpdateClaimStatus(ClaimStatus.PENDING_FINANCIAL, 'تم سحب المعاملة للفهرسة المالية');
-          }} />;
-        }
-        if (user.role === UserRole.SYSTEM_ADMIN) {
-          return <SystemAdminDashboard 
-            user={user} 
-            users={users} 
-            onUpdateUser={handleUpdateUser} 
-            onLogAction={handleLogAction} 
-          />;
-        }
-        // Fallback for other professional roles
-        return <Dashboard 
-          user={user} 
-          claims={claims} 
-          onSelectClaim={setSelectedClaim} 
-          onNavigate={setActivePath} 
-          onAssign={handleInvoiceAssign} 
-          onUpdateStatus={handleUpdateClaimStatus}
-          isProfessionalView={true}
-        />;
+        if (user.role === UserRole.DOCTOR) return <MedicalDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
+        if (user.role === UserRole.ADMIN) return <AdminDashboard user={user} claims={claims} />;
+        if (user.role === UserRole.RECEPTIONIST) return <ReceptionistDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => {
+          const claim = claims.find(c => c.id === claimId);
+          if (claim) {
+            setSelectedClaim(claim);
+            handleUpdateClaimStatus(ClaimStatus.PENDING_PHYSICAL, 'تم سحب المعاملة للاستلام الورقي', { assignedToId: user.id });
+          }
+        }} onUpdateStatus={handleUpdateClaimStatus} />;
+        if (user.role === UserRole.DATA_ENTRY) return <DataEntryDashboard user={user} claims={claims} onSelectClaim={setSelectedClaim} onGrab={(claimId) => handleUpdateClaimStatus(ClaimStatus.PENDING_FINANCIAL, 'تم سحب المعاملة للفهرسة المالية')} />;
+        if (user.role === UserRole.SYSTEM_ADMIN) return <SystemAdminDashboard user={user} users={users} onUpdateUser={handleUpdateUser} onLogAction={handleLogAction} />;
+        if (user.role === UserRole.MANAGER) return <ManagerDashboard user={user} claims={claims} />;
+        if (user.role === UserRole.INTERNAL_AUDITOR) return <AdminClaims user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
+        return <AdminDashboard user={user} claims={claims} />;
       case 'admin-claims':
         return <AdminClaims user={user} claims={claims} onSelectClaim={setSelectedClaim} />;
       case 'chronic-enrollment':
@@ -1277,8 +1261,18 @@ const App: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
+          className="relative"
         >
-          {renderContent()}
+          {isWorkModeActive && (
+            <div className="fixed inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] z-0 select-none overflow-hidden">
+              <div className="text-[15vw] font-black text-slate-900 -rotate-12 whitespace-nowrap">
+                LITC - SECURE AI v2.0
+              </div>
+            </div>
+          )}
+          <div className="relative z-10">
+            {renderContent()}
+          </div>
         </motion.div>
       </AnimatePresence>
       

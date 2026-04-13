@@ -16,6 +16,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.DATA_ENTRY]: 'مدخل بيانات مالي',
   [UserRole.HEAD_OF_UNIT]: 'رئيس الوحدة',
   [UserRole.INTERNAL_AUDITOR]: 'مدقق داخلي',
+  [UserRole.MANAGER]: 'مدير تنفيذي',
   [UserRole.ADMIN]: 'مدير النظام',
   [UserRole.SYSTEM_ADMIN]: 'مسؤول النظام (⚙️)',
 };
@@ -63,5 +64,8 @@ export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode;
   ],
   [UserRole.INTERNAL_AUDITOR]: [
     { label: 'التدقيق الداخلي', icon: <SearchCheck className="w-5 h-5" />, path: 'dashboard' },
+  ],
+  [UserRole.MANAGER]: [
+    { label: 'التحليل التنفيذي', icon: <BarChart3 className="w-5 h-5" />, path: 'dashboard' },
   ],
 };
