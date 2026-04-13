@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, UserRole, Claim, ClaimStatus, Invoice, ChronicApplication } from './types';
+import { User, UserRole, Claim, ClaimStatus, Invoice, ChronicApplication, Notification } from './types';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SubmitClaim from './pages/SubmitClaim';
@@ -616,6 +616,24 @@ const App: React.FC = () => {
     }
   };
 
+  const triggerNotification = async (userId: string, title: string, message: string, type: Notification['type'], link?: string) => {
+    const notificationId = `NT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const notificationData = {
+      userId,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: new Date().toISOString(),
+      link
+    };
+    try {
+      await setDoc(doc(db, 'notifications', notificationId), notificationData);
+    } catch (err) {
+      console.error('Error triggering notification:', err);
+    }
+  };
+
   const handleUpdateClaimStatus = async (newStatus: ClaimStatus, comment?: string, extraData?: any) => {
     const claimToUpdate = selectedClaim ? claims.find(c => c.id === selectedClaim.id) || selectedClaim : null;
     if (!claimToUpdate || !user) return;
@@ -624,6 +642,7 @@ const App: React.FC = () => {
       ...claimToUpdate,
       ...extraData,
       status: newStatus,
+      lastActionAt: new Date().toISOString(),
       history: [
         ...(claimToUpdate.history || []),
         {
@@ -647,6 +666,16 @@ const App: React.FC = () => {
     
     try {
       await setDoc(doc(db, 'claims', claimToUpdate.id), sanitizeForFirestore(updatedClaim));
+      
+      // Trigger Notification
+      await triggerNotification(
+        claimToUpdate.employeeId,
+        'تحديث حالة المطالبة',
+        `مطالبتك رقم ${claimToUpdate.referenceNumber} أصبحت الآن بحالة: ${newStatus}`,
+        'STATUS_CHANGE',
+        `/claims/${claimToUpdate.id}`
+      );
+
       setSelectedClaim(null);
     } catch (err: any) {
       setError("فشل تحديث حالة المعاملة: " + err.message);
@@ -703,6 +732,7 @@ const App: React.FC = () => {
 
     const updatedClaim = {
       ...claim,
+      lastActionAt: new Date().toISOString(),
       invoices: claim.invoices.map(inv => inv.id === invoiceId ? { ...inv, ...extraData, status: newStatus } : inv),
       auditTrail: [...claim.auditTrail, {
          id: Math.random().toString(),
@@ -713,6 +743,19 @@ const App: React.FC = () => {
          comment: comment || ''
       }]
     };
+
+    // If any invoice is rejected, the whole claim becomes PARTIALLY_REJECTED
+    if (newStatus === ClaimStatus.REJECTED || (extraData?.fieldStatuses && Object.values(extraData.fieldStatuses).includes('REJECTED'))) {
+      updatedClaim.status = ClaimStatus.PARTIALLY_REJECTED;
+      
+      await triggerNotification(
+        claim.employeeId,
+        'رفض جزئي للفاتورة',
+        `تم رفض بعض البنود في مطالبتك رقم ${claim.referenceNumber}. يرجى المراجعة والتصحيح.`,
+        'REJECTION',
+        `/claims/${claim.id}`
+      );
+    }
     
     try {
       await setDoc(doc(db, 'claims', claimId), sanitizeForFirestore(updatedClaim));

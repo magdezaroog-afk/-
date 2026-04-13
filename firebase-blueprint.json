@@ -51,6 +51,22 @@
         "auditTrail": { "type": "array", "items": { "type": "object" } }
       },
       "required": ["id", "employeeId", "status", "totalAmount"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["STATUS_CHANGE", "REJECTION", "HEALTH_GOAL", "SYSTEM"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "link": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "read", "createdAt"]
     }
   },
   "firestore": {
@@ -61,6 +77,18 @@
     "/claims/{claimId}": {
       "schema": "Claim",
       "description": "Medical claims"
+    },
+    "/chronic_applications/{appId}": {
+      "schema": "ChronicApplication",
+      "description": "Chronic disease enrollment applications"
+    },
+    "/healthPlans/{planId}": {
+      "schema": "HealthPlan",
+      "description": "Personalized health plans and daily tasks"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "In-app notifications"
     }
   }
 }

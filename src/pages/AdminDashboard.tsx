@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Users, DollarSign, Building2, Download, Filter, MapPin, Sparkles, UserCheck } from 'lucide-react';
 import UserManagement from '../components/UserManagement';
+import AdminAnalytics from '../components/AdminAnalytics';
 
 interface AdminDashboardProps {
   user: User;
@@ -14,7 +15,7 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
-  const [activeTab, setActiveTab] = useState<'reports' | 'users'>('reports');
+  const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'analytics'>('reports');
   const COLORS = ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
   const stats = [
@@ -57,6 +58,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
               <TrendingUp className="w-4 h-4" /> التقارير
             </button>
             <button 
+              onClick={() => setActiveTab('analytics')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'bg-white text-litcBlue shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Sparkles className="w-4 h-4" /> التحليلات المتقدمة
+            </button>
+            <button 
               onClick={() => setActiveTab('users')}
               className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-litcBlue shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -68,6 +75,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, claims }) => {
 
       {activeTab === 'users' ? (
         <UserManagement />
+      ) : activeTab === 'analytics' ? (
+        <AdminAnalytics claims={claims} />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-0">

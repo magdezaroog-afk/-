@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Claim, ClaimStatus, User, UserRole } from '../types';
+import { User, UserRole, Claim, ClaimStatus } from '../types';
 import { STATUS_UI } from '../constants';
 import { cn } from '../lib/utils';
+import DigitalReceipt from '../components/DigitalReceipt';
+import jsPDF from 'jspdf';
 import { 
   ShieldCheck, 
   RotateCcw, 
@@ -31,6 +33,7 @@ import {
   PlusCircle,
   ImageIcon,
   Maximize2,
+  Download,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   ZoomIn as ZoomInIcon,
@@ -87,6 +90,56 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
   const [archiveBoxId, setArchiveBoxId] = useState(claim.invoices[0]?.archiveBoxId || '');
   const activeInvoice = claim.invoices[activeInvoiceIndex];
 
+  const downloadSummaryPDF = () => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // Add Branded Header
+    doc.setFillColor(0, 51, 102); // LITC Navy
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.text('LITC - OFFICIAL CLAIM SUMMARY', 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('AI-VERIFIED HEALTHCARE REIMBURSEMENT SYSTEM', 105, 30, { align: 'center' });
+
+    // Claim Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
+    doc.text('Claim Details', 20, 55);
+    
+    doc.setFontSize(12);
+    doc.text(`Claim ID: ${claim.id}`, 20, 65);
+    doc.text(`Employee Name: ${claim.employeeName}`, 20, 72);
+    doc.text(`Submission Date: ${claim.submissionDate}`, 20, 79);
+    doc.text(`Total Amount: ${claim.totalAmount.toLocaleString()} LYD`, 20, 86);
+    doc.text(`Current Status: ${claim.status}`, 20, 93);
+
+    // Audit History
+    doc.setFontSize(16);
+    doc.text('Audit Trail & History', 20, 110);
+    
+    let y = 120;
+    claim.history.forEach((h, i) => {
+      doc.setFontSize(10);
+      doc.text(`${i + 1}. ${h.status} - Performed by ${h.performedByRole} at ${new Date(h.timestamp).toLocaleString()}`, 25, y);
+      y += 8;
+    });
+
+    // Footer
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 270, 190, 270);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('LITC Official Document - Generated for Audit Purposes.', 105, 280, { align: 'center' });
+
+    doc.save(`LITC-Summary-${claim.id}.pdf`);
+  };
+
   const STAGES = [
     { id: 'draft', label: 'مسودة', icon: Send, statuses: [ClaimStatus.DRAFT] },
     { id: 'physical', label: 'الاستلام', icon: Database, statuses: [ClaimStatus.PENDING_PHYSICAL] },
@@ -137,15 +190,32 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
     onInvoiceStatusUpdate(claim.id, invoiceId, status, globalComment || 'تمت المراجعة والفرز');
   };
 
-  const handleVerifyField = (field: string) => {
-    const newVerified = verifiedFields.includes(field) 
-      ? verifiedFields.filter(f => f !== field)
-      : [...verifiedFields, field];
+  const handleFieldStatusUpdate = (fieldId: string, status: 'APPROVED' | 'REJECTED', reason?: string) => {
+    if (!activeInvoice) return;
     
-    setVerifiedFields(newVerified);
+    const currentFieldStatuses = activeInvoice.fieldStatuses || {};
+    const currentFieldReasons = activeInvoice.fieldRejectionReasons || {};
+    
+    const newStatuses = { ...currentFieldStatuses, [fieldId]: status };
+    const newReasons = { ...currentFieldReasons, [fieldId]: reason || '' };
     
     // Update in Firestore via parent
-    onInvoiceStatusUpdate(claim.id, activeInvoice.id, activeInvoice.status as any, undefined, { verifiedFields: newVerified });
+    onInvoiceStatusUpdate(claim.id, activeInvoice.id, activeInvoice.status as any, undefined, { 
+      fieldStatuses: newStatuses,
+      fieldRejectionReasons: newReasons
+    });
+  };
+
+  const handleItemStatusUpdate = (itemId: string, status: 'APPROVED' | 'REJECTED', reason?: string) => {
+    if (!activeInvoice) return;
+    
+    const updatedLineItems = activeInvoice.lineItems.map(item => 
+      item.id === itemId ? { ...item, status, rejectionReason: reason } : item
+    );
+    
+    onInvoiceStatusUpdate(claim.id, activeInvoice.id, activeInvoice.status as any, undefined, { 
+      lineItems: updatedLineItems 
+    });
   };
 
   const renderBoundingBox = () => {
@@ -189,6 +259,12 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
         <div className={`px-4 py-2 sm:px-8 sm:py-4 rounded-lg sm:rounded-[2rem] text-[8px] sm:text-[11px] font-black flex items-center gap-2 sm:gap-4 ${STATUS_UI[claim.status]?.color || 'bg-slate-50 text-slate-600'} shadow-sm border border-current/10 relative z-10`}>
           {STATUS_UI[claim.status]?.icon || <Clock className="w-4 h-4" />} {STATUS_UI[claim.status]?.label || claim.status}
         </div>
+        <button 
+          onClick={downloadSummaryPDF}
+          className="px-4 py-2 sm:px-6 sm:py-4 bg-slate-900 text-white rounded-lg sm:rounded-[2rem] text-[8px] sm:text-[11px] font-black flex items-center gap-2 hover:bg-slate-800 transition-all shadow-md relative z-10"
+        >
+          <Download className="w-4 h-4" /> تحميل ملخص المعاملة
+        </button>
       </div>
 
       <div className={cn(
@@ -253,17 +329,33 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                       </p>
                     </div>
                     
-                    <button 
-                      onClick={() => handleVerifyField(field.id)}
-                      className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
-                        verifiedFields.includes(field.id) 
-                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" 
-                          : "bg-white text-slate-300 border border-slate-100 hover:border-emerald-500 hover:text-emerald-500"
-                      )}
-                    >
-                      {verifiedFields.includes(field.id) ? <Check className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleFieldStatusUpdate(field.id, 'APPROVED')}
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                          activeInvoice?.fieldStatuses?.[field.id] === 'APPROVED'
+                            ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" 
+                            : "bg-white text-slate-300 border border-slate-100 hover:border-emerald-500 hover:text-emerald-500"
+                        )}
+                      >
+                        <Check className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const reason = prompt('سبب الرفض:');
+                          if (reason) handleFieldStatusUpdate(field.id, 'REJECTED', reason);
+                        }}
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                          activeInvoice?.fieldStatuses?.[field.id] === 'REJECTED'
+                            ? "bg-red-500 text-white shadow-lg shadow-red-200" 
+                            : "bg-white text-slate-300 border border-slate-100 hover:border-red-500 hover:text-red-500"
+                        )}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
              </div>
@@ -294,10 +386,36 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                             </div>
                          </div>
                       </div>
-                      <div className="text-left">
+                      <div className="text-left flex items-center gap-4">
                          <p className="text-lg sm:text-xl font-black text-litcBlue tracking-tighter">
                             {item.price.toLocaleString()} <span className="text-[10px] font-bold text-slate-400 mr-1">د.ل</span>
                          </p>
+                         
+                         {isAuditor && (
+                           <div className="flex items-center gap-2">
+                             <button 
+                               onClick={() => handleItemStatusUpdate(item.id, 'APPROVED')}
+                               className={cn(
+                                 "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                                 item.status === 'APPROVED' ? "bg-emerald-500 text-white" : "bg-white text-slate-300 border border-slate-100"
+                               )}
+                             >
+                               <Check className="w-4 h-4" />
+                             </button>
+                             <button 
+                               onClick={() => {
+                                 const reason = prompt('سبب الرفض:');
+                                 if (reason) handleItemStatusUpdate(item.id, 'REJECTED', reason);
+                               }}
+                               className={cn(
+                                 "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                                 item.status === 'REJECTED' ? "bg-red-500 text-white" : "bg-white text-slate-300 border border-slate-100"
+                               )}
+                             >
+                               <X className="w-4 h-4" />
+                             </button>
+                           </div>
+                         )}
                       </div>
                    </div>
                 </motion.div>
@@ -489,6 +607,13 @@ const ClaimDetail: React.FC<ClaimDetailProps> = ({ claim, user, onClose, onUpdat
                 </button>
               )}
            </div>
+        </div>
+      )}
+
+      {/* Digital Receipt Section for PAID claims */}
+      {claim.status === ClaimStatus.PAID && (
+        <div className="mt-12">
+          <DigitalReceipt claim={claim} user={user} />
         </div>
       )}
 

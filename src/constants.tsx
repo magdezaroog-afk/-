@@ -29,6 +29,7 @@ export const STATUS_UI: Record<ClaimStatus, { label: string; color: string; icon
   [ClaimStatus.PENDING_AUDIT]: { label: 'بانتظار التدقيق الداخلي', color: 'text-purple-600 bg-purple-50', icon: <SearchCheck className="w-4 h-4" /> },
   [ClaimStatus.PAID]: { label: 'تم الصرف', color: 'text-emerald-600 bg-emerald-50', icon: <CreditCard className="w-4 h-4" /> },
   [ClaimStatus.REJECTED]: { label: 'مرفوض', color: 'text-red-600 bg-red-50', icon: <XCircle className="w-4 h-4" /> },
+  [ClaimStatus.PARTIALLY_REJECTED]: { label: 'مرفوض جزئياً', color: 'text-orange-600 bg-orange-50', icon: <AlertCircle className="w-4 h-4" /> },
 };
 
 export const NAV_ITEMS: Record<UserRole, { label: string; icon: React.ReactNode; path: string }[]> = {

@@ -5,12 +5,38 @@ import { STATUS_UI, ROLE_LABELS } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, Check, X, Search, AlertCircle, LayoutDashboard, Database, Send, Eye, Glasses, Stethoscope, PlusCircle, SearchCheck, Briefcase, CreditCard, CheckCircle2,
-  TrendingUp, Target, Wallet, Activity, Calendar, ChevronLeft, ArrowUpRight, History as HistoryIcon, Archive, FileText,
+  TrendingUp, Target, Wallet, Activity, Calendar, ChevronLeft, ArrowUpRight, History as HistoryIcon, Archive, FileText, Bell,
   Utensils, Dumbbell, User as UserIcon, Users, Sparkles
 } from 'lucide-react';
 import { createHealthPlan } from '../services/healthService';
 import { db } from '../firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { auth } from '../firebase';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+};
 
 interface DashboardProps {
   user: User;
@@ -58,6 +84,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     // Listen to the selected beneficiary's health plan
     const planId = selectedBeneficiaryId === user.id ? `plan-${user.id}` : `plan-${selectedBeneficiaryId}`;
+    const path = `healthPlans/${planId}`;
     const unsub = onSnapshot(doc(db, 'healthPlans', planId), (docSnap) => {
       if (docSnap.exists()) {
         setHealthPlan(docSnap.data() as HealthPlan);
@@ -81,6 +108,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           setHealthPlan(newPlan);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
     });
 
     return () => unsub();
@@ -222,7 +251,16 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const getStatusColor = (status: ClaimStatus) => {
+  const isEscalated = (lastActionAt?: string) => {
+    if (!lastActionAt) return false;
+    const lastActionDate = new Date(lastActionAt);
+    const now = new Date();
+    const diffInHours = (now.getTime() - lastActionDate.getTime()) / (1000 * 60 * 60);
+    return diffInHours > 48;
+  };
+
+  const getStatusColor = (status: ClaimStatus, lastActionAt?: string) => {
+    if (isEscalated(lastActionAt)) return 'bg-red-50 text-red-600 border-red-200 ring-2 ring-red-500/20';
     return STATUS_UI[status]?.color || 'bg-slate-50 text-slate-600 border-slate-100';
   };
 
@@ -396,7 +434,34 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* Card 2 [Medium]: Quick Claim Submission */}
+          {/* Card 2 [Medium]: Notifications Bell */}
+          <div className="lg:col-span-4 lg:row-span-1 bg-gradient-to-br from-[#003366] to-[#001F3D] p-8 rounded-[2.5rem] text-white shadow-xl shadow-[#003366]/20 flex flex-col justify-between relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-white/10 transition-all duration-700"></div>
+            <div className="flex justify-between items-start relative z-10">
+              <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-500">
+                <Bell className="w-7 h-7 text-[#FF6B00]" />
+              </div>
+              <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
+                <span className="text-[10px] font-black uppercase tracking-widest">مركز التنبيهات</span>
+              </div>
+            </div>
+            <div className="mt-8 relative z-10">
+              <h3 className="text-xl font-black mb-2">تنبيهات النظام</h3>
+              <p className="text-xs text-white/60 font-medium leading-relaxed">تابع آخر التحديثات على مطالباتك الصحية والمهام اليومية.</p>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex -space-x-2 rtl:space-x-reverse">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="w-8 h-8 rounded-full border-2 border-[#003366] bg-slate-200 flex items-center justify-center text-[10px] font-black text-[#003366]">
+                      {i}
+                    </div>
+                  ))}
+                </div>
+                <span className="text-[10px] font-black text-white/40">+5 تنبيهات جديدة</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3 [Medium]: Quick Claim Submission */}
           <button 
             onClick={() => onNavigate('submit-claim')}
             className="lg:col-span-4 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center group hover:border-[#FF6B00]/30 transition-all duration-300"
@@ -449,14 +514,28 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="space-y-6">
               {activeClaims.length > 0 ? (
                 activeClaims.slice(0, 1).map((claim) => (
-                  <div key={claim.id} className="p-6 bg-[#F4F7F6] rounded-3xl border border-slate-50">
+                  <div 
+                    key={claim.id} 
+                    className={cn(
+                      "p-6 rounded-3xl border transition-all duration-500",
+                      isEscalated(claim.lastActionAt) ? "bg-red-50 border-red-200 shadow-lg shadow-red-100" : "bg-[#F4F7F6] border-slate-50"
+                    )}
+                  >
                     <div className="flex flex-col lg:flex-row justify-between gap-8">
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#003366] shadow-sm">
+                        <div className={cn(
+                          "w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm",
+                          isEscalated(claim.lastActionAt) ? "bg-white text-red-600" : "bg-white text-[#003366]"
+                        )}>
                           <FileText className="w-7 h-7" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">معاملة #{claim.id.slice(-6)}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">معاملة #{claim.id.slice(-6)}</p>
+                            {isEscalated(claim.lastActionAt) && (
+                              <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-full animate-pulse">متأخرة (+48ساعة)</span>
+                            )}
+                          </div>
                           <h4 className="text-lg font-black text-[#003366]">{claim.invoices?.[0]?.hospitalName || 'خدمة طبية'}</h4>
                         </div>
                       </div>
@@ -561,14 +640,28 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredClaims.map((claim) => (
-                    <tr key={claim.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr 
+                      key={claim.id} 
+                      className={cn(
+                        "hover:bg-slate-50/50 transition-colors group",
+                        isEscalated(claim.lastActionAt) && "bg-red-50/30"
+                      )}
+                    >
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center",
+                            isEscalated(claim.lastActionAt) ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-400"
+                          )}>
                             <FileText className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-black text-slate-900">#{claim.id.slice(-6)}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-black text-slate-900">#{claim.id.slice(-6)}</p>
+                              {isEscalated(claim.lastActionAt) && (
+                                <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">Escalated</span>
+                              )}
+                            </div>
                             <p className="text-[9px] font-bold text-slate-400">{claim.submissionDate}</p>
                           </div>
                         </div>
@@ -578,7 +671,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <p className="text-[9px] font-bold text-slate-400">{claim.department}</p>
                       </td>
                       <td className="px-8 py-6">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black border ${getStatusColor(claim.status)}`}>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black border ${getStatusColor(claim.status, claim.lastActionAt)}`}>
                           {getStatusLabel(claim.status)}
                         </span>
                       </td>

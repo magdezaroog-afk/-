@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { NAV_ITEMS, ROLE_LABELS } from '../constants';
 
+import NotificationBell from './NotificationBell';
+
 interface LayoutProps {
   user: User;
   onLogout: () => void;
@@ -124,6 +126,8 @@ const Layout: React.FC<LayoutProps> = ({
 
         <div className="flex items-center gap-4 sm:gap-8">
           {/* Work Mode Toggle (For Multiple Roles) */}
+          <NotificationBell userId={user.id} />
+          
           {user.roles && user.roles.length > 1 && (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200">

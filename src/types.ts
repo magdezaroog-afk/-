@@ -18,7 +18,8 @@ export enum ClaimStatus {
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   PENDING_AUDIT = 'PENDING_AUDIT',
   PAID = 'PAID',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  PARTIALLY_REJECTED = 'PARTIALLY_REJECTED'
 }
 
 export interface HealthProfile {
@@ -108,6 +109,8 @@ export interface InvoiceLineItem {
   date?: string;
   invoiceNumber?: string;
   facilityName?: string;
+  status?: 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
 }
 
 export interface Invoice {
@@ -144,6 +147,24 @@ export interface Invoice {
   medicalNotes?: string;
   archiveBoxId?: string;
   verifiedFields?: string[];
+  fieldStatuses?: {
+    [key: string]: 'APPROVED' | 'REJECTED' | undefined;
+    hospitalName?: 'APPROVED' | 'REJECTED';
+    invoiceNumber?: 'APPROVED' | 'REJECTED';
+    totalAmount?: 'APPROVED' | 'REJECTED';
+    date?: 'APPROVED' | 'REJECTED';
+    currency?: 'APPROVED' | 'REJECTED';
+    serviceType?: 'APPROVED' | 'REJECTED';
+  };
+  fieldRejectionReasons?: {
+    [key: string]: string | undefined;
+    hospitalName?: string;
+    invoiceNumber?: string;
+    totalAmount?: string;
+    date?: string;
+    currency?: string;
+    serviceType?: string;
+  };
   boundingBoxes?: {
     hospitalName?: number[];
     invoiceNumber?: number[];
@@ -187,4 +208,17 @@ export interface Claim {
   assignedToId?: string;
   submittedAt?: string; // ISO string for 24h rule
   isPool?: boolean;
+  lastActionAt?: string; // ISO string for 48h escalation
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'STATUS_CHANGE' | 'REJECTION' | 'HEALTH_GOAL' | 'SYSTEM';
+  read: boolean;
+  createdAt: string;
+  link?: string;
+  metadata?: any;
 }

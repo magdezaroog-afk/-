@@ -14,7 +14,7 @@ service cloud.firestore {
       return isAuthenticated() && 
         (request.auth.token.email == 'magdezaroog@gmail.com' || 
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DOCTOR', 'HEAD_OF_UNIT', 'AUDITOR', 'DATA_ENTRY', 'ADMIN']));
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['DOCTOR', 'HEAD_OF_UNIT', 'INTERNAL_AUDITOR', 'DATA_ENTRY', 'ADMIN', 'SYSTEM_ADMIN']));
     }
 
     match /users/{userId} {
@@ -27,6 +27,15 @@ service cloud.firestore {
 
     match /chronic_applications/{appId} {
       allow read, write: if isAuthenticated();
+    }
+
+    match /healthPlans/{planId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow write: if isAuthenticated();
     }
 
     match /system_logs/{logId} {
